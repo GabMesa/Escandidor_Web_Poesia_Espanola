@@ -567,11 +567,13 @@ export function normalizeValidationWord(value) {
 
 export function normalizeRhymeChunk(value, options = {}) {
   const distinguishSZInRhyme = Boolean(options?.distinguishSZInRhyme);
+
   return String(value ?? '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/y/g, 'i')
+    .replace(/v/g, 'b')
     .replace(/z/g, distinguishSZInRhyme ? 'z' : 's')
     .replace(/[^a-zñü]/g, '');
 }

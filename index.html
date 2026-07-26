@@ -88,7 +88,46 @@
             tónica y conteo métrico ajustado a la derecha.
           </p>
         </div>
+        <div class="account-bar" aria-live="polite">
+          <div id="accountGuestActions" class="account-actions">
+            <button id="openLogin" type="button" class="secondary">Iniciar sesión</button>
+            <button id="openRegister" type="button">Crear cuenta</button>
+          </div>
+          <div id="accountUserActions" class="account-actions hidden">
+            <span id="accountIdentity" class="account-identity"></span>
+            <button id="logoutAccount" type="button" class="secondary">Cerrar sesión</button>
+          </div>
+        </div>
       </section>
+
+      <dialog id="authDialog" class="auth-dialog" aria-labelledby="authDialogTitle">
+        <form id="authForm" class="auth-form">
+          <div class="auth-heading">
+            <div>
+              <p class="eyebrow">Tu biblioteca</p>
+              <h2 id="authDialogTitle">Iniciar sesión</h2>
+            </div>
+            <button id="closeAuthDialog" type="button" class="secondary auth-close" aria-label="Cerrar">×</button>
+          </div>
+          <button id="discordLogin" type="button" class="discord-login">Continuar con Discord</button>
+          <div class="auth-divider"><span>o usa tu cuenta</span></div>
+          <label id="authUsernameField" class="auth-field hidden">
+            <span>Nombre de usuario</span>
+            <input id="authUsername" name="username" type="text" minlength="3" maxlength="40" autocomplete="username" />
+          </label>
+          <label class="auth-field">
+            <span>Correo o usuario</span>
+            <input id="authIdentifier" name="identifier" type="text" required autocomplete="username" />
+          </label>
+          <label class="auth-field">
+            <span>Contraseña</span>
+            <input id="authPassword" name="password" type="password" minlength="8" required autocomplete="current-password" />
+          </label>
+          <p id="authStatus" class="auth-status" role="status"></p>
+          <button id="authSubmit" type="submit" class="auth-submit">Iniciar sesión</button>
+          <button id="toggleAuthMode" type="button" class="auth-mode-toggle">¿Primera vez? Crear cuenta</button>
+        </form>
+      </dialog>
 
       <section class="controls" aria-label="Controles métricos">
         <details class="control-card config-shell">
@@ -775,5 +814,6 @@
     </main>
 
     <script type="module" src="app.js"></script>
+    <script type="module" src="auth.js"></script>
   </body>
 </html>

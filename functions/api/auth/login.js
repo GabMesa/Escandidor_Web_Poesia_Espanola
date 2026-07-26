@@ -28,6 +28,9 @@ export async function onRequestPost(context) {
 
   if (!user) return errorResponse('Credenciales invalidas.', 401);
   if (user.status === 'disabled') return errorResponse('Esta cuenta esta deshabilitada.', 403);
+  if (!user.password_hash || !user.password_salt) {
+    return errorResponse('Esta cuenta usa Discord. Inicia sesion con Discord.', 401);
+  }
 
   const valid = await verifyPassword(password, user.password_salt, user.password_hash);
   if (!valid) return errorResponse('Credenciales invalidas.', 401);

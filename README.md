@@ -121,11 +121,24 @@ como `admin` automaticamente. Registra tu propia cuenta primero desde la
 app para quedar como administrador; desde ahi puedes promover o
 degradar a otras cuentas desde `/admin.html`.
 
+### 7. Acceso con Discord
+Configura en Discord Developer Portal este redirect de OAuth2:
+`https://mesa-de-poesia.pages.dev/api/auth/discord/callback`.
+
+Guarda las credenciales como secretos de Pages, nunca en archivos del
+repositorio:
+```bash
+npx wrangler pages secret put DISCORD_CLIENT_ID --project-name mesa-de-poesia
+npx wrangler pages secret put DISCORD_CLIENT_SECRET --project-name mesa-de-poesia
+```
+
 ### Endpoints de la API
 | Metodo | Ruta | Descripcion | Acceso |
 |---|---|---|---|
 | POST | `/api/auth/register` | Crea usuario | publico |
 | POST | `/api/auth/login` | Inicia sesion | publico |
+| GET | `/api/auth/discord` | Inicia OAuth con Discord | publico |
+| GET | `/api/auth/discord/callback` | Completa OAuth con Discord | publico |
 | POST | `/api/auth/logout` | Cierra sesion | usuario autenticado |
 | GET | `/api/auth/me` | Usuario actual | publico (devuelve `null` si no hay sesion) |
 | GET | `/api/poems` | Lista poemas propios | usuario autenticado |

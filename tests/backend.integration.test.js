@@ -133,8 +133,30 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     });
     assert.equal(secondPoem.response.status, 201);
 
+    const disposablePoem = await jsonRequest(baseUrl, '/api/poems', {
+      method: 'POST', cookie: firstCookie,
+      body: { title: 'Poema eliminable', versionName: 'unica', content: 'Desaparece' },
+    });
+    const deletedPoem = await jsonRequest(baseUrl, `/api/poems/${disposablePoem.payload.poem.id}`, {
+      method: 'DELETE', cookie: firstCookie,
+    });
+    assert.equal(deletedPoem.response.status, 200);
+
     const ownerList = await jsonRequest(baseUrl, '/api/poems', { cookie: firstCookie });
     assert.equal(ownerList.payload.poems.length, 2);
+    const versionedPoem = ownerList.payload.poems.find((poem) => poem.id === poemId);
+    assert.deepEqual(
+      versionedPoem.versions.map((version) => ({
+        version: version.version,
+        versionName: version.versionName,
+        content: version.content,
+      })),
+      [
+        { version: 1, versionName: 'borrador', content: 'Primer texto' },
+        { version: 2, versionName: 'revision', content: 'Segundo texto' },
+        { version: 3, versionName: 'final', content: 'Texto definitivo' },
+      ]
+    );
 
     const otherUserList = await jsonRequest(baseUrl, '/api/poems', { cookie: secondCookie });
     assert.deepEqual(otherUserList.payload.poems, []);
@@ -156,9 +178,11 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
 
     const trash = await jsonRequest(baseUrl, '/api/trash', { cookie: firstCookie });
     assert.equal(trash.response.status, 200);
-    assert.equal(trash.payload.trash.length, 1);
-    assert.equal(trash.payload.trash[0].title, 'Soneto de prueba');
-    assert.equal(trash.payload.trash[0].versions[0].versionName, 'revision');
+    assert.equal(trash.payload.trash.length, 2);
+    const deletedRevision = trash.payload.trash.find((entry) => entry.title === 'Soneto de prueba');
+    assert.equal(deletedRevision.versions[0].versionName, 'revision');
+    const deletedWholePoem = trash.payload.trash.find((entry) => entry.title === 'Poema eliminable');
+    assert.equal(deletedWholePoem.versions[0].content, 'Desaparece');
     const otherUserTrash = await jsonRequest(baseUrl, '/api/trash', { cookie: secondCookie });
     assert.deepEqual(otherUserTrash.payload.trash, []);
 

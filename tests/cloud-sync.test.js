@@ -78,38 +78,50 @@ test('creates one cloud poem, appends versions, and preserves all settings', asy
   ]);
 });
 
-test('uploads a pre-login local library in chronological order and reuses remote IDs', async () => {
-  const memory = {
-    poems: {
-      Existente: [version('old-1', 1, 'Anterior'), version('old-2', 2, 'Actual')],
-    },
-  };
+test('replaces account data from the server and restores anonymous data on logout', async () => {
+  const anonymousMemory = { poems: { Anonimo: [version('anon-1', 1, 'Local')] }, trash: {} };
   const storage = new MemoryStorage({
-    'escandador.poemMemory.v1': JSON.stringify(memory),
+    'escandador.poemMemory.v1': JSON.stringify(anonymousMemory),
   });
   const calls = [];
   const request = async (path, options = {}) => {
     calls.push({ path, method: options.method || 'GET', body: options.body ? JSON.parse(options.body) : null });
     if (path === '/api/poems' && !options.method) {
-      return jsonResponse({ ok: true, poems: [{ id: 88, title: 'Existente' }] });
+      return jsonResponse({ ok: true, poems: [{
+        id: 88,
+        title: 'Servidor',
+        settings: { rhymeMode: 'asonante', sinalefaOverrides: { a: true } },
+        updatedAt: '2026-02-02T00:00:00.000Z',
+        versions: [
+          { version: 1, versionName: 'borrador', content: 'Anterior', createdAt: '2026-02-01T00:00:00.000Z' },
+          { version: 2, versionName: 'final', content: 'Actual', createdAt: '2026-02-02T00:00:00.000Z' },
+        ],
+      }] });
     }
     if (path === '/api/trash' && !options.method) {
       return jsonResponse({ ok: true, trash: [] });
     }
-    if (path === '/api/poems/88' && options.method === 'PUT') {
-      return jsonResponse({ ok: true, poem: { id: 88 } });
+    if (path === '/api/poems/88?version=2' && options.method === 'DELETE') {
+      return jsonResponse({ ok: true });
     }
     throw new Error(`Solicitud inesperada: ${options.method || 'GET'} ${path}`);
   };
   const sync = createCloudSync({ request, storage });
   sync.setUser({ id: 5, username: 'autora' });
 
-  await sync.syncLibrary();
+  await sync.loadFromServer();
 
-  const writes = calls.filter((call) => call.method === 'PUT');
-  assert.equal(writes.length, 2);
-  assert.deepEqual(writes.map((call) => call.body.content), ['Anterior', 'Actual']);
-  assert.ok(writes.every((call) => call.path === '/api/poems/88'));
+  const active = JSON.parse(storage.getItem('escandador.poemMemory.v1'));
+  assert.deepEqual(Object.keys(active.poems), ['Servidor']);
+  assert.equal(active.poems.Servidor.length, 2);
+  assert.equal(active.poems.Servidor[1].id, 'cloud-88-2');
+  assert.equal(calls.filter((call) => call.method !== 'GET').length, 0);
+
+  await sync.deleteSavedVersions({ title: 'Servidor', versionIds: ['cloud-88-2'] });
+  assert.equal(calls.at(-1).path, '/api/poems/88?version=2');
+
+  sync.setUser(null);
+  assert.deepEqual(JSON.parse(storage.getItem('escandador.poemMemory.v1')), anonymousMemory);
 });
 
 test('empties the database trash for an authenticated user', async () => {

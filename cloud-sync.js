@@ -1,4 +1,6 @@
 const POEM_MEMORY_KEY = 'escandador.poemMemory.v1';
+const ANONYMOUS_MEMORY_KEY = 'escandador.poemMemory.anonymous.v1';
+const ACTIVE_OWNER_KEY = 'escandador.poemMemory.activeOwner.v1';
 const CLOUD_MAP_PREFIX = 'escandador.cloudPoemMap.v1';
 
 export function buildCloudSettings(version) {
@@ -29,6 +31,7 @@ export function createCloudSync({
   storage = localStorage,
   onStatus = () => {},
   onTrash = () => {},
+  onLibrary = () => {},
 } = {}) {
   let user = null;
   let queue = Promise.resolve();
@@ -47,6 +50,54 @@ export function createCloudSync({
 
   function saveMap(map) {
     storage.setItem(mapKey(), JSON.stringify(map));
+  }
+
+  function userMemoryKey(userId) {
+    return `escandador.poemMemory.user.${userId}.v1`;
+  }
+
+  function readMemory(key) {
+    try {
+      const memory = JSON.parse(storage.getItem(key) || '{}');
+      return memory && typeof memory === 'object' ? memory : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function activateMemory(memory, owner) {
+    const normalized = {
+      poems: memory?.poems && typeof memory.poems === 'object' ? memory.poems : {},
+      trash: memory?.trash && typeof memory.trash === 'object' ? memory.trash : {},
+    };
+    storage.setItem(POEM_MEMORY_KEY, JSON.stringify(normalized));
+    storage.setItem(ACTIVE_OWNER_KEY, owner);
+    onLibrary(normalized);
+  }
+
+  function preserveActiveMemory() {
+    const owner = storage.getItem(ACTIVE_OWNER_KEY) || 'anonymous';
+    const targetKey = owner === 'anonymous' ? ANONYMOUS_MEMORY_KEY : userMemoryKey(owner);
+    storage.setItem(targetKey, JSON.stringify(readMemory(POEM_MEMORY_KEY)));
+  }
+
+  function localVersion(poem, version) {
+    const settings = poem.settings && typeof poem.settings === 'object' ? { ...poem.settings } : {};
+    const sinalefaOverrides = settings.sinalefaOverrides || {};
+    const lineOverrides = settings.lineOverrides || {};
+    delete settings.sinalefaOverrides;
+    delete settings.lineOverrides;
+    return {
+      id: `cloud-${poem.id}-${version.version}`,
+      label: version.versionName,
+      versionNumber: version.version,
+      savedAt: version.createdAt || poem.updatedAt,
+      poemText: version.content,
+      settings,
+      sinalefaOverrides,
+      lineOverrides,
+      kind: 'manual',
+    };
   }
 
   async function api(path, options = {}) {
@@ -118,8 +169,15 @@ export function createCloudSync({
 
   return {
     setUser(nextUser) {
+      const previousUser = user;
+      preserveActiveMemory();
       user = nextUser || null;
-      if (!user) onStatus('ready', 'Nube desconectada');
+      if (!user) {
+        activateMemory(readMemory(ANONYMOUS_MEMORY_KEY), 'anonymous');
+        onStatus('ready', 'Nube desconectada');
+      } else if (!previousUser || previousUser.id !== user.id) {
+        activateMemory(readMemory(userMemoryKey(user.id)), String(user.id));
+      }
     },
 
     syncSavedVersion(detail) {
@@ -163,31 +221,39 @@ export function createCloudSync({
       });
     },
 
-    syncLibrary() {
+    loadFromServer() {
       if (!user) return Promise.resolve();
       return enqueue(async () => {
         const remote = await api('/api/poems');
         const remoteTrash = await api('/api/trash');
-        onTrash(remoteTrash.trash || []);
-        const map = loadMap();
+        const memory = { poems: {}, trash: {} };
+        const map = {};
         for (const poem of remote.poems || []) {
-          if (!map[poem.title]) map[poem.title] = { poemId: poem.id, versions: {} };
-        }
-        saveMap(map);
-
-        let memory = {};
-        try {
-          memory = JSON.parse(storage.getItem(POEM_MEMORY_KEY) || '{}');
-        } catch {}
-        for (const [title, versions] of Object.entries(memory.poems || {})) {
-          const ordered = Array.isArray(versions)
-            ? [...versions].sort((a, b) => new Date(a.savedAt || 0) - new Date(b.savedAt || 0))
-            : [];
-          for (const version of ordered) {
-            await syncOne({ title, version });
+          const versions = (poem.versions || []).map((version) => localVersion(poem, version));
+          memory.poems[poem.title] = versions;
+          map[poem.title] = { poemId: poem.id, versions: {} };
+          for (const version of versions) {
+            map[poem.title].versions[version.id] = {
+              signature: JSON.stringify(buildPayload(poem.title, version)),
+              cloudVersion: version.versionNumber,
+            };
           }
         }
+        for (const entry of remoteTrash.trash || []) {
+          (memory.trash[entry.title] ||= []).push({
+            deletedAt: entry.deletedAt,
+            versions: entry.versions || [],
+          });
+        }
+        saveMap(map);
+        storage.setItem(userMemoryKey(user.id), JSON.stringify(memory));
+        activateMemory(memory, String(user.id));
+        onTrash(remoteTrash.trash || []);
       });
+    },
+
+    syncLibrary() {
+      return this.loadFromServer();
     },
 
     emptyTrash() {

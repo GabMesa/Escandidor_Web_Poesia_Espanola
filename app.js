@@ -2525,6 +2525,16 @@ window.addEventListener('escandidor:trash-synced', (event) => {
   renderPoemTrash();
 });
 
+window.addEventListener('escandidor:library-changed', () => {
+  selectedVersionIds = new Set();
+  state.loadedVersionId = '';
+  state.loadedVersionTitle = '';
+  refreshSavedPoemNameOptions('');
+  renderSavedVersionList(savedPoemName?.value ?? '', savedPoemVersion?.value ?? '');
+  renderPoemTrash();
+  updateVersionManagerStatus();
+});
+
 function loadVersionById(title, versionId) {
   const selectedTitle = normalizePoemTitle(title);
   const selectedVersionId = String(versionId ?? '').trim();

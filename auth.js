@@ -15,6 +15,7 @@ const authSubmit = document.getElementById('authSubmit');
 const toggleAuthMode = document.getElementById('toggleAuthMode');
 const cloudSaveStatus = document.getElementById('cloudSaveStatus');
 const adminLink = document.getElementById('adminLink');
+const loadDataFromServer = document.getElementById('loadDataFromServer');
 
 let authMode = 'login';
 
@@ -28,6 +29,11 @@ const cloudSync = createCloudSync({
   onTrash(trash) {
     window.dispatchEvent(new CustomEvent('escandidor:trash-synced', {
       detail: { trash },
+    }));
+  },
+  onLibrary(memory) {
+    window.dispatchEvent(new CustomEvent('escandidor:library-changed', {
+      detail: { memory },
     }));
   },
 });
@@ -48,6 +54,7 @@ function renderUser(user) {
   userActions.classList.toggle('hidden', !user);
   accountIdentity.textContent = user ? user.username : '';
   adminLink?.classList.toggle('hidden', user?.role !== 'admin');
+  if (loadDataFromServer) loadDataFromServer.disabled = !user;
   cloudSync.setUser(user);
   if (user) cloudSync.syncLibrary();
 }
@@ -123,6 +130,10 @@ window.addEventListener('escandidor:poem-deleted', (event) => {
 
 window.addEventListener('escandidor:trash-emptied', () => {
   cloudSync.emptyTrash();
+});
+
+loadDataFromServer?.addEventListener('click', () => {
+  cloudSync.loadFromServer();
 });
 
 apiRequest('/api/auth/me')

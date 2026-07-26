@@ -76,6 +76,16 @@ Functions + D1** que agrega:
   PBKDF2 + sesiones por cookie httpOnly).
 - **Guardado de poemas por usuario** en la nube (ademas del guardado local
   que ya existia en el navegador vía `localStorage`).
+- **Historial completo de versiones**: cada guardado manual crea una version
+  del mismo poema. Al iniciar sesion se cargan desde D1 todos los poemas con
+  todas sus versiones, que pueden abrirse individualmente desde el gestor de
+  archivos.
+- **Carga manual desde el servidor** mediante el boton `Cargar del servidor`.
+  Esta accion reemplaza los datos locales de la cuenta por el historial
+  completo guardado en D1. Los poemas creados de forma anonima se conservan
+  por separado y vuelven a mostrarse al cerrar sesion.
+- **Papelera sincronizada** con las 10 eliminaciones mas recientes de la
+  cuenta. El boton `Vaciar` elimina tambien esas entradas de D1.
 - **Panel de administracion** (`/admin.html`) para ver/editar/borrar
   usuarios y poemas de todos los usuarios.
 
@@ -141,10 +151,13 @@ npx wrangler pages secret put DISCORD_CLIENT_SECRET --project-name mesa-de-poesi
 | GET | `/api/auth/discord/callback` | Completa OAuth con Discord | publico |
 | POST | `/api/auth/logout` | Cierra sesion | usuario autenticado |
 | GET | `/api/auth/me` | Usuario actual | publico (devuelve `null` si no hay sesion) |
-| GET | `/api/poems` | Lista poemas propios | usuario autenticado |
+| GET | `/api/poems` | Lista poemas propios con todas sus versiones | usuario autenticado |
 | POST | `/api/poems` | Crea poema | usuario autenticado |
 | PUT | `/api/poems/:id` | Actualiza poema propio | usuario autenticado |
 | DELETE | `/api/poems/:id` | Borra poema propio | usuario autenticado |
+| DELETE | `/api/poems/:id?version=N` | Borra una version del poema | usuario autenticado |
+| GET | `/api/trash` | Lista las 10 eliminaciones mas recientes | usuario autenticado |
+| DELETE | `/api/trash` | Vacia la papelera de la cuenta | usuario autenticado |
 | GET | `/api/admin/stats` | Conteos generales | admin |
 | GET | `/api/admin/users` | Lista/busca usuarios | admin |
 | PATCH | `/api/admin/users/:id` | Cambia rol/estado | admin |

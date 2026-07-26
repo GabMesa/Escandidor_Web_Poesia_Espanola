@@ -6,5 +6,8 @@
   "description": "Escandador básico de poesía en español para hosting estático.",
   "scripts": {
     "test": "node --test"
+  },
+  "devDependencies": {
+    "wrangler": "^4.86.0"
   }
 }

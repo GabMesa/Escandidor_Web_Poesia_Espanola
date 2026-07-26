@@ -1,7 +1,12 @@
 {
-  "name": "escandidor",
-  "compatibility_date": "2026-07-19",
-  "assets": {
-    "directory": "."
-  }
+	"name": "escandidor",
+	"pages_build_output_dir": ".",
+	"compatibility_date": "2026-05-03",
+	"d1_databases": [
+		{
+			"binding": "escandidor_db",
+			"database_name": "escandidor-db",
+			"database_id": "1b728203-babd-44df-b32f-51a9a9b27bd5"
+		}
+	]
 }

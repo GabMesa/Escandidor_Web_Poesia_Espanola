@@ -39,16 +39,12 @@ export async function onRequestPost(context) {
 
   const { hash, salt } = await hashPassword(password);
 
-  // El primer usuario registrado en la base queda como admin automaticamente.
-  const countRow = await env.escandidor_db.prepare('SELECT COUNT(*) as c FROM users').first();
-  const role = countRow && countRow.c === 0 ? 'admin' : 'user';
-
   const inserted = await env.escandidor_db
     .prepare(
       `INSERT INTO users (username, email, password_hash, password_salt, role)
        VALUES (?, ?, ?, ?, ?) RETURNING *`
     )
-    .bind(username, email, hash, salt, role)
+    .bind(username, email, hash, salt, 'user')
     .first();
 
   const token = await createSession(env, inserted.id);

@@ -82,6 +82,7 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
       body: { username: 'primera', email: 'primera@example.test', password: 'Password123!' },
     });
     assert.equal(firstRegistration.response.status, 200);
+    assert.equal(firstRegistration.payload.user.role, 'user');
     const firstCookie = cookieFrom(firstRegistration.response);
 
     const secondRegistration = await jsonRequest(baseUrl, '/api/auth/register', {
@@ -89,7 +90,13 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
       body: { username: 'segunda', email: 'segunda@example.test', password: 'Password123!' },
     });
     assert.equal(secondRegistration.response.status, 200);
+    assert.equal(secondRegistration.payload.user.role, 'user');
     const secondCookie = cookieFrom(secondRegistration.response);
+
+    runWrangler([
+      'd1', 'execute', 'escandidor-db', '--local', '--persist-to', persistence,
+      '--command', "UPDATE users SET role = 'admin' WHERE username = 'primera';",
+    ]);
 
     const firstPoem = await jsonRequest(baseUrl, '/api/poems', {
       method: 'POST', cookie: firstCookie,
@@ -135,6 +142,22 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
       method: 'PUT', cookie: secondCookie, body: { content: 'No permitido' },
     });
     assert.equal(forbiddenUpdate.response.status, 404);
+
+    const stats = await jsonRequest(baseUrl, '/api/admin/stats', { cookie: firstCookie });
+    assert.deepEqual(stats.payload.stats, { userCount: 2, poemCount: 2, adminCount: 1 });
+    const adminUsers = await jsonRequest(baseUrl, '/api/admin/users', { cookie: firstCookie });
+    assert.equal(adminUsers.payload.users.length, 2);
+    assert.equal(adminUsers.payload.users.find((user) => user.username === 'primera').poemCount, 2);
+    const adminPoems = await jsonRequest(baseUrl, '/api/admin/poems', { cookie: firstCookie });
+    assert.equal(adminPoems.payload.poems.length, 2);
+    assert.equal(adminPoems.payload.poems[0].owner.username, 'primera');
+
+    const secondUser = adminUsers.payload.users.find((user) => user.username === 'segunda');
+    const promoted = await jsonRequest(baseUrl, `/api/admin/users/${secondUser.id}`, {
+      method: 'PATCH', cookie: firstCookie, body: { role: 'admin', status: 'active' },
+    });
+    assert.equal(promoted.response.status, 200);
+    assert.equal(promoted.payload.user.role, 'admin');
   } finally {
     if (server) stopProcess(server);
   }

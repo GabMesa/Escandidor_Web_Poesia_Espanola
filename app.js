@@ -3196,6 +3196,16 @@ function buildCurrentSnapshot() {
   };
 }
 
+function dispatchPoemSaved(title, version, previousTitle = '') {
+  window.dispatchEvent(new CustomEvent('escandidor:poem-saved', {
+    detail: {
+      title,
+      previousTitle,
+      version: structuredClone(version)
+    }
+  }));
+}
+
 function getSnapshotSignature(snapshot) {
   return JSON.stringify({
     poemText: String(snapshot.poemText ?? ''),
@@ -3373,6 +3383,9 @@ function saveCurrentPoemVersion(options = {}) {
       if (notify && notifyWhenUnchanged) {
         showToast('Sin cambios para guardar.', 'warning');
       }
+      if (saveKind === 'manual') {
+        dispatchPoemSaved(title, latest, loadedTitle !== title ? loadedTitle : '');
+      }
       return false;
     } else {
       store.poems[title].push(nextVersion);
@@ -3397,6 +3410,9 @@ function saveCurrentPoemVersion(options = {}) {
   updateVersionManagerStatus();
   if (notify) {
     showToast('Poema guardado.', 'success');
+  }
+  if (saveKind === 'manual') {
+    dispatchPoemSaved(title, nextVersion, loadedTitle !== title ? loadedTitle : '');
   }
   return true;
 }

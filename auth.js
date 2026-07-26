@@ -1,3 +1,5 @@
+import { createCloudSync } from './cloud-sync.js';
+
 const guestActions = document.getElementById('accountGuestActions');
 const userActions = document.getElementById('accountUserActions');
 const accountIdentity = document.getElementById('accountIdentity');
@@ -11,8 +13,19 @@ const passwordInput = document.getElementById('authPassword');
 const authStatus = document.getElementById('authStatus');
 const authSubmit = document.getElementById('authSubmit');
 const toggleAuthMode = document.getElementById('toggleAuthMode');
+const cloudSaveStatus = document.getElementById('cloudSaveStatus');
+const adminLink = document.getElementById('adminLink');
 
 let authMode = 'login';
+
+const cloudSync = createCloudSync({
+  onStatus(status, message) {
+    if (!cloudSaveStatus) return;
+    cloudSaveStatus.textContent = message;
+    cloudSaveStatus.classList.toggle('is-syncing', status === 'syncing');
+    cloudSaveStatus.classList.toggle('is-error', status === 'error');
+  },
+});
 
 async function apiRequest(path, options = {}) {
   const response = await fetch(path, {
@@ -29,6 +42,9 @@ function renderUser(user) {
   guestActions.classList.toggle('hidden', Boolean(user));
   userActions.classList.toggle('hidden', !user);
   accountIdentity.textContent = user ? user.username : '';
+  adminLink?.classList.toggle('hidden', user?.role !== 'admin');
+  cloudSync.setUser(user);
+  if (user) cloudSync.syncLibrary();
 }
 
 function setMode(mode) {
@@ -90,6 +106,10 @@ document.getElementById('logoutAccount').addEventListener('click', async () => {
   } catch (error) {
     window.alert(error.message);
   }
+});
+
+window.addEventListener('escandidor:poem-saved', (event) => {
+  cloudSync.syncSavedVersion(event.detail);
 });
 
 apiRequest('/api/auth/me')

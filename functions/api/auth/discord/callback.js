@@ -65,15 +65,13 @@ export async function resolveDiscordUser(env, profile) {
   }
 
   const username = await uniqueUsername(env, profile.global_name || profile.username || 'poeta');
-  const count = await env.escandidor_db.prepare('SELECT COUNT(*) AS count FROM users').first();
-  const role = count && count.count === 0 ? 'admin' : 'user';
   try {
     return await env.escandidor_db
       .prepare(
         `INSERT INTO users (username, email, discord_id, role)
          VALUES (?, ?, ?, ?) RETURNING *`
       )
-      .bind(username, email, profile.id, role)
+      .bind(username, email, profile.id, 'user')
       .first();
   } catch (error) {
     const concurrentUser = await env.escandidor_db

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Administración · Escandidor</title>
+    <link rel="icon" href="favicon.ico" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="admin.css" />
+  </head>
+  <body>
+    <main class="admin-shell">
+      <header class="admin-header">
+        <div>
+          <p class="eyebrow">Escandidor</p>
+          <h1>Administración</h1>
+        </div>
+        <div class="admin-header-actions">
+          <span id="adminIdentity" class="admin-identity"></span>
+          <a href="index.html" class="admin-back-link">Volver al escandidor</a>
+        </div>
+      </header>
+
+      <p id="adminStatus" class="admin-status" role="status">Comprobando permisos…</p>
+
+      <section id="adminContent" class="hidden">
+        <div class="admin-stats" aria-label="Resumen">
+          <div><strong id="userCount">0</strong><span>Usuarios</span></div>
+          <div><strong id="poemCount">0</strong><span>Poemas</span></div>
+          <div><strong id="adminCount">0</strong><span>Administradores</span></div>
+        </div>
+
+        <div class="admin-toolbar">
+          <div class="admin-tabs" role="tablist" aria-label="Secciones de administración">
+            <button id="usersTab" class="admin-tab is-active" type="button" role="tab" aria-selected="true">Usuarios</button>
+            <button id="poemsTab" class="admin-tab" type="button" role="tab" aria-selected="false">Poemas</button>
+          </div>
+          <label class="admin-search">
+            <span class="sr-only">Buscar</span>
+            <input id="adminSearch" type="search" placeholder="Buscar usuarios…" autocomplete="off" />
+          </label>
+          <button id="refreshAdmin" type="button" class="secondary">Actualizar</button>
+        </div>
+
+        <section id="usersPanel" class="admin-panel" role="tabpanel" aria-labelledby="usersTab">
+          <div class="admin-table-wrap">
+            <table>
+              <thead><tr><th>Usuario</th><th>Correo</th><th>Poemas</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead>
+              <tbody id="usersTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="poemsPanel" class="admin-panel hidden" role="tabpanel" aria-labelledby="poemsTab">
+          <div class="admin-table-wrap">
+            <table>
+              <thead><tr><th>Poema</th><th>Versión actual</th><th>Propietario</th><th>Actualizado</th><th>Acciones</th></tr></thead>
+              <tbody id="poemsTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+    <script type="module" src="admin.js"></script>
+  </body>
+</html>

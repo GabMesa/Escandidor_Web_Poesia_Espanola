@@ -38,7 +38,6 @@ class DiscordMemoryDb {
     if (sql.includes('WHERE username = ?')) {
       return this.users.find((user) => user.username === bindings[0]) || null;
     }
-    if (sql.startsWith('SELECT COUNT(*)')) return { count: this.users.length };
     if (sql.startsWith('UPDATE users SET discord_id')) {
       const user = this.users.find((candidate) => candidate.id === bindings[1]);
       if (!user || user.discord_id) return null;
@@ -83,6 +82,7 @@ test('reuses one user for repeated Discord logins', async () => {
   assert.equal(first.id, second.id);
   assert.equal(db.users.length, 1);
   assert.equal(db.users[0].discord_id, profile.id);
+  assert.equal(db.users[0].role, 'user');
 });
 
 test('reuses the Discord identity even when its verified email changes', async () => {

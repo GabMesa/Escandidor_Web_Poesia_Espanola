@@ -46,6 +46,7 @@ CREATE TABLE poem_versions (
 CREATE TABLE deleted_poems (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
+  poem_id INTEGER,
   title TEXT NOT NULL,
   versions_json TEXT NOT NULL DEFAULT '[]',
   deleted_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -84,6 +85,8 @@ CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
 CREATE INDEX idx_poems_user_updated ON poems(user_id, updated_at DESC);
 CREATE INDEX idx_poem_versions_poem_version ON poem_versions(poem_id, version DESC);
 CREATE INDEX idx_deleted_poems_user_deleted ON deleted_poems(user_id, deleted_at DESC, id DESC);
+CREATE UNIQUE INDEX idx_deleted_poems_user_poem
+  ON deleted_poems(user_id, poem_id) WHERE poem_id IS NOT NULL;
 CREATE INDEX idx_payments_user_id ON payments(user_id);
 CREATE INDEX idx_payments_service_id ON payments(service_id);
 

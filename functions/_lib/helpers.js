@@ -121,6 +121,17 @@ export async function createSession(env, userId) {
   return token;
 }
 
+export async function countOtherSessions(env, userId, currentToken) {
+  const row = await env.escandidor_db
+    .prepare(
+      `SELECT COUNT(*) AS count FROM sessions
+       WHERE user_id = ? AND token <> ? AND expires_at > datetime('now')`
+    )
+    .bind(userId, currentToken)
+    .first();
+  return Number(row?.count) || 0;
+}
+
 // ---------------------------------------------------------------------
 // Sesion / autorizacion
 // ---------------------------------------------------------------------

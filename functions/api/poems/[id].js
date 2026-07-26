@@ -6,10 +6,17 @@ import {
   serializePoem,
 } from '../../_lib/helpers.js';
 
-async function archiveDeletedVersions(env, userId, poem, versions) {
+async function archiveDeletedVersions(env, userId, poem, versions, poemId = null) {
   await env.escandidor_db
-    .prepare('INSERT INTO deleted_poems (user_id, title, versions_json) VALUES (?, ?, ?)')
-    .bind(userId, poem.name, JSON.stringify(versions.map((row) => ({
+    .prepare(
+      `INSERT INTO deleted_poems (user_id, poem_id, title, versions_json, deleted_at)
+       VALUES (?, ?, ?, ?, datetime('now'))
+       ON CONFLICT(user_id, poem_id) WHERE poem_id IS NOT NULL DO UPDATE SET
+         title = excluded.title,
+         versions_json = excluded.versions_json,
+         deleted_at = excluded.deleted_at`
+    )
+    .bind(userId, poemId, poem.name, JSON.stringify(versions.map((row) => ({
       version: row.version,
       versionName: row.name,
       content: row.content,
@@ -20,8 +27,22 @@ async function archiveDeletedVersions(env, userId, poem, versions) {
     .run();
   await env.escandidor_db
     .prepare(
-      `DELETE FROM deleted_poems WHERE user_id = ? AND id NOT IN (
-         SELECT id FROM deleted_poems WHERE user_id = ? ORDER BY deleted_at DESC, id DESC LIMIT 10
+      `UPDATE deleted_poems SET versions_json = '[]'
+       WHERE user_id = ? AND poem_id IS NOT NULL AND id NOT IN (
+         SELECT id FROM deleted_poems
+         WHERE user_id = ? AND versions_json <> '[]'
+         ORDER BY deleted_at DESC, id DESC LIMIT 10
+       )`
+    )
+    .bind(userId, userId)
+    .run();
+  await env.escandidor_db
+    .prepare(
+      `DELETE FROM deleted_poems
+       WHERE user_id = ? AND poem_id IS NULL AND id NOT IN (
+         SELECT id FROM deleted_poems
+         WHERE user_id = ? AND versions_json <> '[]'
+         ORDER BY deleted_at DESC, id DESC LIMIT 10
        )`
     )
     .bind(userId, userId)
@@ -111,7 +132,18 @@ export async function onRequestDelete(context) {
       .bind(poemId, version)
       .first();
     if (!deletedVersion) return errorResponse('Versión no encontrada.', 404);
-    await archiveDeletedVersions(env, user.id, ownedPoem, [deletedVersion]);
+    const versionCount = await env.escandidor_db
+      .prepare('SELECT COUNT(*) AS count FROM poem_versions WHERE poem_id = ?')
+      .bind(poemId)
+      .first();
+    const deletesWholePoem = Number(versionCount?.count) === 1;
+    await archiveDeletedVersions(
+      env,
+      user.id,
+      ownedPoem,
+      [deletedVersion],
+      deletesWholePoem ? Number(poemId) : null,
+    );
 
     const result = await env.escandidor_db
       .prepare('DELETE FROM poem_versions WHERE poem_id = ? AND version = ?')
@@ -141,7 +173,7 @@ export async function onRequestDelete(context) {
     .prepare('SELECT * FROM poem_versions WHERE poem_id = ? ORDER BY version ASC')
     .bind(poemId)
     .all();
-  await archiveDeletedVersions(env, user.id, poem, versions);
+  await archiveDeletedVersions(env, user.id, poem, versions, Number(poemId));
 
   const result = await env.escandidor_db
     .prepare('DELETE FROM poems WHERE id = ? AND user_id = ?')

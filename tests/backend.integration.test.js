@@ -83,7 +83,33 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     });
     assert.equal(firstRegistration.response.status, 200);
     assert.equal(firstRegistration.payload.user.role, 'user');
-    const firstCookie = cookieFrom(firstRegistration.response);
+    let firstCookie = cookieFrom(firstRegistration.response);
+
+    const duplicateLogin = await jsonRequest(baseUrl, '/api/auth/login', {
+      method: 'POST',
+      body: { email: 'primera@example.test', password: 'Password123!' },
+    });
+    assert.equal(duplicateLogin.response.status, 200);
+    assert.equal(duplicateLogin.payload.otherSessions, 1);
+    const duplicateCookie = cookieFrom(duplicateLogin.response);
+
+    const duplicateSessionState = await jsonRequest(baseUrl, '/api/auth/me', {
+      cookie: duplicateCookie,
+    });
+    assert.equal(duplicateSessionState.payload.otherSessions, 1);
+
+    const revoked = await jsonRequest(baseUrl, '/api/auth/sessions/others', {
+      method: 'DELETE', cookie: duplicateCookie,
+    });
+    assert.equal(revoked.response.status, 200);
+    assert.equal(revoked.payload.revoked, 1);
+
+    const oldSessionState = await jsonRequest(baseUrl, '/api/auth/me', { cookie: firstCookie });
+    assert.equal(oldSessionState.payload.user, null);
+    const activeSessionState = await jsonRequest(baseUrl, '/api/auth/me', { cookie: duplicateCookie });
+    assert.equal(activeSessionState.payload.user.username, 'primera');
+    assert.equal(activeSessionState.payload.otherSessions, 0);
+    firstCookie = duplicateCookie;
 
     const secondRegistration = await jsonRequest(baseUrl, '/api/auth/register', {
       method: 'POST',
@@ -142,6 +168,22 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     });
     assert.equal(deletedPoem.response.status, 200);
 
+    const deletionState = await jsonRequest(baseUrl, '/api/trash', { cookie: firstCookie });
+    assert.equal(deletionState.response.status, 200);
+    assert.deepEqual(deletionState.payload.deletedPoemIds, [disposablePoem.payload.poem.id]);
+
+    const staleReupload = await jsonRequest(baseUrl, '/api/poems', {
+      method: 'POST', cookie: firstCookie,
+      body: {
+        title: 'Poema eliminable',
+        versionName: 'copia antigua',
+        content: 'Desaparece',
+        sourcePoemId: disposablePoem.payload.poem.id,
+      },
+    });
+    assert.equal(staleReupload.response.status, 409);
+    assert.equal(staleReupload.payload.code, 'poem_deleted');
+
     const ownerList = await jsonRequest(baseUrl, '/api/poems', { cookie: firstCookie });
     assert.equal(ownerList.payload.poems.length, 2);
     const versionedPoem = ownerList.payload.poems.find((poem) => poem.id === poemId);
@@ -192,6 +234,18 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     assert.equal(emptiedTrash.response.status, 200);
     const emptyTrash = await jsonRequest(baseUrl, '/api/trash', { cookie: firstCookie });
     assert.deepEqual(emptyTrash.payload.trash, []);
+    assert.deepEqual(emptyTrash.payload.deletedPoemIds, [disposablePoem.payload.poem.id]);
+
+    const staleReuploadAfterEmptyingTrash = await jsonRequest(baseUrl, '/api/poems', {
+      method: 'POST', cookie: firstCookie,
+      body: {
+        title: 'Poema eliminable',
+        versionName: 'otra copia antigua',
+        content: 'Desaparece',
+        sourcePoemId: disposablePoem.payload.poem.id,
+      },
+    });
+    assert.equal(staleReuploadAfterEmptyingTrash.response.status, 409);
 
     const stats = await jsonRequest(baseUrl, '/api/admin/stats', { cookie: firstCookie });
     assert.deepEqual(stats.payload.stats, { userCount: 2, poemCount: 2, adminCount: 1 });
@@ -208,6 +262,19 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     });
     assert.equal(promoted.response.status, 200);
     assert.equal(promoted.payload.user.role, 'admin');
+
+    const sameTitleNewPoem = await jsonRequest(baseUrl, '/api/poems', {
+      method: 'POST', cookie: firstCookie,
+      body: { title: 'Poema eliminable', versionName: 'nuevo', content: 'Un poema diferente' },
+    });
+    assert.equal(sameTitleNewPoem.response.status, 201);
+    assert.notEqual(sameTitleNewPoem.payload.poem.id, disposablePoem.payload.poem.id);
+    const removeSameTitleNewPoem = await jsonRequest(
+      baseUrl,
+      `/api/poems/${sameTitleNewPoem.payload.poem.id}`,
+      { method: 'DELETE', cookie: firstCookie },
+    );
+    assert.equal(removeSameTitleNewPoem.response.status, 200);
   } finally {
     if (server) stopProcess(server);
   }

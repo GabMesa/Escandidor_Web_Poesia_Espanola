@@ -253,6 +253,12 @@ textarea {
   font-size: 0.82rem;
 }
 
+.session-conflict-message {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 .auth-mode-toggle {
   padding: 4px;
   background: transparent;

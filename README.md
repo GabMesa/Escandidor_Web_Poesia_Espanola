@@ -111,6 +111,15 @@ npx wrangler d1 execute escandidor-db --remote --file=./schema.sql
 `schema.sql` crea las tablas y relaciones en una base de datos vacia; no
 incluye instrucciones para borrar datos existentes.
 
+En una base de datos existente, aplica las migraciones pendientes en orden. Las
+migraciones `0004` y `0005` son pasos historicos; `0006` mueve sus marcas a
+`deleted_poems` y elimina la tabla temporal `poem_tombstones`:
+```bash
+npx wrangler d1 execute escandidor-db --remote --file=./migrations/0004_poem_tombstones.sql
+npx wrangler d1 execute escandidor-db --remote --file=./migrations/0005_rekey_legacy_poem_tombstones.sql
+npx wrangler d1 execute escandidor-db --remote --file=./migrations/0006_consolidate_deleted_poems.sql
+```
+
 ### 4. Ejecutar localmente
 ```bash
 npx wrangler pages dev .

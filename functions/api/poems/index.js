@@ -1,4 +1,4 @@
-import { jsonResponse, safeJson, requireUser, serializePoem } from '../../_lib/helpers.js';
+import { jsonResponse, errorResponse, safeJson, requireUser, serializePoem } from '../../_lib/helpers.js';
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -11,7 +11,12 @@ export async function onRequestGet(context) {
               p.created_at, p.updated_at, pv.name AS version_name, pv.content,
               pv.version, pv.created_at AS version_created_at
        FROM poems p JOIN poem_versions pv ON pv.poem_id = p.id
-       WHERE p.user_id = ? ORDER BY p.updated_at DESC, pv.version ASC`
+       WHERE p.user_id = ?
+         AND NOT EXISTS (
+           SELECT 1 FROM deleted_poems dp
+           WHERE dp.user_id = p.user_id AND dp.poem_id = p.id
+         )
+       ORDER BY p.updated_at DESC, pv.version ASC`
     )
     .bind(user.id)
     .all();
@@ -48,6 +53,26 @@ export async function onRequestPost(context) {
   const content = typeof body.content === 'string' ? body.content : '';
   const settings = body.settings && typeof body.settings === 'object' ? body.settings : {};
   const colorIndex = Number.isInteger(body.colorIndex) ? body.colorIndex : null;
+
+  const sourcePoemId = Number(body.sourcePoemId);
+  const deletion = Number.isInteger(sourcePoemId) && sourcePoemId > 0
+    ? await env.escandidor_db
+      .prepare('SELECT deleted_at FROM deleted_poems WHERE user_id = ? AND poem_id = ?')
+      .bind(user.id, sourcePoemId)
+      .first()
+    : null;
+  if (deletion && body.restoreDeleted !== true) {
+    return errorResponse('Este poema fue eliminado. Restáuralo explícitamente para volver a subirlo.', 409, {
+      code: 'poem_deleted',
+      deletedAt: deletion.deleted_at,
+    });
+  }
+  if (deletion) {
+    await env.escandidor_db
+      .prepare('DELETE FROM deleted_poems WHERE user_id = ? AND poem_id = ?')
+      .bind(user.id, sourcePoemId)
+      .run();
+  }
 
   const poem = await env.escandidor_db
     .prepare(

@@ -14,10 +14,20 @@ const authStatus = document.getElementById('authStatus');
 const authSubmit = document.getElementById('authSubmit');
 const toggleAuthMode = document.getElementById('toggleAuthMode');
 const cloudSaveStatus = document.getElementById('cloudSaveStatus');
+const retryCloudSync = document.getElementById('retryCloudSync');
 const adminLink = document.getElementById('adminLink');
 const loadDataFromServer = document.getElementById('loadDataFromServer');
+const sessionConflictDialog = document.getElementById('sessionConflictDialog');
+const sessionConflictMessage = document.getElementById('sessionConflictMessage');
+const sessionConflictStatus = document.getElementById('sessionConflictStatus');
+const closeOtherSessions = document.getElementById('closeOtherSessions');
+const localImportDialog = document.getElementById('localImportDialog');
+const localImportMessage = document.getElementById('localImportMessage');
+const importLocalPoems = document.getElementById('importLocalPoems');
+const keepLocalPoemsSeparate = document.getElementById('keepLocalPoemsSeparate');
 
 let authMode = 'login';
+let currentUser = null;
 
 const cloudSync = createCloudSync({
   onStatus(status, message) {
@@ -25,6 +35,7 @@ const cloudSync = createCloudSync({
     cloudSaveStatus.textContent = message;
     cloudSaveStatus.classList.toggle('is-syncing', status === 'syncing');
     cloudSaveStatus.classList.toggle('is-error', status === 'error');
+    retryCloudSync.classList.toggle('hidden', status !== 'error' || cloudSync.pendingCount() === 0);
   },
   onTrash(trash) {
     window.dispatchEvent(new CustomEvent('escandidor:trash-synced', {
@@ -45,18 +56,52 @@ async function apiRequest(path, options = {}) {
     headers: { 'Content-Type': 'application/json', ...options.headers },
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || 'No se pudo completar la solicitud.');
+  if (!response.ok) {
+    const error = new Error(payload.error || 'No se pudo completar la solicitud.');
+    error.status = response.status;
+    throw error;
+  }
   return payload;
 }
 
 function renderUser(user) {
+  currentUser = user || null;
   guestActions.classList.toggle('hidden', Boolean(user));
   userActions.classList.toggle('hidden', !user);
   accountIdentity.textContent = user ? user.username : '';
   adminLink?.classList.toggle('hidden', user?.role !== 'admin');
   if (loadDataFromServer) loadDataFromServer.disabled = !user;
   cloudSync.setUser(user);
-  if (user) cloudSync.syncLibrary();
+}
+
+function showSessionConflict(otherSessions) {
+  const count = Number(otherSessions) || 0;
+  if (!count || !currentUser) return;
+  sessionConflictMessage.textContent = count === 1
+    ? 'Esta cuenta está abierta en otro navegador. Cierra esa sesión para continuar aquí.'
+    : `Esta cuenta está abierta en otros ${count} navegadores. Cierra esas sesiones para continuar aquí.`;
+  sessionConflictStatus.textContent = '';
+  if (!sessionConflictDialog.open) sessionConflictDialog.showModal();
+}
+
+function offerLocalImport() {
+  const localCount = cloudSync.getAnonymousPoemCount();
+  if (!currentUser || !localCount || localImportDialog.open) return;
+  localImportMessage.textContent = localCount === 1
+    ? 'Hay un poema local en este navegador. Puedes importarlo sin borrar la copia local.'
+    : `Hay ${localCount} poemas locales en este navegador. Puedes importarlos sin borrar las copias locales.`;
+  localImportDialog.showModal();
+}
+
+function handleAuthState(payload) {
+  const wasAnonymous = !currentUser;
+  renderUser(payload.user);
+  if (!payload.user) return;
+  if (Number(payload.otherSessions) > 0) {
+    showSessionConflict(payload.otherSessions);
+  } else if (wasAnonymous) {
+    offerLocalImport();
+  }
 }
 
 function setMode(mode) {
@@ -102,7 +147,7 @@ authForm.addEventListener('submit', async (event) => {
       method: 'POST',
       body: JSON.stringify(body),
     });
-    renderUser(payload.user);
+    handleAuthState(payload);
     authDialog.close();
   } catch (error) {
     authStatus.textContent = error.message;
@@ -132,13 +177,58 @@ window.addEventListener('escandidor:trash-emptied', () => {
   cloudSync.emptyTrash();
 });
 
-loadDataFromServer?.addEventListener('click', () => {
-  cloudSync.loadFromServer();
+loadDataFromServer?.addEventListener('click', async () => {
+  loadDataFromServer.disabled = true;
+  await cloudSync.loadFromServer();
+  loadDataFromServer.disabled = !currentUser;
 });
 
+retryCloudSync.addEventListener('click', () => cloudSync.retryPending());
+
+importLocalPoems.addEventListener('click', () => {
+  const imported = cloudSync.importAnonymousPoems();
+  localImportDialog.close();
+  cloudSaveStatus.textContent = `${imported} poema${imported === 1 ? '' : 's'} local${imported === 1 ? '' : 'es'} importado${imported === 1 ? '' : 's'}`;
+});
+
+keepLocalPoemsSeparate.addEventListener('click', () => localImportDialog.close());
+
+sessionConflictDialog.addEventListener('cancel', (event) => event.preventDefault());
+
+closeOtherSessions.addEventListener('click', async () => {
+  closeOtherSessions.disabled = true;
+  sessionConflictStatus.textContent = '';
+  try {
+    await apiRequest('/api/auth/sessions/others', { method: 'DELETE' });
+    sessionConflictDialog.close();
+    offerLocalImport();
+  } catch (error) {
+    sessionConflictStatus.textContent = error.message;
+  } finally {
+    closeOtherSessions.disabled = false;
+  }
+});
+
+async function checkCurrentSession() {
+  if (!currentUser || document.hidden) return;
+  try {
+    const payload = await apiRequest('/api/auth/me');
+    if (!payload.user) {
+      renderUser(null);
+      if (sessionConflictDialog.open) sessionConflictDialog.close();
+      openAuth('login');
+      authStatus.textContent = 'Esta sesión se cerró desde otro navegador. Inicia sesión de nuevo.';
+      return;
+    }
+    handleAuthState(payload);
+  } catch {}
+}
+
 apiRequest('/api/auth/me')
-  .then(({ user }) => renderUser(user))
+  .then(handleAuthState)
   .catch(() => renderUser(null));
+
+window.setInterval(checkCurrentSession, 10_000);
 
 const authError = new URL(window.location.href).searchParams.get('auth_error');
 if (authError) {

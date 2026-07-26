@@ -96,6 +96,7 @@
           <div id="accountUserActions" class="account-actions hidden">
             <span id="accountIdentity" class="account-identity"></span>
             <span id="cloudSaveStatus" class="cloud-save-status">Nube lista</span>
+            <button id="retryCloudSync" type="button" class="secondary hidden">Reintentar</button>
             <a id="adminLink" class="account-admin-link hidden" href="admin.html">Administración</a>
             <button id="logoutAccount" type="button" class="secondary">Cerrar sesión</button>
           </div>
@@ -129,6 +130,38 @@
           <button id="authSubmit" type="submit" class="auth-submit">Iniciar sesión</button>
           <button id="toggleAuthMode" type="button" class="auth-mode-toggle">¿Primera vez? Crear cuenta</button>
         </form>
+      </dialog>
+
+      <dialog id="sessionConflictDialog" class="auth-dialog session-conflict-dialog" aria-labelledby="sessionConflictTitle">
+        <div class="auth-form">
+          <div class="auth-heading">
+            <div>
+              <p class="eyebrow">Sesión duplicada</p>
+              <h2 id="sessionConflictTitle">Usa una sola sesión</h2>
+            </div>
+          </div>
+          <p id="sessionConflictMessage" class="session-conflict-message">
+            Esta cuenta está abierta en otro navegador. Cierra las demás sesiones para continuar aquí.
+          </p>
+          <button id="closeOtherSessions" type="button" class="auth-submit">
+            Cerrar las otras sesiones
+          </button>
+          <p id="sessionConflictStatus" class="auth-status" role="status"></p>
+        </div>
+      </dialog>
+
+      <dialog id="localImportDialog" class="auth-dialog" aria-labelledby="localImportTitle">
+        <div class="auth-form">
+          <div class="auth-heading">
+            <div>
+              <p class="eyebrow">Trabajo de este navegador</p>
+              <h2 id="localImportTitle">Importar poemas locales</h2>
+            </div>
+          </div>
+          <p id="localImportMessage" class="session-conflict-message"></p>
+          <button id="importLocalPoems" type="button" class="auth-submit">Importar en mi cuenta</button>
+          <button id="keepLocalPoemsSeparate" type="button" class="secondary">Mantenerlos separados</button>
+        </div>
       </dialog>
 
       <section class="controls" aria-label="Controles métricos">
@@ -328,9 +361,9 @@
                       id="loadDataFromServer"
                       type="button"
                       class="secondary compact-action"
-                      title="Reemplazar los datos locales de la cuenta con los guardados en el servidor"
+                      title="Comparar cada poema local con el servidor y conservar todas las diferencias"
                     >
-                      Cargar del servidor
+                      Comparar y sincronizar
                     </button>
                   </div>
                   <div class="version-modal-actions-row">

@@ -2272,6 +2272,40 @@ function normalizePoemTitle(value) {
   return title || 'Sin título';
 }
 
+function createLocalPoemKey() {
+  if (typeof crypto?.randomUUID === 'function') {
+    return `local:${crypto.randomUUID()}`;
+  }
+  return `local:${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function serverPoemKeyFromVersions(versions) {
+  for (const version of versions ?? []) {
+    const match = /^cloud-(\d+)-/.exec(String(version?.id ?? ''));
+    if (match) return `server:${match[1]}`;
+  }
+  return '';
+}
+
+function getStoredPoemTitle(poemKey, versions) {
+  const storedTitle = versions?.find((version) => String(version?.poemTitle ?? '').trim())?.poemTitle;
+  return normalizePoemTitle(storedTitle || poemKey);
+}
+
+function setStoredPoemTitle(versions, title) {
+  const normalizedTitle = normalizePoemTitle(title);
+  for (const version of versions ?? []) version.poemTitle = normalizedTitle;
+  return normalizedTitle;
+}
+
+function getPoemEntries(store) {
+  return Object.entries(store?.poems ?? {}).map(([poemKey, versions]) => ({
+    poemKey,
+    title: getStoredPoemTitle(poemKey, versions),
+    versions: Array.isArray(versions) ? versions : [],
+  }));
+}
+
 function sanitizeFileNamePart(value) {
   return String(value ?? '')
     .trim()
@@ -2289,7 +2323,7 @@ function setPoemTitleDisplay(value) {
 }
 
 function loadPoemMemoryStore() {
-  const emptyStore = { poems: {}, trash: {} };
+  const emptyStore = { schemaVersion: 2, poems: {}, trash: {} };
 
   try {
     const raw = localStorage.getItem(LOCAL_POEM_MEMORY_KEY);
@@ -2302,9 +2336,22 @@ function loadPoemMemoryStore() {
       return emptyStore;
     }
 
-    const poems = parsed.poems && typeof parsed.poems === 'object' ? parsed.poems : {};
+    let poems = parsed.poems && typeof parsed.poems === 'object' ? parsed.poems : {};
     const trash = parsed.trash && typeof parsed.trash === 'object' ? parsed.trash : {};
     let changed = false;
+
+    if (parsed.schemaVersion !== 2) {
+      const migratedPoems = {};
+      for (const [legacyTitle, entries] of Object.entries(poems)) {
+        if (!Array.isArray(entries) || !entries.length) continue;
+        let poemKey = serverPoemKeyFromVersions(entries) || createLocalPoemKey();
+        while (migratedPoems[poemKey]) poemKey = createLocalPoemKey();
+        setStoredPoemTitle(entries, legacyTitle);
+        migratedPoems[poemKey] = entries;
+      }
+      poems = migratedPoems;
+      changed = true;
+    }
 
     for (const [title, entries] of Object.entries(trash)) {
       if (!Array.isArray(entries) || !entries.length) {
@@ -2342,13 +2389,13 @@ function loadPoemMemoryStore() {
 
     if (changed) {
       try {
-        localStorage.setItem(LOCAL_POEM_MEMORY_KEY, JSON.stringify({ poems, trash }));
+        localStorage.setItem(LOCAL_POEM_MEMORY_KEY, JSON.stringify({ schemaVersion: 2, poems, trash }));
       } catch {
         // Ignore storage write errors on cleanup.
       }
     }
 
-    return { poems, trash };
+    return { schemaVersion: 2, poems, trash };
   } catch {
     return emptyStore;
   }
@@ -2356,7 +2403,7 @@ function loadPoemMemoryStore() {
 
 function savePoemMemoryStore(store) {
   try {
-    localStorage.setItem(LOCAL_POEM_MEMORY_KEY, JSON.stringify(store));
+    localStorage.setItem(LOCAL_POEM_MEMORY_KEY, JSON.stringify({ ...store, schemaVersion: 2 }));
     return true;
   } catch {
     return false;
@@ -2505,9 +2552,9 @@ function renderPoemTrash() {
   if (emptyPoemTrash) emptyPoemTrash.disabled = entries.length === 0;
 }
 
-function dispatchPoemDeleted(title, versionIds, wholePoem = false) {
+function dispatchPoemDeleted(poemKey, title, versionIds, wholePoem = false) {
   window.dispatchEvent(new CustomEvent('escandidor:poem-deleted', {
-    detail: { title, versionIds, wholePoem }
+    detail: { poemKey, title, versionIds, wholePoem }
   }));
 }
 
@@ -2535,27 +2582,34 @@ window.addEventListener('escandidor:library-changed', () => {
   updateVersionManagerStatus();
 });
 
-function loadVersionById(title, versionId) {
-  const selectedTitle = normalizePoemTitle(title);
+function loadVersionById(poemKey, versionId) {
+  let selectedPoemKey = String(poemKey ?? '').trim();
   const selectedVersionId = String(versionId ?? '').trim();
-  if (!selectedTitle || !selectedVersionId) {
+  if (!selectedPoemKey || !selectedVersionId) {
     return false;
   }
 
   const store = loadPoemMemoryStore();
-  const versions = Array.isArray(store.poems?.[selectedTitle]) ? store.poems[selectedTitle] : [];
+  if (!Array.isArray(store.poems?.[selectedPoemKey])) {
+    const legacyMatch = getPoemEntries(store).find(({ title, versions }) =>
+      title === selectedPoemKey
+      && versions.some((entry) => String(entry.id ?? '') === selectedVersionId));
+    selectedPoemKey = legacyMatch?.poemKey || selectedPoemKey;
+  }
+  const versions = Array.isArray(store.poems?.[selectedPoemKey]) ? store.poems[selectedPoemKey] : [];
   const version = versions.find((entry) => String(entry.id ?? '') === selectedVersionId);
   if (!version) {
     return false;
   }
 
   if (savedPoemName) {
-    savedPoemName.value = selectedTitle;
+    savedPoemName.value = selectedPoemKey;
   }
   if (savedPoemVersion) {
     savedPoemVersion.value = selectedVersionId;
   }
 
+  const selectedTitle = getStoredPoemTitle(selectedPoemKey, versions);
   if (poemTitle) {
     poemTitle.value = selectedTitle;
   }
@@ -2589,13 +2643,13 @@ function loadVersionById(title, versionId) {
   state.lineOverrides = version.lineOverrides && typeof version.lineOverrides === 'object'
     ? { ...version.lineOverrides }
     : {};
-  state.loadedVersionTitle = selectedTitle;
+  state.loadedVersionTitle = selectedPoemKey;
   state.loadedVersionId = selectedVersionId;
-  saveLastWorkedPoemReference(selectedTitle, selectedVersionId);
+  saveLastWorkedPoemReference(selectedPoemKey, selectedVersionId);
   state.openAdvancedByLine = {};
 
   updateAnalysis();
-  refreshSavedPoemVersionOptions(selectedTitle, selectedVersionId);
+  refreshSavedPoemVersionOptions(selectedPoemKey, selectedVersionId);
   syncQuickVersionLabelInput();
   updateVersionManagerStatus();
   return true;
@@ -2614,7 +2668,9 @@ function applySelectorEditMode(isEditMode) {
 
   if (state.selectorEditMode) {
     if (editPoemNameInput) {
-      editPoemNameInput.value = String(savedPoemName?.value ?? '').trim();
+      const poemKey = String(savedPoemName?.value ?? '').trim();
+      const store = loadPoemMemoryStore();
+      editPoemNameInput.value = getStoredPoemTitle(poemKey, store.poems?.[poemKey]);
     }
     if (editPoemVersionInput) {
       editPoemVersionInput.value = String(syncQuickVersionLabelInput() ?? '').trim();
@@ -2623,11 +2679,11 @@ function applySelectorEditMode(isEditMode) {
 }
 
 function saveSelectorEditsInline() {
-  const currentTitle = String(savedPoemName?.value ?? '').trim();
+  const currentPoemKey = String(savedPoemName?.value ?? '').trim();
   const nextTitle = String(editPoemNameInput?.value ?? '').trim();
 
-  if (nextTitle && nextTitle !== currentTitle) {
-    const renamed = renamePoemTitleInline(currentTitle, nextTitle);
+  if (nextTitle && currentPoemKey) {
+    const renamed = renamePoemTitleInline(currentPoemKey, nextTitle);
     if (!renamed) {
       showToast('No se pudo renombrar el poema seleccionado.', 'error');
       return;
@@ -2826,8 +2882,10 @@ function updateVersionManagerStatus() {
   }
 
   const loadedVersion = String(state.loadedVersionId ?? '').trim();
-  const loadedTitle = String(state.loadedVersionTitle ?? '').trim();
-  const isOpen = Boolean(loadedVersion && loadedTitle);
+  const loadedPoemKey = String(state.loadedVersionTitle ?? '').trim();
+  const store = loadPoemMemoryStore();
+  const loadedTitle = getStoredPoemTitle(loadedPoemKey, store.poems?.[loadedPoemKey]);
+  const isOpen = Boolean(loadedVersion && loadedPoemKey);
 
   versionManagerStatus.classList.toggle('is-open', isOpen);
   versionManagerStatus.classList.toggle('is-closed', !isOpen);
@@ -2855,7 +2913,7 @@ function closeVersionManagerModal() {
   managerShell.open = false;
 }
 
-function renderSavedVersionList(title, preferredVersionId = '') {
+function renderSavedVersionList(selectedPoemKey, preferredVersionId = '') {
   if (!savedVersionsList) {
     return;
   }
@@ -2871,12 +2929,12 @@ function renderSavedVersionList(title, preferredVersionId = '') {
   const store = loadPoemMemoryStore();
   renderPoemTrash();
   const searchQuery = normalizeSearchText(versionSearchInput?.value ?? '');
-  const titles = Object.keys(store.poems ?? {}).sort((a, b) => a.localeCompare(b, 'es'));
+  const poems = getPoemEntries(store).sort((a, b) => a.title.localeCompare(b.title, 'es'));
   let totalVersions = 0;
   let metadataChanged = false;
 
   savedVersionsList.innerHTML = '';
-  if (!titles.length) {
+  if (!poems.length) {
     selectedVersionIds = new Set();
     updateSelectAllButtonLabel(0);
     savedVersionsList.innerHTML = '<div class="saved-version-meta">No hay poemas guardados.</div>';
@@ -2884,13 +2942,12 @@ function renderSavedVersionList(title, preferredVersionId = '') {
   }
 
   const validIds = new Set();
-  for (const poemTitle of titles) {
-    const versions = Array.isArray(store.poems?.[poemTitle]) ? store.poems[poemTitle] : [];
+  for (const { poemKey, versions } of poems) {
     if (ensureVersionMetadata(versions)) {
       metadataChanged = true;
     }
     for (const version of versions) {
-      validIds.add(makeVersionSelectionKey(poemTitle, String(version.id ?? '')));
+      validIds.add(makeVersionSelectionKey(poemKey, String(version.id ?? '')));
     }
   }
 
@@ -2901,8 +2958,7 @@ function renderSavedVersionList(title, preferredVersionId = '') {
   selectedVersionIds = new Set([...selectedVersionIds].filter((id) => validIds.has(id)));
 
   let poemColorIndex = 0;
-  for (const poemTitle of titles) {
-    const versions = Array.isArray(store.poems?.[poemTitle]) ? store.poems[poemTitle] : [];
+  for (const { poemKey, title: poemTitle, versions } of poems) {
     const ranked = [...versions].sort((a, b) => {
       const left = new Date(a.savedAt ?? 0).getTime();
       const right = new Date(b.savedAt ?? 0).getTime();
@@ -2935,13 +2991,13 @@ function renderSavedVersionList(title, preferredVersionId = '') {
     const savedColor = poemColors[poemTitle];
     const poemNode = document.createElement('details');
     poemNode.className = 'poem-tree-node';
-    poemNode.dataset.title = poemTitle;
+    poemNode.dataset.title = poemKey;
     poemNode.dataset.colorIndex = String(Number.isInteger(savedColor) ? savedColor : (poemColorIndex % POEM_COLOR_COUNT));
     const colorTheme = applyPoemColorTheme(poemNode, savedColor, poemColorIndex % POEM_COLOR_COUNT);
     poemColorIndex += 1;
     poemNode.open = searchQuery
       ? true
-      : (previouslyOpenTitles.has(poemTitle) || (!previouslyOpenTitles.size && poemTitle === title));
+      : (previouslyOpenTitles.has(poemKey) || (!previouslyOpenTitles.size && poemKey === selectedPoemKey));
 
     const summary = document.createElement('summary');
     summary.className = 'poem-tree-summary';
@@ -2956,7 +3012,7 @@ function renderSavedVersionList(title, preferredVersionId = '') {
     poemTitleInput.value = poemTitle;
     poemTitleInput.maxLength = 80;
     poemTitleInput.dataset.action = 'edit-poem-title';
-    poemTitleInput.dataset.title = poemTitle;
+    poemTitleInput.dataset.title = poemKey;
     poemTitleInput.title = 'Editar título del poema';
 
     const count = document.createElement('span');
@@ -2974,7 +3030,7 @@ function renderSavedVersionList(title, preferredVersionId = '') {
     poemColorBtn.title = 'Cambiar color del poema';
     poemColorBtn.setAttribute('aria-label', 'Cambiar color del poema');
     poemColorBtn.dataset.action = 'edit-poem-color';
-    poemColorBtn.dataset.title = poemTitle;
+    poemColorBtn.dataset.title = poemKey;
     poemColorBtn.style.background = colorTheme.colorHex;
     poemColorBtn.style.borderColor = toRgba(colorTheme.colorHex, 0.45);
 
@@ -2983,36 +3039,36 @@ function renderSavedVersionList(title, preferredVersionId = '') {
     poemOpen.className = 'secondary compact-action saved-version-action';
     poemOpen.textContent = 'Abrir';
     poemOpen.dataset.action = 'load-poem';
-    poemOpen.dataset.title = poemTitle;
+    poemOpen.dataset.title = poemKey;
 
     const poemSelectAll = document.createElement('input');
     poemSelectAll.type = 'checkbox';
     poemSelectAll.className = 'poem-select-all';
     poemSelectAll.dataset.action = 'select-all-poem';
-    poemSelectAll.dataset.title = poemTitle;
+    poemSelectAll.dataset.title = poemKey;
 
     const poemMd = document.createElement('button');
     poemMd.type = 'button';
     poemMd.className = 'secondary format-action logo-action saved-version-action';
     poemMd.innerHTML = MD_LOGO_ICON;
     poemMd.dataset.action = 'download-poem-md';
-    poemMd.dataset.title = poemTitle;
+    poemMd.dataset.title = poemKey;
 
     const poemPdf = document.createElement('button');
     poemPdf.type = 'button';
     poemPdf.className = 'secondary format-action logo-action saved-version-action';
     poemPdf.innerHTML = PDF_LOGO_ICON;
     poemPdf.dataset.action = 'download-poem-pdf';
-    poemPdf.dataset.title = poemTitle;
+    poemPdf.dataset.title = poemKey;
 
     const poemDelete = document.createElement('button');
     poemDelete.type = 'button';
     poemDelete.className = 'secondary saved-version-action is-danger';
     poemDelete.textContent = '🗑';
     poemDelete.dataset.action = 'delete-poem';
-    poemDelete.dataset.title = poemTitle;
+    poemDelete.dataset.title = poemKey;
 
-    const poemVersionKeys = visibleVersions.map(({ entry }) => makeVersionSelectionKey(poemTitle, String(entry.id ?? '')));
+    const poemVersionKeys = visibleVersions.map(({ entry }) => makeVersionSelectionKey(poemKey, String(entry.id ?? '')));
     poemSelectAll.checked = poemVersionKeys.every((key) => selectedVersionIds.has(key));
 
     poemSelectAll.addEventListener('click', (event) => {
@@ -3044,14 +3100,14 @@ function renderSavedVersionList(title, preferredVersionId = '') {
       const item = document.createElement('div');
       item.className = 'saved-version-item';
       item.setAttribute('role', 'listitem');
-      if (poemTitle === title && String(entry.id ?? '') === preferredVersionId) {
+      if (poemKey === selectedPoemKey && String(entry.id ?? '') === preferredVersionId) {
         item.classList.add('is-active');
       }
 
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.className = 'saved-version-checkbox';
-      checkbox.value = makeVersionSelectionKey(poemTitle, String(entry.id ?? ''));
+      checkbox.value = makeVersionSelectionKey(poemKey, String(entry.id ?? ''));
       checkbox.checked = selectedVersionIds.has(checkbox.value);
 
       const text = document.createElement('span');
@@ -3069,7 +3125,7 @@ function renderSavedVersionList(title, preferredVersionId = '') {
       label.title = 'Edita y presiona Enter para guardar el título de esta versión';
       label.dataset.action = 'edit-version-label';
       label.dataset.versionId = String(entry.id ?? '');
-      label.dataset.title = poemTitle;
+      label.dataset.title = poemKey;
 
       const kind = document.createElement('span');
       kind.className = 'saved-version-kind';
@@ -3088,7 +3144,7 @@ function renderSavedVersionList(title, preferredVersionId = '') {
       openButton.textContent = 'Abrir';
       openButton.dataset.action = 'load-version';
       openButton.dataset.versionId = String(entry.id ?? '');
-      openButton.dataset.title = poemTitle;
+      openButton.dataset.title = poemKey;
 
       const mdButton = document.createElement('button');
       mdButton.type = 'button';
@@ -3096,7 +3152,7 @@ function renderSavedVersionList(title, preferredVersionId = '') {
       mdButton.innerHTML = MD_LOGO_ICON;
       mdButton.dataset.action = 'download-md';
       mdButton.dataset.versionId = String(entry.id ?? '');
-      mdButton.dataset.title = poemTitle;
+      mdButton.dataset.title = poemKey;
 
       const pdfButton = document.createElement('button');
       pdfButton.type = 'button';
@@ -3104,7 +3160,7 @@ function renderSavedVersionList(title, preferredVersionId = '') {
       pdfButton.innerHTML = PDF_LOGO_ICON;
       pdfButton.dataset.action = 'download-pdf';
       pdfButton.dataset.versionId = String(entry.id ?? '');
-      pdfButton.dataset.title = poemTitle;
+      pdfButton.dataset.title = poemKey;
 
       const deleteButton = document.createElement('button');
       deleteButton.type = 'button';
@@ -3112,7 +3168,7 @@ function renderSavedVersionList(title, preferredVersionId = '') {
       deleteButton.textContent = '🗑';
       deleteButton.dataset.action = 'delete-version';
       deleteButton.dataset.versionId = String(entry.id ?? '');
-      deleteButton.dataset.title = poemTitle;
+      deleteButton.dataset.title = poemKey;
 
       const previewButton = document.createElement('button');
       previewButton.type = 'button';
@@ -3121,7 +3177,7 @@ function renderSavedVersionList(title, preferredVersionId = '') {
       previewButton.title = 'Previsualizar versión';
       previewButton.dataset.action = 'preview-version';
       previewButton.dataset.versionId = String(entry.id ?? '');
-      previewButton.dataset.title = poemTitle;
+      previewButton.dataset.title = poemKey;
 
       actions.append(previewButton, openButton, mdButton, pdfButton, deleteButton);
 
@@ -3147,13 +3203,13 @@ function renderSavedVersionList(title, preferredVersionId = '') {
   });
 }
 
-function refreshSavedPoemVersionOptions(title, preferredVersionId = '') {
+function refreshSavedPoemVersionOptions(poemKey, preferredVersionId = '') {
   if (!savedPoemVersion) {
     return;
   }
 
   const store = loadPoemMemoryStore();
-  const versions = Array.isArray(store.poems?.[title]) ? store.poems[title] : [];
+  const versions = Array.isArray(store.poems?.[poemKey]) ? store.poems[poemKey] : [];
   const metadataChanged = ensureVersionMetadata(versions);
   if (metadataChanged) {
     savePoemMemoryStore(store);
@@ -3168,7 +3224,7 @@ function refreshSavedPoemVersionOptions(title, preferredVersionId = '') {
   if (!ranked.length) {
     savedPoemVersion.innerHTML = '<option value="">Sin versiones</option>';
     savedPoemVersion.disabled = true;
-    renderSavedVersionList(title, preferredVersionId);
+    renderSavedVersionList(poemKey, preferredVersionId);
     syncQuickVersionLabelInput();
     return;
   }
@@ -3185,35 +3241,37 @@ function refreshSavedPoemVersionOptions(title, preferredVersionId = '') {
     savedPoemVersion.value = preferredVersionId;
   }
 
-  renderSavedVersionList(title, preferredVersionId);
+  renderSavedVersionList(poemKey, preferredVersionId);
   syncQuickVersionLabelInput();
 }
 
-function refreshSavedPoemNameOptions(preferredTitle = '') {
+function refreshSavedPoemNameOptions(preferredPoemKey = '') {
   if (!savedPoemName) {
     return;
   }
 
   const store = loadPoemMemoryStore();
-  const titles = Object.keys(store.poems ?? {}).sort((a, b) => a.localeCompare(b, 'es'));
+  const poems = getPoemEntries(store).sort((a, b) => a.title.localeCompare(b.title, 'es'));
 
   savedPoemName.innerHTML = '';
-  if (!titles.length) {
+  if (!poems.length) {
     savedPoemName.innerHTML = '<option value="">Sin poemas guardados</option>';
     savedPoemName.disabled = true;
     refreshSavedPoemVersionOptions('', '');
     return;
   }
 
-  for (const title of titles) {
+  for (const { poemKey, title } of poems) {
     const option = document.createElement('option');
-    option.value = title;
+    option.value = poemKey;
     option.textContent = title;
     savedPoemName.appendChild(option);
   }
 
   savedPoemName.disabled = false;
-  const fallback = titles.includes(preferredTitle) ? preferredTitle : titles[0];
+  const fallback = poems.some((poem) => poem.poemKey === preferredPoemKey)
+    ? preferredPoemKey
+    : poems[0].poemKey;
   savedPoemName.value = fallback;
   refreshSavedPoemVersionOptions(fallback);
 }
@@ -3255,9 +3313,10 @@ function buildCurrentSnapshot() {
   };
 }
 
-function dispatchPoemSaved(title, version, previousTitle = '') {
+function dispatchPoemSaved(poemKey, title, version, previousTitle = '') {
   window.dispatchEvent(new CustomEvent('escandidor:poem-saved', {
     detail: {
+      poemKey,
       title,
       previousTitle,
       version: structuredClone(version)
@@ -3311,7 +3370,7 @@ function isCurrentDraftDirtyAgainstLoadedVersion() {
 
 function generateNewPoemTitle() {
   const store = loadPoemMemoryStore();
-  const existing = new Set(Object.keys(store.poems ?? {}));
+  const existing = new Set(getPoemEntries(store).map((poem) => poem.title));
   const base = 'Nuevo poema';
   if (!existing.has(base)) {
     return base;
@@ -3366,7 +3425,7 @@ function createNewPoem() {
   }
 
   saveCurrentPoemVersion({ notify: false });
-  refreshSavedPoemNameOptions(title);
+  refreshSavedPoemNameOptions(state.loadedVersionTitle);
   updateAnalysis();
   applyPoemScreenTheme(title);
   poemInput.focus();
@@ -3387,21 +3446,21 @@ function saveCurrentPoemVersion(options = {}) {
   }
   setPoemTitleDisplay(title);
 
-  const loadedTitle = normalizePoemTitle(state.loadedVersionTitle ?? '');
+  const loadedPoemKey = String(state.loadedVersionTitle ?? '').trim();
   const loadedVersionId = String(state.loadedVersionId ?? '').trim();
-  if (loadedTitle && loadedVersionId && loadedTitle !== title) {
-    renamePoemTitleInline(loadedTitle, title);
-  }
-
   const store = loadPoemMemoryStore();
-  if (!Array.isArray(store.poems[title])) {
-    store.poems[title] = [];
-  }
-  ensureVersionMetadata(store.poems[title]);
-  const nextVersionNumber = getNextVersionNumber(store.poems[title]);
+  const poemKey = loadedPoemKey && loadedVersionId && Array.isArray(store.poems[loadedPoemKey])
+    ? loadedPoemKey
+    : createLocalPoemKey();
+  const versions = Array.isArray(store.poems[poemKey]) ? store.poems[poemKey] : [];
+  const previousTitle = versions.length ? getStoredPoemTitle(poemKey, versions) : '';
+  setStoredPoemTitle(versions, title);
+  store.poems[poemKey] = versions;
+  ensureVersionMetadata(versions);
+  const nextVersionNumber = getNextVersionNumber(versions);
 
   const snapshot = buildCurrentSnapshot();
-  const latest = store.poems[title].at(-1);
+  const latest = versions.at(-1);
   const nextSignature = getSnapshotSignature(snapshot);
   const nextVersion = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -3412,7 +3471,8 @@ function saveCurrentPoemVersion(options = {}) {
     lineOverrides: snapshot.lineOverrides,
     kind: saveKind,
     label: '',
-    versionNumber: nextVersionNumber
+    versionNumber: nextVersionNumber,
+    poemTitle: title
   };
 
   if (latest) {
@@ -3430,27 +3490,27 @@ function saveCurrentPoemVersion(options = {}) {
       const preservedVersionNumber = Number.isInteger(Number(latest.versionNumber)) && Number(latest.versionNumber) > 0
         ? Number(latest.versionNumber)
         : nextVersionNumber;
-      store.poems[title][store.poems[title].length - 1] = {
+      versions[versions.length - 1] = {
         ...latest,
         ...nextVersion,
         versionNumber: preservedVersionNumber,
         label: normalizeVersionLabel(latest.label ?? '')
       };
     } else if (latestSignature === nextSignature && latestKind === saveKind) {
-      refreshSavedPoemNameOptions(title);
-      refreshSavedPoemVersionOptions(title, String(latest.id ?? ''));
+      refreshSavedPoemNameOptions(poemKey);
+      refreshSavedPoemVersionOptions(poemKey, String(latest.id ?? ''));
       if (notify && notifyWhenUnchanged) {
         showToast('Sin cambios para guardar.', 'warning');
       }
       if (saveKind === 'manual') {
-        dispatchPoemSaved(title, latest, loadedTitle !== title ? loadedTitle : '');
+        dispatchPoemSaved(poemKey, title, latest, previousTitle !== title ? previousTitle : '');
       }
       return false;
     } else {
-      store.poems[title].push(nextVersion);
+      versions.push(nextVersion);
     }
   } else {
-    store.poems[title].push(nextVersion);
+    versions.push(nextVersion);
   }
 
   const ok = savePoemMemoryStore(store);
@@ -3461,17 +3521,17 @@ function saveCurrentPoemVersion(options = {}) {
     return false;
   }
 
-  refreshSavedPoemNameOptions(title);
-  refreshSavedPoemVersionOptions(title, nextVersion.id);
-  state.loadedVersionTitle = title;
+  refreshSavedPoemNameOptions(poemKey);
+  refreshSavedPoemVersionOptions(poemKey, nextVersion.id);
+  state.loadedVersionTitle = poemKey;
   state.loadedVersionId = String(nextVersion.id ?? '');
-  saveLastWorkedPoemReference(title, state.loadedVersionId);
+  saveLastWorkedPoemReference(poemKey, state.loadedVersionId);
   updateVersionManagerStatus();
   if (notify) {
     showToast('Poema guardado.', 'success');
   }
   if (saveKind === 'manual') {
-    dispatchPoemSaved(title, nextVersion, loadedTitle !== title ? loadedTitle : '');
+    dispatchPoemSaved(poemKey, title, nextVersion, previousTitle !== title ? previousTitle : '');
   }
   return true;
 }
@@ -3539,7 +3599,7 @@ function syncQuickVersionLabelInput() {
 
 function updateVersionLabelInline(title, versionId, nextValue, options = {}) {
   const { notify = false } = options;
-  const normalizedTitle = normalizePoemTitle(title);
+  const normalizedTitle = String(title ?? '').trim();
   const normalizedVersionId = String(versionId ?? '').trim();
   if (!normalizedTitle || !normalizedVersionId) {
     return;
@@ -3605,15 +3665,15 @@ function getCheckedVersionEntries() {
   const store = loadPoemMemoryStore();
   const entries = [];
 
-  for (const [title, versions] of Object.entries(store.poems ?? {})) {
+  for (const { poemKey, title, versions } of getPoemEntries(store)) {
     if (!Array.isArray(versions) || !versions.length) {
       continue;
     }
 
     for (const version of versions) {
-      const key = makeVersionSelectionKey(title, String(version?.id ?? ''));
+      const key = makeVersionSelectionKey(poemKey, String(version?.id ?? ''));
       if (selectedSet.has(key)) {
-        entries.push({ title, version });
+        entries.push({ poemKey, title, version });
       }
     }
   }
@@ -3704,40 +3764,33 @@ async function downloadSelectedVersionsAsPdf() {
   }
 }
 
-function renamePoemTitleInline(currentTitle, nextTitleRaw) {
-  const sourceTitle = normalizePoemTitle(currentTitle);
+function renamePoemTitleInline(poemKey, nextTitleRaw) {
+  const selectedPoemKey = String(poemKey ?? '').trim();
   const targetTitle = normalizePoemTitle(nextTitleRaw);
-  if (!sourceTitle || !targetTitle || sourceTitle === targetTitle) {
+  if (!selectedPoemKey || !targetTitle) {
     return false;
   }
 
   const selectedTitleBefore = String(savedPoemName?.value ?? '').trim();
   const selectedVersionBefore = String(savedPoemVersion?.value ?? '').trim();
   const visibleTitleBefore = normalizePoemTitle(poemTitle?.value ?? '');
-  const wasVisibleOnPage =
-    visibleTitleBefore === sourceTitle ||
-    state.currentAnalysisTitle === sourceTitle ||
-    selectedTitleBefore === sourceTitle ||
-    state.loadedVersionTitle === sourceTitle;
-
   const store = loadPoemMemoryStore();
-  const sourceVersions = Array.isArray(store.poems?.[sourceTitle]) ? store.poems[sourceTitle] : [];
+  const sourceVersions = Array.isArray(store.poems?.[selectedPoemKey]) ? store.poems[selectedPoemKey] : [];
   if (!sourceVersions.length) {
     return false;
   }
-
-  const existingTarget = Array.isArray(store.poems?.[targetTitle]) ? store.poems[targetTitle] : [];
-  store.poems[targetTitle] = [...existingTarget, ...sourceVersions];
-  ensureVersionMetadata(store.poems[targetTitle]);
-  delete store.poems[sourceTitle];
+  const sourceTitle = getStoredPoemTitle(selectedPoemKey, sourceVersions);
+  const wasVisibleOnPage =
+    visibleTitleBefore === sourceTitle ||
+    state.currentAnalysisTitle === sourceTitle ||
+    selectedTitleBefore === selectedPoemKey ||
+    state.loadedVersionTitle === selectedPoemKey;
+  if (sourceTitle === targetTitle) return true;
+  setStoredPoemTitle(sourceVersions, targetTitle);
 
   if (!savePoemMemoryStore(store)) {
     showToast('No se pudo renombrar el poema.', 'error');
     return false;
-  }
-
-  if (state.loadedVersionTitle === sourceTitle) {
-    state.loadedVersionTitle = targetTitle;
   }
 
   if (state.currentAnalysisTitle === sourceTitle) {
@@ -3748,40 +3801,20 @@ function renamePoemTitleInline(currentTitle, nextTitleRaw) {
   renameRhymeColorStoreKey(sourceTitle, targetTitle);
 
   const previousLastWorked = loadLastWorkedPoemReference();
-  if (previousLastWorked && previousLastWorked.title === sourceTitle) {
-    saveLastWorkedPoemReference(targetTitle, previousLastWorked.versionId);
+  if (previousLastWorked && previousLastWorked.title === selectedPoemKey) {
+    saveLastWorkedPoemReference(selectedPoemKey, previousLastWorked.versionId);
   }
 
-  const sourceVersionIds = new Set(sourceVersions.map((entry) => String(entry?.id ?? '')).filter(Boolean));
-  if (sourceVersionIds.size) {
-    const remapped = new Set();
-    for (const key of selectedVersionIds) {
-      const parts = String(key ?? '').split('::');
-      if (parts.length !== 2) {
-        remapped.add(key);
-        continue;
-      }
-
-      const [keyTitle, keyVersionId] = parts;
-      if (keyTitle === sourceTitle && sourceVersionIds.has(keyVersionId)) {
-        remapped.add(makeVersionSelectionKey(targetTitle, keyVersionId));
-      } else {
-        remapped.add(key);
-      }
-    }
-    selectedVersionIds = remapped;
-  }
-
-  const preferredTitle = selectedTitleBefore === sourceTitle
-    ? targetTitle
-    : (selectedTitleBefore || targetTitle);
-  const preferredVersionId = selectedTitleBefore === sourceTitle
+  const preferredPoemKey = selectedTitleBefore === selectedPoemKey
+    ? selectedPoemKey
+    : (selectedTitleBefore || selectedPoemKey);
+  const preferredVersionId = selectedTitleBefore === selectedPoemKey
     ? selectedVersionBefore
     : String(savedPoemVersion?.value ?? selectedVersionBefore);
 
-  refreshSavedPoemNameOptions(preferredTitle);
-  if (preferredTitle) {
-    refreshSavedPoemVersionOptions(preferredTitle, preferredVersionId);
+  refreshSavedPoemNameOptions(preferredPoemKey);
+  if (preferredPoemKey) {
+    refreshSavedPoemVersionOptions(preferredPoemKey, preferredVersionId);
   }
 
   if (wasVisibleOnPage) {
@@ -3792,7 +3825,7 @@ function renamePoemTitleInline(currentTitle, nextTitleRaw) {
     applyPoemScreenTheme(targetTitle);
   }
 
-  renderSavedVersionList(preferredTitle, preferredVersionId);
+  renderSavedVersionList(preferredPoemKey, preferredVersionId);
   syncQuickVersionLabelInput();
   updateVersionManagerStatus();
   return true;
@@ -3807,18 +3840,19 @@ function deleteSelectedPoemVersions() {
   const store = loadPoemMemoryStore();
   const deleteSet = new Set(checkedIds);
   const targetsByTitle = new Map();
+  const titlesByPoemKey = new Map(getPoemEntries(store).map(({ poemKey, title }) => [poemKey, title]));
 
-  for (const [title, versions] of Object.entries(store.poems ?? {})) {
+  for (const { poemKey, versions } of getPoemEntries(store)) {
     if (!Array.isArray(versions) || !versions.length) {
       continue;
     }
 
     const targetIds = versions
-      .filter((entry) => deleteSet.has(makeVersionSelectionKey(title, String(entry.id ?? ''))))
+      .filter((entry) => deleteSet.has(makeVersionSelectionKey(poemKey, String(entry.id ?? ''))))
       .map((entry) => String(entry.id ?? ''));
 
     if (targetIds.length) {
-      targetsByTitle.set(title, new Set(targetIds));
+      targetsByTitle.set(poemKey, new Set(targetIds));
     }
   }
 
@@ -3833,8 +3867,8 @@ function deleteSelectedPoemVersions() {
     return;
   }
 
-  for (const [title, versions] of Object.entries(store.poems ?? {})) {
-    const targets = targetsByTitle.get(title);
+  for (const { poemKey, title, versions } of getPoemEntries(store)) {
+    const targets = targetsByTitle.get(poemKey);
     if (!targets?.size) {
       continue;
     }
@@ -3844,9 +3878,9 @@ function deleteSelectedPoemVersions() {
 
     const remaining = versions.filter((entry) => !targets.has(String(entry.id ?? '')));
     if (remaining.length) {
-      store.poems[title] = remaining;
+      store.poems[poemKey] = remaining;
     } else {
-      delete store.poems[title];
+      delete store.poems[poemKey];
     }
   }
 
@@ -3855,8 +3889,10 @@ function deleteSelectedPoemVersions() {
     return;
   }
 
-  for (const [title, targets] of targetsByTitle) {
-    dispatchPoemDeleted(title, [...targets], !store.poems[title]);
+  for (const [poemKey, targets] of targetsByTitle) {
+    const versions = store.poems[poemKey];
+    const title = titlesByPoemKey.get(poemKey) || getStoredPoemTitle(poemKey, versions);
+    dispatchPoemDeleted(poemKey, title, [...targets], !versions);
   }
 
   const fallbackTitle = savedPoemName?.value ?? '';
@@ -3906,12 +3942,13 @@ function deleteSelectedPoemVersion() {
     return;
   }
 
-  const shouldDelete = window.confirm(`¿Eliminar la versión guardada de "${selectedTitle}" (${formatVersionTimestamp(target.savedAt)})?`);
+  const selectedDisplayTitle = getStoredPoemTitle(selectedTitle, versions);
+  const shouldDelete = window.confirm(`¿Eliminar la versión guardada de "${selectedDisplayTitle}" (${formatVersionTimestamp(target.savedAt)})?`);
   if (!shouldDelete) {
     return;
   }
 
-  movePoemToTrash(store, selectedTitle, [target]);
+  movePoemToTrash(store, getStoredPoemTitle(selectedTitle, versions), [target]);
 
   const remaining = versions.filter((entry) => String(entry.id ?? '') !== selectedVersionId);
   if (remaining.length) {
@@ -3925,7 +3962,12 @@ function deleteSelectedPoemVersion() {
     return;
   }
 
-  dispatchPoemDeleted(selectedTitle, [selectedVersionId], !remaining.length);
+  dispatchPoemDeleted(
+    selectedTitle,
+    getStoredPoemTitle(selectedTitle, versions),
+    [selectedVersionId],
+    !remaining.length,
+  );
 
   if (state.loadedVersionTitle === selectedTitle && state.loadedVersionId === selectedVersionId) {
     state.loadedVersionTitle = '';
@@ -3948,15 +3990,16 @@ function deleteSelectedPoemEntry() {
     return;
   }
 
-  const shouldDelete = window.confirm(`¿Eliminar todo el historial del poema "${selectedTitle}"?`);
+  const store = loadPoemMemoryStore();
+  const versions = Array.isArray(store.poems?.[selectedTitle]) ? store.poems[selectedTitle] : [];
+  const selectedDisplayTitle = getStoredPoemTitle(selectedTitle, versions);
+  const shouldDelete = window.confirm(`¿Eliminar todo el historial del poema "${selectedDisplayTitle}"?`);
   if (!shouldDelete) {
     return;
   }
 
-  const store = loadPoemMemoryStore();
-  const versions = Array.isArray(store.poems?.[selectedTitle]) ? store.poems[selectedTitle] : [];
   if (versions.length) {
-    movePoemToTrash(store, selectedTitle, versions);
+    movePoemToTrash(store, getStoredPoemTitle(selectedTitle, versions), versions);
   }
   delete store.poems[selectedTitle];
 
@@ -3965,7 +4008,12 @@ function deleteSelectedPoemEntry() {
     return;
   }
 
-  dispatchPoemDeleted(selectedTitle, versions.map((entry) => String(entry.id ?? '')), true);
+  dispatchPoemDeleted(
+    selectedTitle,
+    getStoredPoemTitle(selectedTitle, versions),
+    versions.map((entry) => String(entry.id ?? '')),
+    true,
+  );
 
   if (state.loadedVersionTitle === selectedTitle) {
     state.loadedVersionTitle = '';
@@ -4020,15 +4068,14 @@ function importPoemsFromMarkdown(markdown) {
   }
 
   const store = loadPoemMemoryStore();
+  const importedPoemKeys = [];
   for (const entry of parsed) {
-    if (!Array.isArray(store.poems[entry.title])) {
-      store.poems[entry.title] = [];
-    }
+    const poemKey = createLocalPoemKey();
+    importedPoemKeys.push(poemKey);
+    store.poems[poemKey] = [];
+    const nextVersionNumber = 1;
 
-    ensureVersionMetadata(store.poems[entry.title]);
-    const nextVersionNumber = getNextVersionNumber(store.poems[entry.title]);
-
-    store.poems[entry.title].push({
+    store.poems[poemKey].push({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       savedAt: new Date().toISOString(),
       poemText: entry.text,
@@ -4044,7 +4091,8 @@ function importPoemsFromMarkdown(markdown) {
       lineOverrides: {},
       kind: 'manual',
       label: '',
-      versionNumber: nextVersionNumber
+      versionNumber: nextVersionNumber,
+      poemTitle: entry.title
     });
   }
 
@@ -4054,7 +4102,7 @@ function importPoemsFromMarkdown(markdown) {
   }
 
   const first = parsed[0];
-  refreshSavedPoemNameOptions(first.title);
+  refreshSavedPoemNameOptions(importedPoemKeys[0] ?? '');
   if (poemTitle) {
     poemTitle.value = first.title;
   }
@@ -6402,14 +6450,15 @@ savedVersionsList?.addEventListener('click', (event) => {
   }
 
   const action = String(actionButton.dataset.action ?? '');
-  const title = String(actionButton.dataset.title ?? savedPoemName?.value ?? '');
+  const poemKey = String(actionButton.dataset.title ?? savedPoemName?.value ?? '');
   const versionId = String(actionButton.dataset.versionId ?? '');
-  if (!title) {
+  if (!poemKey) {
     return;
   }
 
   const store = loadPoemMemoryStore();
-  const versions = Array.isArray(store.poems?.[title]) ? store.poems[title] : [];
+  const versions = Array.isArray(store.poems?.[poemKey]) ? store.poems[poemKey] : [];
+  const title = getStoredPoemTitle(poemKey, versions);
   const version = versions.find((entry) => String(entry.id ?? '') === versionId);
 
   if (action === 'load-poem') {
@@ -6417,8 +6466,8 @@ savedVersionsList?.addEventListener('click', (event) => {
     if (!newest) {
       return;
     }
-    loadVersionById(title, String(newest.id ?? ''));
-    renderSavedVersionList(title, String(newest.id ?? ''));
+    loadVersionById(poemKey, String(newest.id ?? ''));
+    renderSavedVersionList(poemKey, String(newest.id ?? ''));
     closeVersionManagerModal();
     return;
   }
@@ -6449,13 +6498,19 @@ savedVersionsList?.addEventListener('click', (event) => {
     if (versions.length) {
       movePoemToTrash(store, title, versions);
     }
-    delete store.poems[title];
+    delete store.poems[poemKey];
     if (!savePoemMemoryStore(store)) {
       showToast('No se pudo borrar el poema.', 'error');
       return;
     }
     refreshSavedPoemNameOptions('');
     renderSavedVersionList(savedPoemName?.value ?? '', savedPoemVersion?.value ?? '');
+    dispatchPoemDeleted(
+      poemKey,
+      title,
+      versions.map((entry) => String(entry.id ?? '')),
+      true,
+    );
     showToast('Poema borrado.', 'success');
     return;
   }
@@ -6475,7 +6530,7 @@ savedVersionsList?.addEventListener('click', (event) => {
       showDefaultAction: true,
       onAccept: (colorHex) => {
         setPoemCustomColor(title, colorHex);
-        renderSavedVersionList(savedPoemName?.value ?? title, savedPoemVersion?.value ?? '');
+        renderSavedVersionList(savedPoemName?.value ?? poemKey, savedPoemVersion?.value ?? '');
         if (normalizePoemTitle(title) === normalizePoemTitle(state.currentAnalysisTitle)) {
           applyPoemScreenTheme(title);
         }
@@ -6483,7 +6538,7 @@ savedVersionsList?.addEventListener('click', (event) => {
       },
       onDefault: () => {
         removePoemCustomColor(title);
-        renderSavedVersionList(savedPoemName?.value ?? title, savedPoemVersion?.value ?? '');
+        renderSavedVersionList(savedPoemName?.value ?? poemKey, savedPoemVersion?.value ?? '');
         if (normalizePoemTitle(title) === normalizePoemTitle(state.currentAnalysisTitle)) {
           applyPoemScreenTheme(title);
         }
@@ -6498,7 +6553,7 @@ savedVersionsList?.addEventListener('click', (event) => {
   }
 
   if (action === 'load-version') {
-    const loaded = loadVersionById(title, versionId);
+    const loaded = loadVersionById(poemKey, versionId);
     if (loaded) {
       closeVersionManagerModal();
     } else {
@@ -6519,7 +6574,7 @@ savedVersionsList?.addEventListener('click', (event) => {
 
   if (action === 'delete-version') {
     if (savedPoemName) {
-      savedPoemName.value = title;
+      savedPoemName.value = poemKey;
     }
     if (savedPoemVersion) {
       savedPoemVersion.value = versionId;

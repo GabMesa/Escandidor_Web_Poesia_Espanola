@@ -4,6 +4,7 @@ import {
   safeJson,
   verifyPassword,
   createSession,
+  countOtherSessions,
   setSessionCookie,
   publicUser,
   isSecureRequest,
@@ -36,7 +37,8 @@ export async function onRequestPost(context) {
   if (!valid) return errorResponse('Credenciales invalidas.', 401);
 
   const token = await createSession(env, user.id);
+  const otherSessions = await countOtherSessions(env, user.id, token);
   const headers = new Headers();
   setSessionCookie(headers, token, secure);
-  return jsonResponse({ ok: true, user: publicUser(user) }, { headers });
+  return jsonResponse({ ok: true, user: publicUser(user), otherSessions }, { headers });
 }

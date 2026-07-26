@@ -99,7 +99,7 @@ test('replaces account data from the server and restores anonymous data on logou
       }] });
     }
     if (path === '/api/trash' && !options.method) {
-      return jsonResponse({ ok: true, trash: [] });
+      return jsonResponse({ ok: true, trash: [], deletedPoemIds: [] });
     }
     if (path === '/api/poems/88?version=2' && options.method === 'DELETE') {
       return jsonResponse({ ok: true });
@@ -112,16 +112,22 @@ test('replaces account data from the server and restores anonymous data on logou
   await sync.loadFromServer();
 
   const active = JSON.parse(storage.getItem('escandador.poemMemory.v1'));
-  assert.deepEqual(Object.keys(active.poems), ['Servidor']);
-  assert.equal(active.poems.Servidor.length, 2);
-  assert.equal(active.poems.Servidor[1].id, 'cloud-88-2');
+  assert.deepEqual(Object.keys(active.poems), ['server:88']);
+  assert.equal(active.poems['server:88'].length, 2);
+  assert.equal(active.poems['server:88'][1].id, 'cloud-88-2');
+  assert.equal(active.poems['server:88'][1].poemTitle, 'Servidor');
   assert.equal(calls.filter((call) => call.method !== 'GET').length, 0);
 
-  await sync.deleteSavedVersions({ title: 'Servidor', versionIds: ['cloud-88-2'] });
+  await sync.deleteSavedVersions({
+    poemKey: 'server:88', title: 'Servidor', versionIds: ['cloud-88-2'],
+  });
   assert.equal(calls.at(-1).path, '/api/poems/88?version=2');
 
   sync.setUser(null);
-  assert.deepEqual(JSON.parse(storage.getItem('escandador.poemMemory.v1')), anonymousMemory);
+  assert.deepEqual(JSON.parse(storage.getItem('escandador.poemMemory.v1')), {
+    schemaVersion: 2,
+    ...anonymousMemory,
+  });
 });
 
 test('empties the database trash for an authenticated user', async () => {
@@ -140,6 +146,62 @@ test('empties the database trash for an authenticated user', async () => {
   assert.deepEqual(calls, [{ path: '/api/trash', method: 'DELETE' }]);
 });
 
+test('records a whole-poem deletion by cloud ID even without a local mapping', async () => {
+  const calls = [];
+  const sync = createCloudSync({
+    storage: new MemoryStorage(),
+    request: async (path, options = {}) => {
+      calls.push({
+        path,
+        method: options.method || 'GET',
+        body: options.body ? JSON.parse(options.body) : null,
+      });
+      return jsonResponse({ ok: true });
+    },
+  });
+  sync.setUser({ id: 4 });
+
+  await sync.deleteSavedVersions({
+    title: 'Poema borrado', versionIds: ['cloud-73-2'], wholePoem: true,
+  });
+
+  assert.deepEqual(calls, [{
+    path: '/api/trash',
+    method: 'POST',
+    body: { poemId: 73, title: 'Poema borrado' },
+  }]);
+});
+
+test('deletes a stale local poem when the server trash marks its cloud ID', async () => {
+  const stale = version('cloud-73-1', 1, 'Copia antigua');
+  stale.poemTitle = 'Poema borrado';
+  const storage = new MemoryStorage({
+    'escandador.poemMemory.user.9.v1': JSON.stringify({
+      schemaVersion: 2,
+      poems: { 'server:73': [stale] },
+      trash: {},
+    }),
+    'escandador.cloudPoemMap.v1:9': JSON.stringify({
+      'server:73': { poemId: 73, versions: {} },
+    }),
+  });
+  const request = async (path) => {
+    if (path === '/api/poems') return jsonResponse({ ok: true, poems: [] });
+    if (path === '/api/trash') {
+      return jsonResponse({ ok: true, trash: [], deletedPoemIds: [73] });
+    }
+    throw new Error(`Solicitud inesperada: ${path}`);
+  };
+  const sync = createCloudSync({ request, storage });
+  sync.setUser({ id: 9 });
+
+  await sync.loadFromServer();
+
+  const memory = JSON.parse(storage.getItem('escandador.poemMemory.v1'));
+  assert.deepEqual(memory.poems, {});
+  assert.deepEqual(memory.trash, {});
+});
+
 test('keeps autosaves local instead of creating backend version spam', async () => {
   let requests = 0;
   const sync = createCloudSync({
@@ -154,4 +216,78 @@ test('keeps autosaves local instead of creating backend version spam', async () 
   });
 
   assert.equal(requests, 0);
+});
+
+test('keeps same-title server poems separate by stable poem ID', async () => {
+  const request = async (path) => {
+    if (path === '/api/poems') return jsonResponse({ ok: true, poems: [
+      {
+        id: 11, title: 'Igual', settings: {}, versions: [
+          { version: 1, versionName: 'uno', content: 'Primero', createdAt: '2026-01-01T00:00:00Z' },
+        ],
+      },
+      {
+        id: 12, title: 'Igual', settings: {}, versions: [
+          { version: 1, versionName: 'uno', content: 'Segundo', createdAt: '2026-01-02T00:00:00Z' },
+        ],
+      },
+    ] });
+    if (path === '/api/trash') return jsonResponse({ ok: true, trash: [], deletedPoemIds: [] });
+    throw new Error(`Solicitud inesperada: ${path}`);
+  };
+  const storage = new MemoryStorage();
+  const sync = createCloudSync({ request, storage });
+  sync.setUser({ id: 6 });
+
+  await sync.loadFromServer();
+
+  const memory = JSON.parse(storage.getItem('escandador.poemMemory.v1'));
+  assert.deepEqual(Object.keys(memory.poems).sort(), ['server:11', 'server:12']);
+  assert.equal(memory.poems['server:11'][0].poemText, 'Primero');
+  assert.equal(memory.poems['server:12'][0].poemText, 'Segundo');
+});
+
+test('reconciles a local-only poem as a named server version', async () => {
+  const local = version('local-1', 1, 'Texto local', { rhymeMode: 'consonante' });
+  local.poemTitle = 'Inédito';
+  const storage = new MemoryStorage({
+    'escandador.poemMemory.user.7.v1': JSON.stringify({
+      schemaVersion: 2, poems: { 'local:abc': [local] }, trash: {},
+    }),
+  });
+  const calls = [];
+  const request = async (path, options = {}) => {
+    calls.push({ path, method: options.method || 'GET', body: options.body ? JSON.parse(options.body) : null });
+    if (path === '/api/poems' && !options.method) return jsonResponse({ ok: true, poems: [] });
+    if (path === '/api/trash') return jsonResponse({ ok: true, trash: [], deletedPoemIds: [] });
+    if (path === '/api/poems' && options.method === 'POST') {
+      return jsonResponse({ ok: true, poem: { id: 90, version: 1 } }, 201);
+    }
+    throw new Error(`Solicitud inesperada: ${options.method || 'GET'} ${path}`);
+  };
+  const sync = createCloudSync({ request, storage });
+  sync.setUser({ id: 7 });
+
+  await sync.loadFromServer();
+
+  const upload = calls.find((call) => call.method === 'POST');
+  assert.equal(upload.body.versionName, 'Inédito_version_1');
+  assert.equal(upload.body.content, 'Texto local');
+});
+
+test('keeps failed saves in a persistent outbox until retry succeeds', async () => {
+  let shouldFail = true;
+  const storage = new MemoryStorage();
+  const request = async () => shouldFail
+    ? jsonResponse({ error: 'Sin conexión' }, 503)
+    : jsonResponse({ ok: true, poem: { id: 55, version: 1 } }, 201);
+  const sync = createCloudSync({ request, storage });
+  sync.setUser({ id: 8 });
+
+  await sync.syncSavedVersion({ poemKey: 'local:retry', title: 'Pendiente', version: version('v1', 1, 'Texto') });
+  assert.equal(sync.pendingCount(), 1);
+
+  shouldFail = false;
+  await sync.retryPending();
+  assert.equal(sync.pendingCount(), 0);
 });

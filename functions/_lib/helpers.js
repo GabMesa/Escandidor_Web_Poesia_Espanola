@@ -187,6 +187,7 @@ export function serializePoem(row) {
   return {
     id: row.id,
     title: row.title,
+    version: row.version,
     versionName: row.version_name,
     content: row.content,
     settings,

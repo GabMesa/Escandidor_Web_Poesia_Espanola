@@ -28,6 +28,7 @@ export function createCloudSync({
   request = fetch,
   storage = localStorage,
   onStatus = () => {},
+  onTrash = () => {},
 } = {}) {
   let user = null;
   let queue = Promise.resolve();
@@ -76,7 +77,8 @@ export function createCloudSync({
     const versionId = String(version.id ?? '');
     const payload = buildPayload(title, version);
     const signature = JSON.stringify(payload);
-    if (versionId && record.versions[versionId] === signature) return;
+    const mappedVersion = record.versions[versionId];
+    if (versionId && (mappedVersion?.signature || mappedVersion) === signature) return;
 
     let result;
     if (record.poemId) {
@@ -93,7 +95,12 @@ export function createCloudSync({
       result = await api('/api/poems', { method: 'POST', body: JSON.stringify(payload) });
       record.poemId = result.poem.id;
     }
-    if (versionId) record.versions[versionId] = signature;
+    if (versionId) {
+      record.versions[versionId] = {
+        signature,
+        cloudVersion: Number(result?.poem?.version) || null,
+      };
+    }
     map[title] = record;
     saveMap(map);
   }
@@ -120,10 +127,48 @@ export function createCloudSync({
       return enqueue(() => syncOne(detail));
     },
 
+    deleteSavedVersions({ title, versionIds = [], wholePoem = false }) {
+      if (!user || !title) return Promise.resolve();
+      return enqueue(async () => {
+        const map = loadMap();
+        const record = map[title];
+        if (!record?.poemId) return;
+
+        if (wholePoem) {
+          await api(`/api/poems/${record.poemId}`, { method: 'DELETE' });
+          delete map[title];
+          saveMap(map);
+          return;
+        }
+
+        for (const versionId of versionIds) {
+          const mapped = record.versions?.[versionId];
+          const cloudVersion = Number(mapped?.cloudVersion);
+          let legacyPayload = null;
+          if (!cloudVersion && typeof mapped === 'string') {
+            try { legacyPayload = JSON.parse(mapped); } catch {}
+          }
+          if (!cloudVersion && !legacyPayload) continue;
+          await api(`/api/poems/${record.poemId}${cloudVersion ? `?version=${cloudVersion}` : ''}`, {
+            method: 'DELETE',
+            body: legacyPayload ? JSON.stringify({
+              versionName: legacyPayload.versionName,
+              content: legacyPayload.content,
+            }) : undefined,
+          });
+          delete record.versions[versionId];
+        }
+        if (!Object.keys(record.versions || {}).length) delete map[title];
+        saveMap(map);
+      });
+    },
+
     syncLibrary() {
       if (!user) return Promise.resolve();
       return enqueue(async () => {
         const remote = await api('/api/poems');
+        const remoteTrash = await api('/api/trash');
+        onTrash(remoteTrash.trash || []);
         const map = loadMap();
         for (const poem of remote.poems || []) {
           if (!map[poem.title]) map[poem.title] = { poemId: poem.id, versions: {} };
@@ -143,6 +188,11 @@ export function createCloudSync({
           }
         }
       });
+    },
+
+    emptyTrash() {
+      if (!user) return Promise.resolve();
+      return enqueue(() => api('/api/trash', { method: 'DELETE' }));
     },
 
     whenIdle() {

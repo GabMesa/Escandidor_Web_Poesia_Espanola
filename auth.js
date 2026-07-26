@@ -25,6 +25,11 @@ const cloudSync = createCloudSync({
     cloudSaveStatus.classList.toggle('is-syncing', status === 'syncing');
     cloudSaveStatus.classList.toggle('is-error', status === 'error');
   },
+  onTrash(trash) {
+    window.dispatchEvent(new CustomEvent('escandidor:trash-synced', {
+      detail: { trash },
+    }));
+  },
 });
 
 async function apiRequest(path, options = {}) {
@@ -110,6 +115,14 @@ document.getElementById('logoutAccount').addEventListener('click', async () => {
 
 window.addEventListener('escandidor:poem-saved', (event) => {
   cloudSync.syncSavedVersion(event.detail);
+});
+
+window.addEventListener('escandidor:poem-deleted', (event) => {
+  cloudSync.deleteSavedVersions(event.detail);
+});
+
+window.addEventListener('escandidor:trash-emptied', () => {
+  cloudSync.emptyTrash();
 });
 
 apiRequest('/api/auth/me')

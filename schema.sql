@@ -43,6 +43,15 @@ CREATE TABLE poem_versions (
   FOREIGN KEY (poem_id) REFERENCES poems(id) ON DELETE CASCADE
 );
 
+CREATE TABLE deleted_poems (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  versions_json TEXT NOT NULL DEFAULT '[]',
+  deleted_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE services (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   description TEXT NOT NULL
@@ -74,6 +83,7 @@ CREATE INDEX idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
 CREATE INDEX idx_poems_user_updated ON poems(user_id, updated_at DESC);
 CREATE INDEX idx_poem_versions_poem_version ON poem_versions(poem_id, version DESC);
+CREATE INDEX idx_deleted_poems_user_deleted ON deleted_poems(user_id, deleted_at DESC, id DESC);
 CREATE INDEX idx_payments_user_id ON payments(user_id);
 CREATE INDEX idx_payments_service_id ON payments(service_id);
 

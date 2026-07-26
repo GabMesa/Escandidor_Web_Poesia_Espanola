@@ -6,6 +6,28 @@ import {
   serializePoem,
 } from '../../_lib/helpers.js';
 
+async function archiveDeletedVersions(env, userId, poem, versions) {
+  await env.escandidor_db
+    .prepare('INSERT INTO deleted_poems (user_id, title, versions_json) VALUES (?, ?, ?)')
+    .bind(userId, poem.name, JSON.stringify(versions.map((row) => ({
+      version: row.version,
+      versionName: row.name,
+      content: row.content,
+      createdAt: row.created_at,
+      settings: JSON.parse(poem.configurations || '{}'),
+      colorIndex: poem.color_index,
+    }))))
+    .run();
+  await env.escandidor_db
+    .prepare(
+      `DELETE FROM deleted_poems WHERE user_id = ? AND id NOT IN (
+         SELECT id FROM deleted_poems WHERE user_id = ? ORDER BY deleted_at DESC, id DESC LIMIT 10
+       )`
+    )
+    .bind(userId, userId)
+    .run();
+}
+
 export async function onRequestPut(context) {
   const { request, env, params } = context;
   const { user, error } = await requireUser(request, env);
@@ -58,6 +80,68 @@ export async function onRequestDelete(context) {
   const { user, error } = await requireUser(request, env);
   if (error) return error;
   const poemId = params.id;
+
+  let version = Number(new URL(request.url).searchParams.get('version'));
+  if (!Number.isInteger(version) || version <= 0) {
+    const body = await safeJson(request);
+    const versionName = String(body.versionName ?? '').trim();
+    const content = String(body.content ?? '');
+    if (versionName) {
+      const matched = await env.escandidor_db
+        .prepare(
+          `SELECT pv.version FROM poem_versions pv
+           JOIN poems p ON p.id = pv.poem_id
+           WHERE pv.poem_id = ? AND p.user_id = ? AND pv.name = ? AND pv.content = ?
+           ORDER BY pv.version DESC LIMIT 1`
+        )
+        .bind(poemId, user.id, versionName, content)
+        .first();
+      version = Number(matched?.version);
+    }
+  }
+  if (Number.isInteger(version) && version > 0) {
+    const ownedPoem = await env.escandidor_db
+      .prepare('SELECT * FROM poems WHERE id = ? AND user_id = ?')
+      .bind(poemId, user.id)
+      .first();
+    if (!ownedPoem) return errorResponse('Poema no encontrado.', 404);
+
+    const deletedVersion = await env.escandidor_db
+      .prepare('SELECT * FROM poem_versions WHERE poem_id = ? AND version = ?')
+      .bind(poemId, version)
+      .first();
+    if (!deletedVersion) return errorResponse('Versión no encontrada.', 404);
+    await archiveDeletedVersions(env, user.id, ownedPoem, [deletedVersion]);
+
+    const result = await env.escandidor_db
+      .prepare('DELETE FROM poem_versions WHERE poem_id = ? AND version = ?')
+      .bind(poemId, version)
+      .run();
+    if (!result.meta || result.meta.changes === 0) {
+      return errorResponse('Versión no encontrada.', 404);
+    }
+
+    const latest = await env.escandidor_db
+      .prepare('SELECT * FROM current_poems WHERE id = ? AND user_id = ?')
+      .bind(poemId, user.id)
+      .first();
+    if (!latest) {
+      await env.escandidor_db.prepare('DELETE FROM poems WHERE id = ? AND user_id = ?')
+        .bind(poemId, user.id).run();
+    }
+    return jsonResponse({ ok: true, poem: serializePoem(latest) });
+  }
+
+  const poem = await env.escandidor_db
+    .prepare('SELECT * FROM poems WHERE id = ? AND user_id = ?')
+    .bind(poemId, user.id)
+    .first();
+  if (!poem) return errorResponse('Poema no encontrado.', 404);
+  const { results: versions } = await env.escandidor_db
+    .prepare('SELECT * FROM poem_versions WHERE poem_id = ? ORDER BY version ASC')
+    .bind(poemId)
+    .all();
+  await archiveDeletedVersions(env, user.id, poem, versions);
 
   const result = await env.escandidor_db
     .prepare('DELETE FROM poems WHERE id = ? AND user_id = ?')

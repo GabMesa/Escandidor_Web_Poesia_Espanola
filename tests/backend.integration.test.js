@@ -143,6 +143,32 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     });
     assert.equal(forbiddenUpdate.response.status, 404);
 
+    const forbiddenDelete = await jsonRequest(baseUrl, `/api/poems/${poemId}?version=2`, {
+      method: 'DELETE', cookie: secondCookie,
+    });
+    assert.equal(forbiddenDelete.response.status, 404);
+    const deletedVersion = await jsonRequest(baseUrl, `/api/poems/${poemId}?version=2`, {
+      method: 'DELETE', cookie: firstCookie,
+    });
+    assert.equal(deletedVersion.response.status, 200);
+    assert.equal(deletedVersion.payload.poem.versionName, 'final');
+    assert.equal(deletedVersion.payload.poem.content, 'Texto definitivo');
+
+    const trash = await jsonRequest(baseUrl, '/api/trash', { cookie: firstCookie });
+    assert.equal(trash.response.status, 200);
+    assert.equal(trash.payload.trash.length, 1);
+    assert.equal(trash.payload.trash[0].title, 'Soneto de prueba');
+    assert.equal(trash.payload.trash[0].versions[0].versionName, 'revision');
+    const otherUserTrash = await jsonRequest(baseUrl, '/api/trash', { cookie: secondCookie });
+    assert.deepEqual(otherUserTrash.payload.trash, []);
+
+    const emptiedTrash = await jsonRequest(baseUrl, '/api/trash', {
+      method: 'DELETE', cookie: firstCookie,
+    });
+    assert.equal(emptiedTrash.response.status, 200);
+    const emptyTrash = await jsonRequest(baseUrl, '/api/trash', { cookie: firstCookie });
+    assert.deepEqual(emptyTrash.payload.trash, []);
+
     const stats = await jsonRequest(baseUrl, '/api/admin/stats', { cookie: firstCookie });
     assert.deepEqual(stats.payload.stats, { userCount: 2, poemCount: 2, adminCount: 1 });
     const adminUsers = await jsonRequest(baseUrl, '/api/admin/users', { cookie: firstCookie });
@@ -174,9 +200,9 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     const rows = result[0].results;
     assert.equal(rows.length, 2);
     assert.equal(rows[0].name, 'Soneto de prueba');
-    assert.equal(rows[0].version_count, 3);
+    assert.equal(rows[0].version_count, 2);
     assert.match(rows[0].versions, /borrador:Primer texto/);
-    assert.match(rows[0].versions, /revision:Segundo texto/);
+    assert.doesNotMatch(rows[0].versions, /revision:Segundo texto/);
     assert.match(rows[0].versions, /final:Texto definitivo/);
     assert.deepEqual(JSON.parse(rows[0].configurations), {
       rhymeMode: 'asonante', stressPattern: [2, 6, 10], nested: { sinalefa: false },

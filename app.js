@@ -52,6 +52,8 @@ const selectAllVersions = document.getElementById('selectAllVersions');
 const downloadSelectedMd = document.getElementById('downloadSelectedMd');
 const downloadSelectedPdf = document.getElementById('downloadSelectedPdf');
 const deletePoemEntry = document.getElementById('deletePoemEntry');
+const poemTrashList = document.getElementById('poemTrashList');
+const emptyPoemTrash = document.getElementById('emptyPoemTrash');
 const importPoemsMd = document.getElementById('importPoemsMd');
 const exportPoemsMd = document.getElementById('exportPoemsMd');
 const downloadPoemPdf = document.getElementById('downloadPoemPdf');
@@ -101,8 +103,7 @@ const COLOR_PICKER_PALETTE = [
   '#8a5a44', '#6b7280', '#2f8f8a', '#1f2933'
 ];
 const AUTO_SAVE_DELAY_MS = 1200;
-const TRASH_RETENTION_DAYS = 10;
-const TRASH_RETENTION_MS = TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+const TRASH_LIMIT = 10;
 const LOOKUP_AUTO_FETCH_DELAY_MS = 420;
 const LOOKUP_WIKTIONARY_BASE_URL = 'https://es.wiktionary.org/wiki/';
 const LOOKUP_WIKTIONARY_API_BASE_URL = 'https://es.wiktionary.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&origin=*&titles=';
@@ -2303,7 +2304,6 @@ function loadPoemMemoryStore() {
 
     const poems = parsed.poems && typeof parsed.poems === 'object' ? parsed.poems : {};
     const trash = parsed.trash && typeof parsed.trash === 'object' ? parsed.trash : {};
-    const now = Date.now();
     let changed = false;
 
     for (const [title, entries] of Object.entries(trash)) {
@@ -2313,13 +2313,7 @@ function loadPoemMemoryStore() {
         continue;
       }
 
-      const validEntries = entries.filter((entry) => {
-        const deletedAt = new Date(entry?.deletedAt ?? 0).getTime();
-        if (!Number.isFinite(deletedAt)) {
-          return false;
-        }
-        return now - deletedAt <= TRASH_RETENTION_MS;
-      });
+      const validEntries = entries.filter((entry) => Number.isFinite(new Date(entry?.deletedAt ?? 0).getTime()));
 
       if (validEntries.length !== entries.length) {
         changed = true;
@@ -2330,6 +2324,20 @@ function loadPoemMemoryStore() {
       } else {
         trash[title] = validEntries;
       }
+    }
+
+    const newestTrashEntries = Object.entries(trash)
+      .flatMap(([title, entries]) => entries.map((entry) => ({ title, entry })))
+      .sort((left, right) => new Date(right.entry.deletedAt) - new Date(left.entry.deletedAt))
+      .slice(0, TRASH_LIMIT);
+    const trimmedTrash = {};
+    for (const { title, entry } of newestTrashEntries) {
+      (trimmedTrash[title] ||= []).push(entry);
+    }
+    if (newestTrashEntries.length !== Object.values(trash).reduce((total, entries) => total + entries.length, 0)) {
+      changed = true;
+      for (const title of Object.keys(trash)) delete trash[title];
+      Object.assign(trash, trimmedTrash);
     }
 
     if (changed) {
@@ -2474,8 +2482,48 @@ function movePoemToTrash(store, title, versionsToTrash = null) {
     versions: versions.map((entry) => ({ ...entry }))
   });
 
+  const entries = Object.entries(store.trash)
+    .flatMap(([trashTitle, groups]) => groups.map((group) => ({ trashTitle, group })))
+    .sort((left, right) => new Date(right.group.deletedAt) - new Date(left.group.deletedAt))
+    .slice(0, TRASH_LIMIT);
+  store.trash = {};
+  for (const { trashTitle, group } of entries) {
+    (store.trash[trashTitle] ||= []).push(group);
+  }
+
   return true;
 }
+
+function renderPoemTrash() {
+  if (!poemTrashList) return;
+  const entries = Object.entries(loadPoemMemoryStore().trash)
+    .flatMap(([title, groups]) => groups.map((group) => ({ title, ...group })))
+    .sort((left, right) => new Date(right.deletedAt) - new Date(left.deletedAt));
+  poemTrashList.innerHTML = entries.length
+    ? entries.map((entry) => `<div class="trash-item"><span>${escapeHtml(entry.title)} (${entry.versions.length})</span><time>${escapeHtml(formatVersionTimestamp(entry.deletedAt))}</time></div>`).join('')
+    : '<div class="saved-version-meta">La papelera está vacía.</div>';
+  if (emptyPoemTrash) emptyPoemTrash.disabled = entries.length === 0;
+}
+
+function dispatchPoemDeleted(title, versionIds, wholePoem = false) {
+  window.dispatchEvent(new CustomEvent('escandidor:poem-deleted', {
+    detail: { title, versionIds, wholePoem }
+  }));
+}
+
+window.addEventListener('escandidor:trash-synced', (event) => {
+  const store = loadPoemMemoryStore();
+  store.trash = {};
+  for (const entry of event.detail?.trash ?? []) {
+    const title = normalizePoemTitle(entry.title ?? 'poema');
+    (store.trash[title] ||= []).push({
+      deletedAt: entry.deletedAt,
+      versions: Array.isArray(entry.versions) ? entry.versions : []
+    });
+  }
+  savePoemMemoryStore(store);
+  renderPoemTrash();
+});
 
 function loadVersionById(title, versionId) {
   const selectedTitle = normalizePoemTitle(title);
@@ -2811,6 +2859,7 @@ function renderSavedVersionList(title, preferredVersionId = '') {
   );
 
   const store = loadPoemMemoryStore();
+  renderPoemTrash();
   const searchQuery = normalizeSearchText(versionSearchInput?.value ?? '');
   const titles = Object.keys(store.poems ?? {}).sort((a, b) => a.localeCompare(b, 'es'));
   let totalVersions = 0;
@@ -3796,6 +3845,10 @@ function deleteSelectedPoemVersions() {
     return;
   }
 
+  for (const [title, targets] of targetsByTitle) {
+    dispatchPoemDeleted(title, [...targets], !store.poems[title]);
+  }
+
   const fallbackTitle = savedPoemName?.value ?? '';
   refreshSavedPoemNameOptions(fallbackTitle);
 
@@ -3862,6 +3915,8 @@ function deleteSelectedPoemVersion() {
     return;
   }
 
+  dispatchPoemDeleted(selectedTitle, [selectedVersionId], !remaining.length);
+
   if (state.loadedVersionTitle === selectedTitle && state.loadedVersionId === selectedVersionId) {
     state.loadedVersionTitle = '';
     state.loadedVersionId = '';
@@ -3899,6 +3954,8 @@ function deleteSelectedPoemEntry() {
   if (!ok) {
     return;
   }
+
+  dispatchPoemDeleted(selectedTitle, versions.map((entry) => String(entry.id ?? '')), true);
 
   if (state.loadedVersionTitle === selectedTitle) {
     state.loadedVersionTitle = '';
@@ -6239,6 +6296,14 @@ editPoemNameInput?.addEventListener('keydown', (event) => {
 });
 deletePoemVersion?.addEventListener('click', deleteSelectedPoemVersion);
 deleteSelectedVersions?.addEventListener('click', deleteSelectedPoemVersions);
+emptyPoemTrash?.addEventListener('click', () => {
+  const store = loadPoemMemoryStore();
+  store.trash = {};
+  if (savePoemMemoryStore(store)) {
+    renderPoemTrash();
+    window.dispatchEvent(new CustomEvent('escandidor:trash-emptied'));
+  }
+});
 downloadSelectedMd?.addEventListener('click', downloadSelectedVersionsAsMarkdown);
 downloadSelectedPdf?.addEventListener('click', downloadSelectedVersionsAsPdf);
 selectAllVersions?.addEventListener('click', () => {

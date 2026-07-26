@@ -2910,3 +2910,30 @@ body.has-poem-theme .workspace {
 .lookup-collapsible-section[open] summary::before {
   content: "▼";
 }
+
+.trash-panel {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+}
+
+.trash-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.poem-trash-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.trash-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--muted-text);
+}

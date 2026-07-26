@@ -37,10 +37,10 @@ test('creates one cloud poem, appends versions, and preserves all settings', asy
     calls.push({ path, method: options.method || 'GET', body: options.body ? JSON.parse(options.body) : null });
     if (path === '/api/poems' && !options.method) return jsonResponse({ ok: true, poems: [] });
     if (path === '/api/poems' && options.method === 'POST') {
-      return jsonResponse({ ok: true, poem: { id: 41 } }, 201);
+      return jsonResponse({ ok: true, poem: { id: 41, version: 1 } }, 201);
     }
     if (path === '/api/poems/41' && options.method === 'PUT') {
-      return jsonResponse({ ok: true, poem: { id: 41 } });
+      return jsonResponse({ ok: true, poem: { id: 41, version: 2 } });
     }
     throw new Error(`Solicitud inesperada: ${options.method || 'GET'} ${path}`);
   };
@@ -69,6 +69,13 @@ test('creates one cloud poem, appends versions, and preserves all settings', asy
   });
   assert.equal(writes[1].body.content, 'Segundo texto');
   assert.equal(writes[1].body.versionName, 'v2');
+
+  await sync.deleteSavedVersions({ title: 'Mi poema', versionIds: ['local-v2'] });
+  await sync.deleteSavedVersions({ title: 'Mi poema', wholePoem: true });
+  assert.deepEqual(calls.slice(-2).map(({ method, path }) => `${method} ${path}`), [
+    'DELETE /api/poems/41?version=2',
+    'DELETE /api/poems/41',
+  ]);
 });
 
 test('uploads a pre-login local library in chronological order and reuses remote IDs', async () => {
@@ -86,6 +93,9 @@ test('uploads a pre-login local library in chronological order and reuses remote
     if (path === '/api/poems' && !options.method) {
       return jsonResponse({ ok: true, poems: [{ id: 88, title: 'Existente' }] });
     }
+    if (path === '/api/trash' && !options.method) {
+      return jsonResponse({ ok: true, trash: [] });
+    }
     if (path === '/api/poems/88' && options.method === 'PUT') {
       return jsonResponse({ ok: true, poem: { id: 88 } });
     }
@@ -100,6 +110,22 @@ test('uploads a pre-login local library in chronological order and reuses remote
   assert.equal(writes.length, 2);
   assert.deepEqual(writes.map((call) => call.body.content), ['Anterior', 'Actual']);
   assert.ok(writes.every((call) => call.path === '/api/poems/88'));
+});
+
+test('empties the database trash for an authenticated user', async () => {
+  const calls = [];
+  const sync = createCloudSync({
+    storage: new MemoryStorage(),
+    request: async (path, options = {}) => {
+      calls.push({ path, method: options.method || 'GET' });
+      return jsonResponse({ ok: true });
+    },
+  });
+  sync.setUser({ id: 3 });
+
+  await sync.emptyTrash();
+
+  assert.deepEqual(calls, [{ path: '/api/trash', method: 'DELETE' }]);
 });
 
 test('keeps autosaves local instead of creating backend version spam', async () => {

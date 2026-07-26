@@ -31,6 +31,60 @@ async function uniqueUsername(env, preferred) {
   return `poeta-${randomToken(6)}`;
 }
 
+export async function resolveDiscordUser(env, profile) {
+  const email = profile.email.trim().toLowerCase();
+  let user = await env.escandidor_db
+    .prepare('SELECT * FROM users WHERE discord_id = ?')
+    .bind(profile.id)
+    .first();
+  if (user) return user;
+
+  user = await env.escandidor_db
+    .prepare('SELECT * FROM users WHERE email = ?')
+    .bind(email)
+    .first();
+  if (user) {
+    if (user.discord_id && user.discord_id !== profile.id) {
+      throw new Error('Este correo ya esta vinculado a otra cuenta de Discord.');
+    }
+    const linked = await env.escandidor_db
+      .prepare(
+        `UPDATE users SET discord_id = ?, updated_at = datetime('now')
+         WHERE id = ? AND discord_id IS NULL RETURNING *`
+      )
+      .bind(profile.id, user.id)
+      .first();
+    if (linked) return linked;
+
+    const concurrentLink = await env.escandidor_db
+      .prepare('SELECT * FROM users WHERE discord_id = ?')
+      .bind(profile.id)
+      .first();
+    if (concurrentLink) return concurrentLink;
+    throw new Error('No se pudo vincular la cuenta de Discord.');
+  }
+
+  const username = await uniqueUsername(env, profile.global_name || profile.username || 'poeta');
+  const count = await env.escandidor_db.prepare('SELECT COUNT(*) AS count FROM users').first();
+  const role = count && count.count === 0 ? 'admin' : 'user';
+  try {
+    return await env.escandidor_db
+      .prepare(
+        `INSERT INTO users (username, email, discord_id, role)
+         VALUES (?, ?, ?, ?) RETURNING *`
+      )
+      .bind(username, email, profile.id, role)
+      .first();
+  } catch (error) {
+    const concurrentUser = await env.escandidor_db
+      .prepare('SELECT * FROM users WHERE discord_id = ?')
+      .bind(profile.id)
+      .first();
+    if (concurrentUser) return concurrentUser;
+    throw error;
+  }
+}
+
 export async function onRequestGet({ request, env }) {
   const secure = isSecureRequest(request);
   const headers = new Headers();
@@ -69,31 +123,9 @@ export async function onRequestGet({ request, env }) {
       throw new Error('Discord debe proporcionar un correo verificado.');
     }
 
-    const email = profile.email.trim().toLowerCase();
-    let user = await env.escandidor_db
-      .prepare('SELECT * FROM users WHERE discord_id = ? OR email = ?')
-      .bind(profile.id, email)
-      .first();
+    const user = await resolveDiscordUser(env, profile);
 
     if (user && user.status === 'disabled') throw new Error('Esta cuenta esta deshabilitada.');
-    if (user && !user.discord_id) {
-      user = await env.escandidor_db
-        .prepare('UPDATE users SET discord_id = ?, updated_at = datetime(\'now\') WHERE id = ? RETURNING *')
-        .bind(profile.id, user.id)
-        .first();
-    }
-    if (!user) {
-      const username = await uniqueUsername(env, profile.global_name || profile.username || 'poeta');
-      const count = await env.escandidor_db.prepare('SELECT COUNT(*) AS count FROM users').first();
-      const role = count && count.count === 0 ? 'admin' : 'user';
-      user = await env.escandidor_db
-        .prepare(
-          `INSERT INTO users (username, email, discord_id, role)
-           VALUES (?, ?, ?, ?) RETURNING *`
-        )
-        .bind(username, email, profile.id, role)
-        .first();
-    }
 
     const sessionToken = await createSession(env, user.id);
     setSessionCookie(headers, sessionToken, secure);

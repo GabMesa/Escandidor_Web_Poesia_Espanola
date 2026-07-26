@@ -275,6 +275,174 @@ test('reconciles a local-only poem as a named server version', async () => {
   assert.equal(upload.body.content, 'Texto local');
 });
 
+test('imports an anonymous poem once and remembers its cloud mapping after reload', async () => {
+  const anonymousVersion = version('anon-1', 1, 'Texto anónimo');
+  anonymousVersion.poemTitle = 'Desde navegador';
+  const anonymousMemory = {
+    schemaVersion: 2,
+    poems: { 'local:anonymous-1': [anonymousVersion] },
+    trash: {},
+  };
+  const storage = new MemoryStorage({
+    'escandador.poemMemory.v1': JSON.stringify(anonymousMemory),
+    'escandador.poemMemory.anonymous.v1': JSON.stringify(anonymousMemory),
+    'escandador.poemMemory.activeOwner.v1': 'anonymous',
+  });
+  const calls = [];
+  let remotePoem = null;
+  const request = async (path, options = {}) => {
+    calls.push({ path, method: options.method || 'GET', body: options.body ? JSON.parse(options.body) : null });
+    if (path === '/api/poems' && !options.method) {
+      return jsonResponse({ ok: true, poems: remotePoem ? [remotePoem] : [] });
+    }
+    if (path === '/api/trash') return jsonResponse({ ok: true, trash: [], deletedPoemIds: [] });
+    if (path === '/api/poems' && options.method === 'POST') {
+      const body = JSON.parse(options.body);
+      remotePoem = {
+        id: 91,
+        title: body.title,
+        settings: body.settings,
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        versions: [{
+          version: 1,
+          versionName: body.versionName,
+          content: body.content,
+          createdAt: '2026-01-01T00:00:00.000Z',
+        }],
+      };
+      return jsonResponse({ ok: true, poem: { id: 91, version: 1 } }, 201);
+    }
+    if (path === '/api/poems/91' && options.method === 'PUT') {
+      return jsonResponse({ ok: true, poem: { id: 91, version: 2 } });
+    }
+    throw new Error(`Solicitud inesperada: ${options.method || 'GET'} ${path}`);
+  };
+
+  let sync = createCloudSync({ request, storage });
+  sync.setUser({ id: 10 });
+  assert.equal(sync.getAnonymousPoemCount(), 1);
+  assert.equal(sync.importAnonymousPoems(), 1);
+  assert.equal(sync.getAnonymousPoemCount(), 0);
+
+  await sync.loadFromServer();
+  await sync.loadFromServer();
+  assert.equal(calls.filter((call) => call.method === 'POST').length, 1);
+
+  sync = createCloudSync({ request, storage });
+  sync.setUser({ id: 10 });
+  assert.equal(sync.getAnonymousPoemCount(), 0);
+  assert.equal(sync.importAnonymousPoems(), 0);
+
+  const changedAnonymousMemory = structuredClone(anonymousMemory);
+  const changedVersion = version('anon-2', 2, 'Texto anónimo revisado');
+  changedVersion.poemTitle = 'Desde navegador';
+  changedAnonymousMemory.poems['local:anonymous-1'].push(changedVersion);
+  storage.setItem('escandador.poemMemory.anonymous.v1', JSON.stringify(changedAnonymousMemory));
+  assert.equal(sync.getAnonymousPoemCount(), 1);
+  assert.equal(sync.importAnonymousPoems(), 1);
+
+  const accountMemory = JSON.parse(storage.getItem('escandador.poemMemory.user.10.v1'));
+  assert.deepEqual(Object.keys(accountMemory.poems), ['local:anonymous-1']);
+  assert.equal(accountMemory.poems['local:anonymous-1'].length, 2);
+});
+
+test('persists each imported poem mapping before a later upload fails', async () => {
+  const first = version('first-1', 1, 'Primer poema');
+  first.poemTitle = 'Primero';
+  const second = version('second-1', 1, 'Segundo poema');
+  second.poemTitle = 'Segundo';
+  const storage = new MemoryStorage({
+    'escandador.poemMemory.user.11.v1': JSON.stringify({
+      schemaVersion: 2,
+      poems: { 'local:first': [first], 'local:second': [second] },
+      trash: {},
+    }),
+  });
+  const postTitles = [];
+  let firstRemotePoem = null;
+  let failSecond = true;
+  const request = async (path, options = {}) => {
+    if (path === '/api/poems' && !options.method) {
+      return jsonResponse({ ok: true, poems: firstRemotePoem ? [firstRemotePoem] : [] });
+    }
+    if (path === '/api/trash') return jsonResponse({ ok: true, trash: [], deletedPoemIds: [] });
+    if (path === '/api/poems' && options.method === 'POST') {
+      const body = JSON.parse(options.body);
+      postTitles.push(body.title);
+      if (body.title === 'Segundo' && failSecond) return jsonResponse({ error: 'Sin conexión' }, 503);
+      const poemId = body.title === 'Primero' ? 101 : 102;
+      if (body.title === 'Primero') {
+        firstRemotePoem = {
+          id: poemId,
+          title: body.title,
+          settings: body.settings,
+          versions: [{
+            version: 1,
+            versionName: body.versionName,
+            content: body.content,
+            createdAt: '2026-01-01T00:00:00.000Z',
+          }],
+        };
+      }
+      return jsonResponse({ ok: true, poem: { id: poemId, version: 1 } }, 201);
+    }
+    throw new Error(`Solicitud inesperada: ${options.method || 'GET'} ${path}`);
+  };
+  let sync = createCloudSync({ request, storage });
+  sync.setUser({ id: 11 });
+
+  await sync.loadFromServer();
+  const savedMap = JSON.parse(storage.getItem('escandador.cloudPoemMap.v1:11'));
+  assert.equal(savedMap['local:first'].poemId, 101);
+  assert.equal(savedMap['local:second'], undefined);
+
+  failSecond = false;
+  sync = createCloudSync({ request, storage });
+  sync.setUser({ id: 11 });
+  await sync.loadFromServer();
+
+  assert.equal(postTitles.filter((title) => title === 'Primero').length, 1);
+  assert.equal(postTitles.filter((title) => title === 'Segundo').length, 2);
+});
+
+test('discards anonymous poems without changing the signed-in account library', () => {
+  const anonymous = version('anonymous-1', 1, 'Solo local');
+  anonymous.poemTitle = 'Local';
+  const account = version('account-1', 1, 'En mi cuenta');
+  account.poemTitle = 'Cuenta';
+  const accountMemory = {
+    schemaVersion: 2,
+    poems: { 'local:account': [account] },
+    trash: {},
+  };
+  const storage = new MemoryStorage({
+    'escandador.poemMemory.v1': JSON.stringify(accountMemory),
+    'escandador.poemMemory.activeOwner.v1': '12',
+    'escandador.poemMemory.user.12.v1': JSON.stringify(accountMemory),
+    'escandador.poemMemory.anonymous.v1': JSON.stringify({
+      schemaVersion: 2,
+      poems: { 'local:anonymous': [anonymous] },
+      trash: { Local: [{ deletedAt: '2026-01-01T00:00:00.000Z', versions: [anonymous] }] },
+    }),
+    'escandador.anonymousImports.v1:12': JSON.stringify({
+      'local:anonymous': { targetKey: 'local:account', fingerprint: 'old' },
+    }),
+  });
+  const sync = createCloudSync({ storage });
+  sync.setUser({ id: 12 });
+
+  assert.equal(sync.discardAnonymousPoems(), 1);
+
+  const activeMemory = JSON.parse(storage.getItem('escandador.poemMemory.v1'));
+  const savedAccountMemory = JSON.parse(storage.getItem('escandador.poemMemory.user.12.v1'));
+  const anonymousMemory = JSON.parse(storage.getItem('escandador.poemMemory.anonymous.v1'));
+  assert.deepEqual(activeMemory, accountMemory);
+  assert.deepEqual(savedAccountMemory, accountMemory);
+  assert.deepEqual(anonymousMemory.poems, {});
+  assert.equal(anonymousMemory.trash.Local.length, 1);
+  assert.deepEqual(JSON.parse(storage.getItem('escandador.anonymousImports.v1:12')), {});
+});
+
 test('keeps failed saves in a persistent outbox until retry succeeds', async () => {
   let shouldFail = true;
   const storage = new MemoryStorage();

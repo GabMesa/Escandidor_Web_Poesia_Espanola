@@ -3,6 +3,7 @@ const ANONYMOUS_MEMORY_KEY = 'escandador.poemMemory.anonymous.v1';
 const ACTIVE_OWNER_KEY = 'escandador.poemMemory.activeOwner.v1';
 const CLOUD_MAP_PREFIX = 'escandador.cloudPoemMap.v1';
 const CLOUD_OUTBOX_PREFIX = 'escandador.cloudOutbox.v1';
+const ANONYMOUS_IMPORT_PREFIX = 'escandador.anonymousImports.v1';
 
 export function buildCloudSettings(version) {
   return {
@@ -65,6 +66,27 @@ export function createCloudSync({
 
   function outboxKey(userId = user?.id) {
     return `${CLOUD_OUTBOX_PREFIX}:${userId ?? 'anonymous'}`;
+  }
+
+  function anonymousImportKey(userId = user?.id) {
+    return `${ANONYMOUS_IMPORT_PREFIX}:${userId ?? 'anonymous'}`;
+  }
+
+  function loadAnonymousImports(userId = user?.id) {
+    try {
+      const imports = JSON.parse(storage.getItem(anonymousImportKey(userId)) || '{}');
+      return imports && typeof imports === 'object' ? imports : {};
+    } catch {
+      return {};
+    }
+  }
+
+  function anonymousPoemFingerprint(sourceKey, versions) {
+    const title = String(versions?.[0]?.poemTitle || sourceKey || 'Sin título');
+    return JSON.stringify({
+      title,
+      versions: versions.map((version) => versionSignature(title, version)),
+    });
   }
 
   function loadOutbox(userId = user?.id) {
@@ -377,6 +399,8 @@ export function createCloudSync({
               cloudVersion: Number(result.poem.version) || nextNumber,
             };
             knownSignatures.add(stateSignature);
+            map[poemKey] = record;
+            saveMap(map);
           }
           map[poemKey] = record;
         }
@@ -400,7 +424,13 @@ export function createCloudSync({
     },
 
     getAnonymousPoemCount() {
-      return Object.keys(readMemory(ANONYMOUS_MEMORY_KEY).poems || {}).length;
+      if (!user) return 0;
+      const imports = loadAnonymousImports(user.id);
+      return Object.entries(readMemory(ANONYMOUS_MEMORY_KEY).poems || {})
+        .filter(([sourceKey, versions]) => Array.isArray(versions)
+          && versions.length
+          && imports[sourceKey]?.fingerprint !== anonymousPoemFingerprint(sourceKey, versions))
+        .length;
     },
 
     importAnonymousPoems() {
@@ -412,22 +442,56 @@ export function createCloudSync({
       accountMemory.poems = accountMemory.poems && typeof accountMemory.poems === 'object'
         ? accountMemory.poems
         : {};
+      const importRecords = loadAnonymousImports(user.id);
       let imported = 0;
       for (const [sourceKey, versions] of Object.entries(anonymousMemory.poems || {})) {
         if (!Array.isArray(versions) || !versions.length) continue;
+        const fingerprint = anonymousPoemFingerprint(sourceKey, versions);
+        const previousImport = importRecords[sourceKey];
+        if (previousImport?.fingerprint === fingerprint) continue;
+
         const hasStableKey = /^(?:local|server):/.test(sourceKey);
-        let targetKey = hasStableKey ? sourceKey : `local:${crypto.randomUUID()}`;
-        while (accountMemory.poems[targetKey]) targetKey = `local:${crypto.randomUUID()}`;
+        let targetKey = String(previousImport?.targetKey || '');
+        if (!targetKey && hasStableKey) targetKey = sourceKey;
+        if (!targetKey) targetKey = `local:${crypto.randomUUID()}`;
         const fallbackTitle = hasStableKey ? 'Sin título' : sourceKey;
-        accountMemory.poems[targetKey] = versions.map((version) => ({
+        const sourceTitle = String(versions[0]?.poemTitle || fallbackTitle);
+        const existingVersions = Array.isArray(accountMemory.poems[targetKey])
+          ? accountMemory.poems[targetKey]
+          : [];
+        const targetTitle = String(existingVersions[0]?.poemTitle || sourceTitle);
+        const importedVersions = versions.map((version) => ({
           ...version,
-          poemTitle: String(version.poemTitle || fallbackTitle),
+          poemTitle: targetTitle,
         }));
+        accountMemory.poems[targetKey] = mergeUniqueVersions(
+          targetTitle,
+          existingVersions,
+          importedVersions,
+        );
+        importRecords[sourceKey] = { targetKey, fingerprint };
         imported += 1;
       }
       storage.setItem(userMemoryKey(user.id), JSON.stringify(accountMemory));
+      storage.setItem(anonymousImportKey(user.id), JSON.stringify(importRecords));
       activateMemory(accountMemory, String(user.id));
       return imported;
+    },
+
+    discardAnonymousPoems() {
+      if (!user) return 0;
+      preserveActiveMemory();
+      const anonymousMemory = readMemory(ANONYMOUS_MEMORY_KEY);
+      const discarded = Object.keys(anonymousMemory.poems || {}).length;
+      storage.setItem(ANONYMOUS_MEMORY_KEY, JSON.stringify({
+        schemaVersion: 2,
+        poems: {},
+        trash: anonymousMemory.trash && typeof anonymousMemory.trash === 'object'
+          ? anonymousMemory.trash
+          : {},
+      }));
+      storage.setItem(anonymousImportKey(user.id), '{}');
+      return discarded;
     },
 
     pendingCount() {

@@ -205,6 +205,17 @@ textarea {
   box-shadow: none;
 }
 
+.discard-local-action {
+  color: #9f2d24;
+  border-color: rgba(159, 45, 36, 0.35);
+  background: rgba(159, 45, 36, 0.06);
+}
+
+.discard-local-action:hover {
+  border-color: rgba(159, 45, 36, 0.58);
+  background: rgba(159, 45, 36, 0.11);
+}
+
 .auth-divider {
   display: flex;
   align-items: center;

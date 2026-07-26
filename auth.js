@@ -25,6 +25,7 @@ const localImportDialog = document.getElementById('localImportDialog');
 const localImportMessage = document.getElementById('localImportMessage');
 const importLocalPoems = document.getElementById('importLocalPoems');
 const keepLocalPoemsSeparate = document.getElementById('keepLocalPoemsSeparate');
+const discardLocalPoems = document.getElementById('discardLocalPoems');
 
 let authMode = 'login';
 let currentUser = null;
@@ -185,13 +186,31 @@ loadDataFromServer?.addEventListener('click', async () => {
 
 retryCloudSync.addEventListener('click', () => cloudSync.retryPending());
 
-importLocalPoems.addEventListener('click', () => {
+importLocalPoems.addEventListener('click', async () => {
+  importLocalPoems.disabled = true;
   const imported = cloudSync.importAnonymousPoems();
+  if (!imported) {
+    localImportDialog.close();
+    importLocalPoems.disabled = false;
+    return;
+  }
+  cloudSaveStatus.textContent = `Importando ${imported} poema${imported === 1 ? '' : 's'} local${imported === 1 ? '' : 'es'}…`;
   localImportDialog.close();
-  cloudSaveStatus.textContent = `${imported} poema${imported === 1 ? '' : 's'} local${imported === 1 ? '' : 'es'} importado${imported === 1 ? '' : 's'}`;
+  await cloudSync.loadFromServer();
+  importLocalPoems.disabled = false;
 });
 
 keepLocalPoemsSeparate.addEventListener('click', () => localImportDialog.close());
+
+discardLocalPoems.addEventListener('click', () => {
+  const confirmed = window.confirm(
+    '¿Descartar definitivamente los poemas locales de este navegador? Los poemas que ya están en tu cuenta no se borrarán.',
+  );
+  if (!confirmed) return;
+  const discarded = cloudSync.discardAnonymousPoems();
+  localImportDialog.close();
+  cloudSaveStatus.textContent = `${discarded} poema${discarded === 1 ? '' : 's'} local${discarded === 1 ? '' : 'es'} descartado${discarded === 1 ? '' : 's'}`;
+});
 
 sessionConflictDialog.addEventListener('cancel', (event) => event.preventDefault());
 

@@ -80,12 +80,21 @@ Functions + D1** que agrega:
   del mismo poema. Al iniciar sesion se cargan desde D1 todos los poemas con
   todas sus versiones, que pueden abrirse individualmente desde el gestor de
   archivos.
-- **Carga manual desde el servidor** mediante el boton `Cargar del servidor`.
-  Esta accion reemplaza los datos locales de la cuenta por el historial
-  completo guardado en D1. Los poemas creados de forma anonima se conservan
-  por separado y vuelven a mostrarse al cerrar sesion.
+- **Reconciliacion manual** mediante el boton `Comparar y sincronizar`.
+  Compara cada poema local con D1, descarga todo el historial remoto y sube
+  los estados locales diferentes como versiones nuevas, sin reemplazar una
+  biblioteca completa ni descartar informacion.
+- **Datos anonimos separados**: al iniciar sesion se ofrece importar los
+  poemas locales sin borrar sus copias anonimas; al cerrar sesion vuelve a
+  activarse la biblioteca anonima.
 - **Papelera sincronizada** con las 10 eliminaciones mas recientes de la
-  cuenta. El boton `Vaciar` elimina tambien esas entradas de D1.
+  cuenta. El boton `Vaciar` elimina el contenido recuperable de D1, pero
+  conserva marcas internas por ID para impedir que una sesion antigua vuelva
+  a subir poemas eliminados.
+- **Control de sesiones duplicadas**: una sesion nueva puede cerrar las otras
+  sesiones de la misma cuenta y obligarlas a autenticarse otra vez.
+- **Reintentos persistentes**: los guardados y borrados fallidos permanecen en
+  una cola por usuario hasta que se reintentan correctamente.
 - **Panel de administracion** (`/admin.html`) para ver/editar/borrar
   usuarios y poemas de todos los usuarios.
 
@@ -115,6 +124,7 @@ En una base de datos existente, aplica las migraciones pendientes en orden. Las
 migraciones `0004` y `0005` son pasos historicos; `0006` mueve sus marcas a
 `deleted_poems` y elimina la tabla temporal `poem_tombstones`:
 ```bash
+npx wrangler d1 execute escandidor-db --remote --file=./migrations/0003_deleted_poems.sql
 npx wrangler d1 execute escandidor-db --remote --file=./migrations/0004_poem_tombstones.sql
 npx wrangler d1 execute escandidor-db --remote --file=./migrations/0005_rekey_legacy_poem_tombstones.sql
 npx wrangler d1 execute escandidor-db --remote --file=./migrations/0006_consolidate_deleted_poems.sql
@@ -134,11 +144,14 @@ npx wrangler pages deploy .
 (o conecta el repositorio en el dashboard de Cloudflare Pages para
 despliegues automaticos en cada push).
 
-### 6. Primer usuario administrador
-El **primer usuario que se registre** en una base de datos vacia queda
-como `admin` automaticamente. Registra tu propia cuenta primero desde la
-app para quedar como administrador; desde ahi puedes promover o
-degradar a otras cuentas desde `/admin.html`.
+### 6. Administradores
+Todas las cuentas nuevas, incluida la primera de una base vacia, se crean con
+rol `user`. Un administrador existente puede promover usuarios desde
+`/admin.html`. Si la base aun no tiene administradores, el rol inicial debe
+asignarse explicitamente desde D1:
+```bash
+npx wrangler d1 execute escandidor-db --remote --command="UPDATE users SET role = 'admin' WHERE email = 'correo@example.com'"
+```
 
 ### 7. Acceso con Discord
 Configura en Discord Developer Portal este redirect de OAuth2:
@@ -165,14 +178,48 @@ npx wrangler pages secret put DISCORD_CLIENT_SECRET --project-name mesa-de-poesi
 | PUT | `/api/poems/:id` | Actualiza poema propio | usuario autenticado |
 | DELETE | `/api/poems/:id` | Borra poema propio | usuario autenticado |
 | DELETE | `/api/poems/:id?version=N` | Borra una version del poema | usuario autenticado |
-| GET | `/api/trash` | Lista las 10 eliminaciones mas recientes | usuario autenticado |
-| DELETE | `/api/trash` | Vacia la papelera de la cuenta | usuario autenticado |
+| GET | `/api/trash` | Lista hasta 10 eliminaciones y los IDs borrados | usuario autenticado |
+| POST | `/api/trash` | Registra el ID de un poema borrado por otra sesion | usuario autenticado |
+| DELETE | `/api/trash` | Vacia el contenido recuperable y conserva las marcas por ID | usuario autenticado |
 | GET | `/api/admin/stats` | Conteos generales | admin |
 | GET | `/api/admin/users` | Lista/busca usuarios | admin |
 | PATCH | `/api/admin/users/:id` | Cambia rol/estado | admin |
 | DELETE | `/api/admin/users/:id` | Borra usuario y sus poemas | admin |
 | GET | `/api/admin/poems` | Lista/busca poemas de todos | admin |
 | DELETE | `/api/admin/poems/:id` | Borra cualquier poema | admin |
+
+## Registro de decisiones de implementacion
+
+Ventana auditada: **2026-07-26, ultimas 2 horas de trabajo**. Este registro
+resume decisiones de comportamiento; no sustituye el historial de Git ni las
+migraciones SQL.
+
+Alcance principal de los cambios:
+- Frontend y almacenamiento local: `app.js`, `auth.js`, `cloud-sync.js`,
+  `index.html` y `styles.css`.
+- Autenticacion y sesiones: `functions/_lib/helpers.js`,
+  `functions/api/auth/login.js`, `functions/api/auth/me.js` y
+  `functions/api/auth/sessions/others.js`.
+- Poemas y papelera: `functions/api/poems/index.js`,
+  `functions/api/poems/[id].js` y `functions/api/trash/index.js`.
+- Datos: `schema.sql` y migraciones `0003` a `0006`.
+- Regresion: `tests/backend.integration.test.js` y
+  `tests/cloud-sync.test.js`.
+
+| Area | Decision | Motivo e impacto auditable |
+|---|---|---|
+| Roles | Toda cuenta nueva se crea como `user`; no existe promocion automatica del primer registro. | Evita conceder privilegios administrativos por orden de registro. La promocion inicial requiere una accion explicita en D1. |
+| Modelo de poemas | `poems` representa la identidad del poema y `poem_versions` conserva cada version en orden. `/api/poems` devuelve el historial completo, no solo `current_poems`. | Las versiones son estados consultables del mismo poema y deben poder abrirse individualmente. |
+| Identidad local | El almacenamiento local usa esquema v2 con claves inmutables `local:<uuid>` o `server:<id>`; `poemTitle` es metadato editable. | Permite titulos duplicados, renombrados y poemas nuevos con el mismo titulo que uno borrado. Los datos antiguos se migran automaticamente. |
+| Inicio y cierre de sesion | Cada cuenta y la sesion anonima mantienen memorias separadas. Los poemas anonimos se importan solo tras confirmacion y sin borrar el original. | Iniciar sesion no debe ocultar permanentemente, mezclar ni destruir trabajo local. |
+| Sesiones duplicadas | El backend cuenta las otras sesiones activas y permite revocarlas desde la sesion actual; las revocadas deben iniciar sesion otra vez. | Reduce escrituras concurrentes desde navegadores con estado desactualizado. |
+| Reconciliacion | `Comparar y sincronizar` fusiona por ID y firma de contenido/configuracion. Los estados locales unicos se suben como `{titulo}_version_{n}`; los remotos se conservan completos. | La ausencia de un poema en un lado no se interpreta como orden de borrado y ninguna diferencia se sobrescribe silenciosamente. |
+| Guardado | Solo los guardados manuales se sincronizan; los autosaves permanecen locales. Las operaciones fallidas quedan en un outbox persistente ligado al ID del usuario. | Evita ruido de versiones, perdida por fallos de red y ejecucion de trabajos pendientes bajo otra cuenta. |
+| Borrado | `deleted_poems` es la unica tabla para papelera y marcas de borrado. `poem_id` identifica un borrado completo; el titulo solo se muestra como contexto. | Una sesion antigua no puede resucitar un ID eliminado y un poema nuevo puede reutilizar el mismo titulo. Se elimino `poem_tombstones`. |
+| Papelera | Se muestran como maximo 10 grupos con contenido recuperable. Al vaciarla se borra ese contenido, pero se mantienen filas ID-only para bloquear cargas antiguas. | Se separa la experiencia de papelera de la proteccion de sincronizacion sin mantener dos tablas. |
+| Copias locales obsoletas | Si `/api/trash` marca un ID remoto como borrado, la reconciliacion elimina su copia local y su mapa de nube; no la vuelve a copiar en la papelera local. | La papelera del servidor ya contiene el archivo autorizado y no se duplica estado obsoleto del navegador. |
+| Migraciones D1 | `0003` creo `deleted_poems`; `0004` y `0005` fueron pasos historicos de tombstones; `0006` agrego `poem_id`, migro las marcas y elimino `poem_tombstones`. | `0006` se aplico y verifico en la D1 remota `escandidor-db`; ambas tablas estaban vacias antes de consolidarlas. |
+| Verificacion | Suite final: 22 pruebas aprobadas, 0 fallos. Se verificaron integracion D1, sesiones, versiones completas, IDs duplicados por titulo, importacion local idempotente e interrumpida, descarte local aislado, bloqueo de resurreccion, vaciado seguro y outbox. | Proporciona la linea base para auditar regresiones de este cambio. |
 
 ## Hosting
 Con el backend, el hosting recomendado es **Cloudflare Pages**

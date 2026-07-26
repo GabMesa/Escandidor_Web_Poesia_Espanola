@@ -98,10 +98,16 @@ function handleAuthState(payload) {
   const wasAnonymous = !currentUser;
   renderUser(payload.user);
   if (!payload.user) return;
+
   if (Number(payload.otherSessions) > 0) {
     showSessionConflict(payload.otherSessions);
   } else if (wasAnonymous) {
-    offerLocalImport();
+    const localCount = cloudSync.getAnonymousPoemCount();
+    if (localCount > 0) {
+      offerLocalImport();
+    } else {
+      cloudSync.loadFromServer();
+    }
   }
 }
 
@@ -200,9 +206,12 @@ importLocalPoems.addEventListener('click', async () => {
   importLocalPoems.disabled = false;
 });
 
-keepLocalPoemsSeparate.addEventListener('click', () => localImportDialog.close());
+keepLocalPoemsSeparate.addEventListener('click', async () => {
+  localImportDialog.close();
+  await cloudSync.loadFromServer();
+});
 
-discardLocalPoems.addEventListener('click', () => {
+discardLocalPoems.addEventListener('click', async () => {
   const confirmed = window.confirm(
     '¿Descartar definitivamente los poemas locales de este navegador? Los poemas que ya están en tu cuenta no se borrarán.',
   );
@@ -210,6 +219,7 @@ discardLocalPoems.addEventListener('click', () => {
   const discarded = cloudSync.discardAnonymousPoems();
   localImportDialog.close();
   cloudSaveStatus.textContent = `${discarded} poema${discarded === 1 ? '' : 's'} local${discarded === 1 ? '' : 'es'} descartado${discarded === 1 ? '' : 's'}`;
+  await cloudSync.loadFromServer();
 });
 
 sessionConflictDialog.addEventListener('cancel', (event) => event.preventDefault());
@@ -220,7 +230,13 @@ closeOtherSessions.addEventListener('click', async () => {
   try {
     await apiRequest('/api/auth/sessions/others', { method: 'DELETE' });
     sessionConflictDialog.close();
-    offerLocalImport();
+    
+    const localCount = cloudSync.getAnonymousPoemCount();
+    if (localCount > 0) {
+      offerLocalImport();
+    } else {
+      await cloudSync.loadFromServer();
+    }
   } catch (error) {
     sessionConflictStatus.textContent = error.message;
   } finally {

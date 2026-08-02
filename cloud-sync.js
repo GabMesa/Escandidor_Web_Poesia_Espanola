@@ -6,8 +6,10 @@ const CLOUD_OUTBOX_PREFIX = 'escandador.cloudOutbox.v1';
 const ANONYMOUS_IMPORT_PREFIX = 'escandador.anonymousImports.v1';
 
 export function buildCloudSettings(version) {
+  const settings = version?.settings && typeof version.settings === 'object' ? version.settings : {};
   return {
-    ...(version?.settings && typeof version.settings === 'object' ? version.settings : {}),
+    ...settings,
+    poemFont: String(settings.poemFont ?? 'atkinson'),
     sinalefaOverrides: version?.sinalefaOverrides ?? {},
     lineOverrides: version?.lineOverrides ?? {},
   };
@@ -19,11 +21,13 @@ function versionLabel(version) {
 }
 
 function buildPayload(title, version) {
+  const settings = buildCloudSettings(version);
   return {
     title,
     versionName: versionLabel(version),
     content: String(version?.poemText ?? ''),
-    settings: buildCloudSettings(version),
+    settings,
+    fontFamily: String(settings.poemFont ?? 'atkinson'),
     colorIndex: null,
   };
 }
@@ -163,6 +167,7 @@ export function createCloudSync({
 
   function localVersion(poem, version) {
     const settings = poem.settings && typeof poem.settings === 'object' ? { ...poem.settings } : {};
+    settings.poemFont = poem.fontFamily ?? settings.poemFont ?? 'atkinson';
     const sinalefaOverrides = settings.sinalefaOverrides || {};
     const lineOverrides = settings.lineOverrides || {};
     delete settings.sinalefaOverrides;

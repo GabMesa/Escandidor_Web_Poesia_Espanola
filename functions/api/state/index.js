@@ -20,7 +20,7 @@ export async function onRequestGet({ request, env }) {
 
   const [{ results: poemRows }, { results: trashRows }, { results: deletionRows }] = await Promise.all([
     env.escandidor_db.prepare(
-      `SELECT p.id, p.name AS title, p.configurations AS settings_json, p.color_index,
+      `SELECT p.id, p.name AS title, p.configurations AS settings_json, p.font_family, p.color_index,
               p.created_at, p.updated_at, pv.name AS version_name, pv.content,
               pv.version, pv.created_at AS version_created_at
        FROM poems p JOIN poem_versions pv ON pv.poem_id = p.id

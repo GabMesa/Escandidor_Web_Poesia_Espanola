@@ -4,6 +4,7 @@ import {
   safeJson,
   requireUser,
   serializePoem,
+  normalizeFontFamily,
 } from '../../_lib/helpers.js';
 
 async function archiveDeletedVersions(env, userId, poem, versions, poemId = null) {
@@ -66,16 +67,20 @@ export async function onRequestPut(context) {
   const versionName =
     body.versionName !== undefined ? String(body.versionName).trim().slice(0, 60) : existing.version_name;
   const content = body.content !== undefined ? String(body.content) : existing.content;
-  const settings =
-    body.settings !== undefined ? JSON.stringify(body.settings) : existing.settings_json;
+  const settingsObject = body.settings !== undefined
+    ? body.settings
+    : JSON.parse(existing.settings_json || '{}');
+  const fontFamily = normalizeFontFamily(body.fontFamily ?? settingsObject.poemFont ?? existing.font_family);
+  settingsObject.poemFont = fontFamily;
+  const settings = JSON.stringify(settingsObject);
   const colorIndex = body.colorIndex !== undefined ? body.colorIndex : existing.color_index;
 
   await env.escandidor_db
     .prepare(
-      `UPDATE poems SET name = ?, configurations = ?, color_index = ?, updated_at = datetime('now')
+      `UPDATE poems SET name = ?, configurations = ?, font_family = ?, color_index = ?, updated_at = datetime('now')
        WHERE id = ? AND user_id = ?`
     )
-    .bind(title, settings, colorIndex, poemId, user.id)
+    .bind(title, settings, fontFamily, colorIndex, poemId, user.id)
     .run();
 
   if (body.versionName !== undefined || body.content !== undefined) {

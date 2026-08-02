@@ -1,7 +1,9 @@
 export const applicationState = {
   schemaVersion: 1,
   editor: {
-    stressPattern: [],
+    poeticForm: 'custom',
+    syllablePattern: '',
+    stressPatterns: {},
     hemistichEnabled: false,
     hemistichPositions: [],
     rhymeMode: 'asonante',
@@ -11,6 +13,7 @@ export const applicationState = {
     analysisMode: 'visual',
     panelViewMode: 'both',
     fontScale: 100,
+    poemFont: 'atkinson',
     sinalefaEnabled: true,
     conservativeSinalefa: true,
     loadedVersionId: '',

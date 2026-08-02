@@ -8,13 +8,20 @@ export async function onRequestGet(context) {
   const url = new URL(request.url);
   const search = (url.searchParams.get('q') || '').trim();
 
-  let query = 'SELECT * FROM users';
+  let query = `SELECT u.*,
+    CASE WHEN EXISTS (
+      SELECT 1 FROM supporters s WHERE s.user_id = u.id AND s.status IN ('supporter', 'active')
+    ) THEN 1 ELSE 0 END AS is_paying,
+    (SELECT s.personalized_message FROM supporters s
+      WHERE s.user_id = u.id AND s.status IN ('supporter', 'active')
+      ORDER BY s.updated_at DESC LIMIT 1) AS supporter_message
+    FROM users u`;
   const binds = [];
   if (search) {
-    query += ' WHERE username LIKE ? OR email LIKE ?';
+    query += ' WHERE u.username LIKE ? OR u.email LIKE ?';
     binds.push(`%${search}%`, `%${search}%`);
   }
-  query += ' ORDER BY created_at DESC';
+  query += ' ORDER BY u.created_at DESC';
 
   const { results } = await env.escandidor_db
     .prepare(query)
@@ -28,6 +35,12 @@ export async function onRequestGet(context) {
 
   return jsonResponse({
     ok: true,
-    users: results.map((row) => ({ ...publicUser(row), poemCount: countMap.get(row.id) || 0 })),
+    users: results.map((row) => ({
+      ...publicUser(row),
+      poemCount: countMap.get(row.id) || 0,
+      discordConnected: Boolean(row.discord_id),
+      paying: Boolean(row.is_paying),
+      personalizedMessage: row.supporter_message || '',
+    })),
   });
 }

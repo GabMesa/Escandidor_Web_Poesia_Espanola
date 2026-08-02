@@ -29,6 +29,6 @@ The existing `/api/poems` and `/api/trash` routes remain compatibility and featu
 - Identity: `users`, `sessions`, and future external identities.
 - Creative state: `poems`, `poem_versions`, and `deleted_poems`.
 - Catalog and authorization: `services`, `features`, `service_features`, and future user entitlements.
-- Billing ledger: future customers, subscriptions, and payments. Provider events grant or revoke entitlements; payment rows must not be queried directly to authorize features.
+- Billing ledger: supporters unify one-time donors and memberships across providers, while payments remain immutable events. Provider events grant or revoke entitlements; payment rows must not be queried directly to authorize features.
 
-Before payments are added, give services and features stable unique keys, add prices/subscriptions separately from the catalog, and add dated user entitlements. This preserves the service-feature model while allowing free, paid, promotional, and administrator-granted access to use the same authorization check.
+Before payments are added, give services and features stable unique keys, add prices/supporters separately from the catalog, and add dated user entitlements. This preserves the service-feature model while allowing free, paid, promotional, and administrator-granted access to use the same authorization check.

@@ -1,0 +1,1 @@
+ALTER TABLE supporters ADD COLUMN display_name TEXT;

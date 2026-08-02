@@ -1,3 +1,29 @@
+## Contador de apoyos de Ko-fi
+
+Ko-fi no ofrece una API de lectura para consultar el total de supporters. Su API envía un webhook por cada pago, por lo que Escandidor registra esos eventos en D1 y cuenta correos únicos mediante un hash SHA-256. No se guarda el correo ni se expone el token al navegador.
+
+1. Aplica la migración remota:
+
+  ```powershell
+  npx wrangler d1 execute escandidor-db --remote --file=./migrations/0009_unify_supporters.sql
+  npx wrangler d1 execute escandidor-db --remote --file=./migrations/0010_supporter_management.sql
+  npx wrangler d1 execute escandidor-db --remote --file=./migrations/0011_auto_link_supporters.sql
+  ```
+
+2. En Cloudflare Pages, abre `Settings > Variables and Secrets` y crea el secreto `KOFI_VERIFICATION_TOKEN` con el token mostrado en la configuración de webhooks de Ko-fi.
+3. Si ya hubo donantes antes de activar el webhook, crea opcionalmente `KOFI_HISTORICAL_SUPPORTER_COUNT` con la cantidad de donantes únicos históricos. No incluyas en ese número los que lleguen después por webhook.
+4. Despliega el proyecto y configura en [Ko-fi Webhooks](https://ko-fi.com/manage/webhooks) esta URL:
+
+  ```text
+  https://TU-DOMINIO/api/webhooks/kofi
+  ```
+
+5. Envía un pago de prueba desde Ko-fi. El endpoint debe responder `200`; después `/api/supporters` mostrará el total.
+
+Los reintentos de Ko-fi no duplican pagos ni supporters. Ko-fi no envía eventos cuando termina una membresía, así que este contador representa personas que han apoyado alguna vez, no membresías actualmente activas.
+
+Cuando el correo del pago coincide con el correo verificado de una cuenta de Escandidor, el supporter se vincula automáticamente. Esto también ocurre de forma retroactiva al iniciar sesión con Discord. El nombre público de Ko-fi se muestra en administración como ayuda, pero nunca se usa para vincular cuentas porque no es un identificador único.
+
 # Escandador basico de poesia en espanol
 
 Aplicacion estatica (HTML + CSS + JS) para analizar versos en espanol.

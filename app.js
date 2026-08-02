@@ -9,11 +9,21 @@ import {
   extractRhymeData
 } from './analyzer.js';
 import { applicationState, replaceLibraryState } from './application-state.js';
+import {
+  POETIC_FORM_PRESETS,
+  getExpectedSyllableCounts,
+  getRhymeSchemeArtRequirement,
+  matchesRhymeSchemeArt,
+  matchesSyllablePattern,
+  parseSyllablePattern
+} from './poetic-forms.js';
 
 const poemInput = document.getElementById('poemInput');
 const analysisOutput = document.getElementById('analysisOutput');
-const stressPreset = document.getElementById('stressPreset');
-const stressCustom = document.getElementById('stressCustom');
+const stressPatternFields = document.getElementById('stressPatternFields');
+const poeticForm = document.getElementById('poeticForm');
+const syllablePattern = document.getElementById('syllablePattern');
+const poeticFormHint = document.getElementById('poeticFormHint');
 const hemistichSplit = document.getElementById('hemistichSplit');
 const rhymeMode = document.getElementById('rhymeMode');
 const rhymeScheme = document.getElementById('rhymeScheme');
@@ -66,6 +76,8 @@ const fontScaleControl = document.getElementById('fontScaleControl');
 const fontScaleValue = document.getElementById('fontScaleValue');
 const fontSizeDown = document.getElementById('fontSizeDown');
 const fontSizeUp = document.getElementById('fontSizeUp');
+const defaultPoemFont = document.getElementById('defaultPoemFont');
+const poemFontSelectors = [...document.querySelectorAll('.poem-font-selector:not(#defaultPoemFont)')];
 const panelViewMode = document.getElementById('panelViewMode');
 const wordLookupBar = document.getElementById('wordLookupBar');
 const selectedLookupWord = document.getElementById('selectedLookupWord');
@@ -96,6 +108,7 @@ const LOCAL_UI_PREFERENCES_KEY = 'escandador.uiPreferences.v1';
 const LOCAL_POEM_COLORS_KEY = 'escandador.poemColors.v1';
 const LOCAL_RHYME_COLORS_KEY = 'escandador.rhymeColors.v1';
 const LOCAL_DEFAULT_POEM_COLOR_KEY = 'escandador.defaultPoemColor.v1';
+const LOCAL_DEFAULT_POEM_FONT_KEY = 'escandador.defaultPoemFont.v1';
 const LOCAL_LAST_WORKED_POEM_KEY = 'escandador.lastWorkedPoem.v1';
 const POEM_COLOR_COUNT = 6;
 const COLOR_PICKER_PALETTE = [
@@ -110,13 +123,14 @@ const LOOKUP_AUTO_FETCH_DELAY_MS = 420;
 const LOOKUP_WIKTIONARY_BASE_URL = 'https://es.wiktionary.org/wiki/';
 const LOOKUP_WIKTIONARY_API_BASE_URL = 'https://es.wiktionary.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&origin=*&titles=';
 const OPEN_SYNONYMS_SOURCE_URL = 'https://cdn.jsdelivr.net/gh/edublancas/sinonimos@master/sinonimos.json';
-const OPEN_FREQUENCY_LIST_SOURCE_URL = 'https://gist.githubusercontent.com/epidemian/ebb3025e8cb25f6f4e3a/raw/aaac303d8b21eb38a65c38eaaae5fd51660f7500/es.txt';
-const OPEN_RHYME_WORDLIST_SOURCE_URL = 'https://cdn.jsdelivr.net/gh/xavier-hernandez/spanish-wordlist@main/text/spanish_words.txt';
+const WORDFREQ_SOURCE_URL = 'https://raw.githubusercontent.com/rspeer/wordfreq/master/wordfreq/data/large_es.msgpack.gz';
 
 const state = applicationState.editor;
 
 const LOOKUP_RHYME_PAGE_SIZE = 24;
 const LOOKUP_WORD_TYPE_CACHE_KEY = 'escandador.lookupWordTypeCache.v1';
+const WORDFREQ_WORDS_CACHE_KEY = 'escandador.wordfreqWords.v1';
+const WORDFREQ_QUERY_CACHE_KEY = 'escandador.wordfreqQueries.v1';
 const LOOKUP_WORD_TYPE_BATCH_CONCURRENCY = 4;
 const LOOKUP_WORD_TYPE_SCAN_BATCH_SIZE = 24;
 
@@ -155,6 +169,77 @@ let openFrequencyIndex = null;
 let openFrequencyIndexPromise = null;
 let openRhymeLexicon = null;
 let openRhymeLexiconPromise = null;
+let wordfreqWordsPromise = null;
+let openWordResourcesPromise = null;
+let wordCorpusLoadingMessage = '';
+let wordfreqWorker = null;
+let wordfreqWorkerRequestId = 0;
+const wordfreqWorkerRequests = new Map();
+const wordfreqQueryPromises = new Map();
+
+function loadWordfreqQueryCache() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(WORDFREQ_QUERY_CACHE_KEY) ?? '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+const wordfreqQueryCache = loadWordfreqQueryCache();
+
+function saveWordfreqQueryCache() {
+  try {
+    localStorage.setItem(WORDFREQ_QUERY_CACHE_KEY, JSON.stringify(wordfreqQueryCache));
+  } catch {
+    // Queries still work when storage is unavailable.
+  }
+}
+
+function getWordfreqWorker() {
+  if (!wordfreqWorker) {
+    wordfreqWorker = new Worker('./wordfreq-worker.js', { type: 'module' });
+    wordfreqWorker.addEventListener('message', ({ data }) => {
+      const pending = wordfreqWorkerRequests.get(data.requestId);
+      if (!pending) return;
+      if (data.type === 'progress') {
+        setWordCorpusLoadingMessage(data.message);
+        return;
+      }
+      wordfreqWorkerRequests.delete(data.requestId);
+      setWordCorpusLoadingMessage('');
+      if (data.type === 'error') pending.reject(new Error(data.message));
+      else pending.resolve({ candidates: data.candidates ?? [], rank: data.rank ?? 0 });
+    });
+  }
+  return wordfreqWorker;
+}
+
+function queryWordfreq(targetWord) {
+  const comparable = normalizeLookupComparable(targetWord);
+  if (!comparable) return Promise.resolve({ candidates: [], rank: 0 });
+  if (wordfreqQueryCache[comparable]) return Promise.resolve(wordfreqQueryCache[comparable]);
+  if (wordfreqQueryPromises.has(comparable)) return wordfreqQueryPromises.get(comparable);
+
+  const targetData = extractWordRhymeData(targetWord);
+  const requestId = ++wordfreqWorkerRequestId;
+  const request = new Promise((resolve, reject) => {
+    wordfreqWorkerRequests.set(requestId, { resolve, reject });
+    getWordfreqWorker().postMessage({
+      requestId,
+      word: targetWord,
+      consonantKey: targetData.consonantKey,
+      assonantKey: targetData.assonantKey
+    });
+  }).then((result) => {
+    wordfreqQueryCache[comparable] = result;
+    saveWordfreqQueryCache();
+    return result;
+  }).finally(() => wordfreqQueryPromises.delete(comparable));
+
+  wordfreqQueryPromises.set(comparable, request);
+  return request;
+}
 
 function loadPoemColors() {
   try {
@@ -1079,50 +1164,70 @@ function buildOpenSynonymsResources(sourceText) {
   return { synonymGroupMap };
 }
 
-function buildOpenFrequencyResources(sourceText) {
-  const lines = String(sourceText ?? '')
-    .split(/\r?\n/)
-    .map((line) => line.trim().toLowerCase())
-    .filter((line) => line && line !== '...' && !line.startsWith('#'));
-
+function buildOpenFrequencyResources(words) {
   const index = new Map();
   const orderedWords = [];
   const rhymeLexicon = new Map();
   let rank = 0;
 
-  for (const line of lines) {
-    const comparable = normalizeLookupComparable(line);
+  for (const rawWord of words) {
+    const word = String(rawWord ?? '').trim().toLowerCase();
+    const comparable = normalizeLookupComparable(word);
     if (!comparable || index.has(comparable)) {
       continue;
     }
 
     rank += 1;
     index.set(comparable, rank);
-    orderedWords.push(line);
+    orderedWords.push(word);
 
     for (let size = 2; size <= Math.min(5, comparable.length); size += 1) {
       const suffix = comparable.slice(-size);
       if (!rhymeLexicon.has(suffix)) {
         rhymeLexicon.set(suffix, []);
       }
-      rhymeLexicon.get(suffix).push(line);
+      rhymeLexicon.get(suffix).push(word);
     }
   }
 
   return { index, orderedWords, rhymeLexicon };
 }
 
-function buildOpenRhymeWordlistResources(sourceText) {
-  const words = String(sourceText ?? '')
-    .split(/\r?\n/)
-    .map((line) => line.trim().toLowerCase())
-    .filter((line) => line && !line.startsWith('#'));
+function yieldToBrowser() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
 
+function setWordCorpusLoadingMessage(message) {
+  wordCorpusLoadingMessage = message;
+  if (state.lookupLoadingDefinition || state.lookupLoadingRhymes) {
+    renderLookupResults();
+  }
+}
+
+function loadCachedWordfreqBuckets() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(WORDFREQ_WORDS_CACHE_KEY) ?? 'null');
+    return parsed?.version === 1 && Array.isArray(parsed.buckets) ? parsed.buckets : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveCachedWordfreqBuckets(buckets) {
+  try {
+    localStorage.setItem(WORDFREQ_WORDS_CACHE_KEY, JSON.stringify({ version: 1, buckets }));
+  } catch {
+    // The corpus still works when the browser storage quota is unavailable.
+  }
+}
+
+function buildOpenRhymeWordlistResources(words) {
   const rhymeLexicon = new Map();
   const assonantLexicon = new Map();
   const seenComparables = new Set();
 
-  for (const word of words) {
+  for (const rawWord of words) {
+    const word = String(rawWord ?? '').trim().toLowerCase();
     const comparable = normalizeLookupComparable(word);
     if (!comparable || comparable.length < 2 || seenComparables.has(comparable)) {
       continue;
@@ -1147,6 +1252,93 @@ function buildOpenRhymeWordlistResources(sourceText) {
   }
 
   return { rhymeLexicon, assonantLexicon };
+}
+
+async function loadWordfreqWords() {
+  if (!wordfreqWordsPromise) {
+    wordfreqWordsPromise = (async () => {
+      const cachedBuckets = loadCachedWordfreqBuckets();
+      if (cachedBuckets) {
+        setWordCorpusLoadingMessage('Procesando palabras guardadas...');
+        return cachedBuckets;
+      }
+
+      setWordCorpusLoadingMessage('Descargando palabras...');
+      const response = await fetch(WORDFREQ_SOURCE_URL);
+      if (!response.ok) {
+        throw new Error(`No se pudo descargar wordfreq: HTTP ${response.status}`);
+      }
+
+      const compressed = new Uint8Array(await response.arrayBuffer());
+      const data = decodeMessagePack(decompressSync(compressed));
+      const header = data?.[0];
+      if (!Array.isArray(data) || header?.format !== 'cB' || header?.version !== 1) {
+        throw new Error('Formato de wordfreq inesperado.');
+      }
+
+      const buckets = data.slice(1).filter(Array.isArray);
+      saveCachedWordfreqBuckets(buckets);
+      setWordCorpusLoadingMessage('Organizando palabras por grupos...');
+      return buckets;
+    })().catch((error) => {
+      wordfreqWordsPromise = null;
+      throw error;
+    });
+  }
+
+  return wordfreqWordsPromise;
+}
+
+async function loadOpenWordResources() {
+  if (!openWordResourcesPromise) {
+    openWordResourcesPromise = (async () => {
+      const buckets = await loadWordfreqWords();
+      const index = new Map();
+      const orderedWords = [];
+      const rhymeLexicon = new Map();
+      const assonantLexicon = new Map();
+      let rank = 0;
+
+      for (const bucket of buckets) {
+        for (const rawWord of bucket) {
+          const word = String(rawWord ?? '').trim().toLowerCase();
+          const comparable = normalizeLookupComparable(word);
+          if (!comparable || index.has(comparable)) {
+            continue;
+          }
+
+          rank += 1;
+          index.set(comparable, rank);
+          orderedWords.push(word);
+          for (let size = 2; size <= Math.min(5, comparable.length); size += 1) {
+            const suffix = comparable.slice(-size);
+            if (!rhymeLexicon.has(suffix)) {
+              rhymeLexicon.set(suffix, []);
+            }
+            rhymeLexicon.get(suffix).push(word);
+          }
+
+          const assonantKey = extractWordRhymeData(word).assonantKey;
+          if (assonantKey && assonantKey !== '-') {
+            if (!assonantLexicon.has(assonantKey)) {
+              assonantLexicon.set(assonantKey, []);
+            }
+            assonantLexicon.get(assonantKey).push(word);
+          }
+        }
+        await yieldToBrowser();
+      }
+
+      wordCorpusLoadingMessage = '';
+      return { index, orderedWords, rhymeLexicon, assonantLexicon };
+    })().catch((error) => {
+      openWordResourcesPromise = null;
+      wordCorpusLoadingMessage = '';
+      throw error;
+    });
+  }
+
+  return openWordResourcesPromise;
 }
 
 async function loadOpenSynonymsResources() {
@@ -1185,8 +1377,7 @@ async function loadOpenFrequencyIndex() {
 
   if (!openFrequencyIndexPromise) {
     openFrequencyIndexPromise = (async () => {
-      const sourceText = await fetchLookupSourceText(OPEN_FREQUENCY_LIST_SOURCE_URL);
-      const resources = buildOpenFrequencyResources(sourceText);
+      const resources = await loadOpenWordResources();
       openFrequencyIndex = resources.index;
       return openFrequencyIndex;
     })().finally(() => {
@@ -1203,13 +1394,12 @@ async function getFrequencyLabelFromOpenList(targetWord) {
     return '';
   }
 
-  const index = await loadOpenFrequencyIndex();
-  const rank = index.get(comparable);
+  const { rank } = await queryWordfreq(targetWord);
   if (!Number.isFinite(rank) || rank <= 0) {
     return '';
   }
 
-  return `Puesto aproximado #${rank} en es.txt (epidemian)`;
+  return `Puesto aproximado #${rank} en wordfreq (español)`;
 }
 
 async function loadOpenRhymeLexicon() {
@@ -1219,9 +1409,11 @@ async function loadOpenRhymeLexicon() {
 
   if (!openRhymeLexiconPromise) {
     openRhymeLexiconPromise = (async () => {
-      const sourceText = await fetchLookupSourceText(OPEN_RHYME_WORDLIST_SOURCE_URL);
-      const resources = buildOpenRhymeWordlistResources(sourceText);
-      openRhymeLexicon = resources;
+      const resources = await loadOpenWordResources();
+      openRhymeLexicon = {
+        rhymeLexicon: resources.rhymeLexicon,
+        assonantLexicon: resources.assonantLexicon
+      };
       return openRhymeLexicon;
     })().finally(() => {
       openRhymeLexiconPromise = null;
@@ -1232,43 +1424,12 @@ async function loadOpenRhymeLexicon() {
 }
 
 async function getRhymeCandidatesFromWordlist(targetWord) {
-  const rhymeResources = await loadOpenRhymeLexicon();
-  const frequencyIndex = await loadOpenFrequencyIndex();
-  const targetData = extractWordRhymeData(targetWord);
   const comparable = normalizeLookupComparable(targetWord);
   if (!comparable) {
     return [];
   }
-
-  const candidates = new Set();
-  for (let size = 2; size <= Math.min(5, comparable.length); size += 1) {
-    const suffix = comparable.slice(-size);
-    const terms = rhymeResources.rhymeLexicon.get(suffix);
-    if (!terms) {
-      continue;
-    }
-
-    for (const term of terms) {
-      if (normalizeLookupComparable(term) !== comparable) {
-        candidates.add(term);
-      }
-    }
-  }
-
-  if (targetData.assonantKey && targetData.assonantKey !== '-' && rhymeResources.assonantLexicon?.has(targetData.assonantKey)) {
-    const assonantTerms = rhymeResources.assonantLexicon.get(targetData.assonantKey) ?? [];
-    for (const term of assonantTerms) {
-      if (normalizeLookupComparable(term) !== comparable) {
-        candidates.add(term);
-      }
-    }
-  }
-
-  return [...candidates].sort((left, right) => {
-    const leftRank = frequencyIndex.get(normalizeLookupComparable(left)) ?? Number.MAX_SAFE_INTEGER;
-    const rightRank = frequencyIndex.get(normalizeLookupComparable(right)) ?? Number.MAX_SAFE_INTEGER;
-    return leftRank - rightRank;
-  });
+  const { candidates } = await queryWordfreq(targetWord);
+  return candidates;
 }
 
 function extractSpanishWiktionarySection(sourceText) {
@@ -1918,7 +2079,8 @@ function renderLookupResults() {
     : '';
 
   const loaderVisible = state.lookupLoadingDefinition || state.lookupLoadingRhymes;
-  const loaderBlock = loaderVisible ? '<p class="lookup-loader"><span class="lookup-spinner" aria-hidden="true"></span>Cargando información desde las fuentes...</p>' : '';
+  const loaderMessage = wordCorpusLoadingMessage || 'Cargando información desde las fuentes...';
+  const loaderBlock = loaderVisible ? `<p class="lookup-loader"><span class="lookup-spinner" aria-hidden="true"></span>${escapeHtml(loaderMessage)}</p>` : '';
   const errorLine = state.lookupError ? `<p class="lookup-definition">${escapeHtml(state.lookupError)}</p>` : '';
 
   lookupResults.innerHTML = `
@@ -1956,7 +2118,7 @@ function renderLookupResults() {
     </details>
 
     <div class="lookup-credit" style="font-size: 0.75rem; color: var(--text-muted, #6b7280); margin-top: 1.5rem; padding-top: 0.5rem; border-top: 1px dashed rgba(127,127,127,0.2);">
-      Definiciones desde <a href="https://es.wiktionary.org/" target="_blank" rel="noopener noreferrer">Wikcionario</a>. Frecuencia desde <a href="https://gist.github.com/epidemian/ebb3025e8cb25f6f4e3a" target="_blank" rel="noopener noreferrer">es.txt (epidemian)</a>. Rimas desde <a href="https://raw.githubusercontent.com/xavier-hernandez/spanish-wordlist/refs/heads/main/text/spanish_words.txt" target="_blank" rel="noopener noreferrer">spanish-wordlist</a>. Sinónimos desde <a href="https://github.com/edublancas/sinonimos" target="_blank" rel="noopener noreferrer">edublancas/sinonimos</a>. Corroboración rápida en <a href="https://dle.rae.es/" target="_blank" rel="noopener noreferrer">RAE</a> y <a href="https://iedra.es/rimas/" target="_blank" rel="noopener noreferrer">IEDRA</a>.
+      Definiciones desde <a href="https://es.wiktionary.org/" target="_blank" rel="noopener noreferrer">Wikcionario</a> (<a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-SA</a> / <a href="https://www.gnu.org/licenses/fdl-1.3.html" target="_blank" rel="noopener noreferrer">GFDL</a>). Frecuencia y rimas desde <a href="https://github.com/rspeer/wordfreq" target="_blank" rel="noopener noreferrer">rspeer/wordfreq</a> (<a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 4.0</a>). Sinónimos desde <a href="https://github.com/edublancas/sinonimos" target="_blank" rel="noopener noreferrer">edublancas/sinonimos</a> (MIT). <a href="THIRD-PARTY-LICENSES.md">Licencias completas</a>. Corroboración rápida en <a href="https://dle.rae.es/" target="_blank" rel="noopener noreferrer">RAE</a> y <a href="https://iedra.es/rimas/" target="_blank" rel="noopener noreferrer">IEDRA</a>.
     </div>
   `;
 }
@@ -2162,6 +2324,65 @@ function applyFontScale() {
 
   if (fontScaleValue) {
     fontScaleValue.textContent = `${scale}%`;
+  }
+}
+
+const POEM_FONTS = {
+  'open-dyslexic': '"OpenDyslexic", "Atkinson Hyperlegible", system-ui, sans-serif',
+  atkinson: '"Atkinson Hyperlegible", system-ui, sans-serif',
+  alegreya: '"Alegreya", Georgia, serif',
+  lora: '"Lora", Georgia, serif',
+  cormorant: '"Cormorant Garamond", Garamond, Georgia, serif',
+  'eb-garamond': '"EB Garamond", Garamond, Georgia, serif',
+  playfair: '"Playfair Display", Georgia, serif',
+  'libre-baskerville': '"Libre Baskerville", Georgia, serif',
+  merriweather: '"Merriweather", Georgia, serif',
+  montserrat: '"Montserrat", system-ui, sans-serif',
+  nunito: '"Nunito", system-ui, sans-serif',
+  'source-sans': '"Source Sans 3", system-ui, sans-serif',
+  lexend: '"Lexend", system-ui, sans-serif',
+  josefin: '"Josefin Sans", system-ui, sans-serif',
+  cinzel: '"Cinzel", Georgia, serif',
+  'bebas-neue': '"Bebas Neue", Impact, sans-serif',
+  caveat: '"Caveat", cursive',
+  pacifico: '"Pacifico", cursive',
+  'permanent-marker': '"Permanent Marker", cursive',
+  bungee: '"Bungee", display, sans-serif',
+  unifraktur: '"UnifrakturCook", fantasy'
+};
+
+function normalizePoemFont(value) {
+  const font = String(value ?? '');
+  return Object.hasOwn(POEM_FONTS, font) ? font : 'atkinson';
+}
+
+function loadDefaultPoemFont() {
+  try {
+    return normalizePoemFont(localStorage.getItem(LOCAL_DEFAULT_POEM_FONT_KEY));
+  } catch {
+    return 'atkinson';
+  }
+}
+
+function saveDefaultPoemFont(value) {
+  const font = normalizePoemFont(value);
+  try {
+    localStorage.setItem(LOCAL_DEFAULT_POEM_FONT_KEY, font);
+  } catch { /* ignore */ }
+  return font;
+}
+
+function updateDefaultPoemFontControl() {
+  if (defaultPoemFont) {
+    defaultPoemFont.value = loadDefaultPoemFont();
+  }
+}
+
+function applyPoemFont(value = state.poemFont) {
+  state.poemFont = normalizePoemFont(value);
+  document.documentElement.style.setProperty('--poem-font-family', POEM_FONTS[state.poemFont]);
+  for (const selector of poemFontSelectors) {
+    selector.value = state.poemFont;
   }
 }
 
@@ -2562,8 +2783,15 @@ function loadVersionById(poemKey, versionId) {
   poemInput.value = String(version.poemText ?? '');
 
   if (version.settings) {
-    stressPreset.value = String(version.settings.stressPreset ?? stressPreset.value);
-    stressCustom.value = String(version.settings.stressCustom ?? stressCustom.value);
+    applyPoemFont(version.settings.poemFont);
+    if (poeticForm) {
+      const savedForm = String(version.settings.poeticForm ?? 'custom');
+      poeticForm.value = Object.hasOwn(POETIC_FORM_PRESETS, savedForm) ? savedForm : 'custom';
+    }
+    if (syllablePattern) {
+      syllablePattern.value = String(version.settings.syllablePattern ?? '');
+    }
+    renderStressPatternFields(resolveStoredStressPatterns(version.settings));
     hemistichSplit.value = String(version.settings.hemistichSplit ?? hemistichSplit.value);
     if (rhymeMode) {
       const savedRhymeMode = String(version.settings.rhymeMode ?? 'asonante');
@@ -3245,8 +3473,10 @@ function buildCurrentSnapshot() {
   return {
     poemText: poemInput.value,
     settings: {
-      stressPreset: stressPreset.value,
-      stressCustom: stressCustom.value,
+      poemFont: normalizePoemFont(state.poemFont),
+      poeticForm: poeticForm?.value ?? 'custom',
+      syllablePattern: syllablePattern?.value ?? '',
+      stressPatterns: readStressPatternsFromControls(),
       hemistichSplit: hemistichSplit.value,
       rhymeMode: rhymeMode?.value ?? 'asonante',
       rhymeScheme: rhymeScheme?.value ?? '',
@@ -3273,11 +3503,14 @@ function getSnapshotSignature(snapshot) {
   return JSON.stringify({
     poemText: String(snapshot.poemText ?? ''),
     settings: {
-      stressPreset: String(snapshot.settings?.stressPreset ?? ''),
-      stressCustom: String(snapshot.settings?.stressCustom ?? ''),
+      poemFont: normalizePoemFont(snapshot.settings?.poemFont),
+      poeticForm: String(snapshot.settings?.poeticForm ?? 'custom'),
+      syllablePattern: String(snapshot.settings?.syllablePattern ?? ''),
+      stressPatterns: resolveStoredStressPatterns(snapshot.settings),
       hemistichSplit: String(snapshot.settings?.hemistichSplit ?? ''),
       rhymeMode: String(snapshot.settings?.rhymeMode ?? 'asonante'),
       rhymeScheme: String(snapshot.settings?.rhymeScheme ?? ''),
+      repeatRhymeScheme: Boolean(snapshot.settings?.repeatRhymeScheme),
       distinguishSZInRhyme: Boolean(snapshot.settings?.distinguishSZInRhyme)
     },
     sinalefaOverrides: snapshot.sinalefaOverrides ?? {},
@@ -3336,12 +3569,14 @@ function createNewPoem() {
   setPoemTitleDisplay(title);
   poemInput.value = '';
 
-  if (stressCustom) {
-    stressCustom.value = '';
+  if (poeticForm) {
+    poeticForm.value = 'custom';
   }
-  if (stressPreset) {
-    stressPreset.value = 'custom';
+  if (syllablePattern) {
+    syllablePattern.value = '';
   }
+
+  renderStressPatternFields({});
   if (hemistichSplit) {
     hemistichSplit.value = '';
   }
@@ -3363,6 +3598,8 @@ function createNewPoem() {
   state.openAdvancedByLine = {};
   state.loadedVersionTitle = '';
   state.loadedVersionId = '';
+
+  applyPoemFont(loadDefaultPoemFont());
 
   const defaultColor = loadDefaultPoemColor();
   if (isHexColor(defaultColor)) {
@@ -4030,11 +4267,14 @@ function importPoemsFromMarkdown(markdown) {
       savedAt: new Date().toISOString(),
       poemText: entry.text,
       settings: {
-        stressPreset: stressPreset.value,
-        stressCustom: stressCustom.value,
+        poemFont: normalizePoemFont(state.poemFont),
+        poeticForm: poeticForm?.value ?? 'custom',
+        syllablePattern: syllablePattern?.value ?? '',
+        stressPatterns: readStressPatternsFromControls(),
         hemistichSplit: hemistichSplit.value,
         rhymeMode: rhymeMode?.value ?? 'asonante',
         rhymeScheme: rhymeScheme?.value ?? '',
+        repeatRhymeScheme: Boolean(repeatRhymeScheme?.checked),
         distinguishSZInRhyme: Boolean(distinguishSZInRhyme?.checked)
       },
       sinalefaOverrides: {},
@@ -4366,7 +4606,7 @@ function normalizeRhymeApostrophes(value) {
 }
 
 function formatRhymeSchemeDisplayToken(value) {
-  return normalizeRhymeApostrophes(String(value ?? '').trim().toUpperCase()).replace(/'/g, '´');
+  return normalizeRhymeApostrophes(String(value ?? '').trim()).replace(/'/g, '´');
 }
 
 function formatRhymeChipLabel(runtime) {
@@ -4383,35 +4623,36 @@ function formatRhymeChipLabel(runtime) {
 }
 
 function parseRhymeSchemeToken(token) {
-  const normalized = normalizeRhymeApostrophes(String(token ?? '').trim().toUpperCase());
+  const normalized = normalizeRhymeApostrophes(String(token ?? '').trim());
   if (!normalized) {
-    return { isFree: false, letter: '', requiresAguda: false };
+    return { isFree: false, letter: '', familyKey: '', requiresAguda: false };
   }
 
   if (normalized === '-') {
-    return { isFree: true, letter: '-', requiresAguda: false };
+    return { isFree: true, letter: '-', familyKey: '-', requiresAguda: false };
   }
 
   const letter = normalized[0];
-  if (!/[A-Z]/.test(letter)) {
-    return { isFree: false, letter: '', requiresAguda: false };
+  if (!/[A-Za-z]/.test(letter)) {
+    return { isFree: false, letter: '', familyKey: '', requiresAguda: false };
   }
 
   return {
     isFree: false,
     letter,
+    familyKey: letter.toUpperCase(),
     requiresAguda: normalized.includes("'")
   };
 }
 
 function tokenizeRhymeScheme(value, mode = state.rhymeMode) {
-  const raw = normalizeRhymeApostrophes(String(value ?? '').trim().toUpperCase());
+  const raw = normalizeRhymeApostrophes(String(value ?? '').trim());
   if (!raw) {
     return [];
   }
 
   if (mode === 'sextina') {
-    const grouped = raw.match(/[A-Z]+/g) ?? [];
+    const grouped = raw.match(/[A-Za-z]+/g) ?? [];
     const tokens = [];
 
     for (const chunk of grouped) {
@@ -4435,7 +4676,7 @@ function tokenizeRhymeScheme(value, mode = state.rhymeMode) {
       continue;
     }
 
-    if (!/[A-Z]/.test(current)) {
+    if (!/[A-Za-z]/.test(current)) {
       continue;
     }
 
@@ -4471,6 +4712,22 @@ function markRhymeSchemeWarning(lineStatus, runtime, warning) {
   const existing = lineStatus.get(runtime.lineIndex) ?? { valid: true, reasons: [], warnings: [], expectedLetter: '', verseNumber: 0 };
   existing.warnings = [...(existing.warnings ?? []), warning];
   lineStatus.set(runtime.lineIndex, existing);
+}
+
+function validateRhymeSchemeArt(lineStatus, runtime, tokenMeta) {
+  if (!tokenMeta.letter || matchesRhymeSchemeArt(tokenMeta.letter, runtime.metricVerseCount)) {
+    return;
+  }
+
+  const requirement = getRhymeSchemeArtRequirement(tokenMeta.letter);
+  const description = requirement === 'minor'
+    ? 'minúscula exige arte menor (8 sílabas o menos)'
+    : 'mayúscula exige arte mayor (más de 8 sílabas)';
+  markRhymeSchemeFailure(
+    lineStatus,
+    runtime,
+    `La letra ${tokenMeta.letter} es inválida: ${description}; el verso tiene ${runtime.metricVerseCount}.`
+  );
 }
 
 function validateRhymeScheme(runtimes, schemeValue, mode = state.rhymeMode) {
@@ -4590,7 +4847,9 @@ function validateRhymeScheme(runtimes, schemeValue, mode = state.rhymeMode) {
           markRhymeSchemeFailure(lineStatus, runtime, `La letra ${tokenMeta.letter}' exige final aguda.`);
         }
 
-        const expectedLetter = tokenMeta.letter;
+        validateRhymeSchemeArt(lineStatus, runtime, tokenMeta);
+
+        const expectedLetter = tokenMeta.familyKey;
         if (!expectedLetter) {
           markRhymeSchemeFailure(lineStatus, runtime, `Token de rima inválido: ${expectedToken}.`);
           continue;
@@ -4658,7 +4917,9 @@ function validateRhymeScheme(runtimes, schemeValue, mode = state.rhymeMode) {
       markRhymeSchemeFailure(lineStatus, runtime, `La letra ${tokenMeta.letter}' exige final aguda.`);
     }
 
-    const expectedLetter = tokenMeta.letter;
+    validateRhymeSchemeArt(lineStatus, runtime, tokenMeta);
+
+    const expectedLetter = tokenMeta.familyKey;
     if (!expectedLetter) {
       markRhymeSchemeFailure(lineStatus, runtime, `Token de rima inválido: ${expectedToken}.`);
       continue;
@@ -4715,12 +4976,19 @@ function renderRhymeSchemeStatus(runtime, rhymeSchemeValidation) {
   }
 
   const expectedLetter = formatRhymeSchemeDisplayToken(status.expectedLetter || '');
+  const letter = expectedLetter.replace(/´$/, '');
   const isAgudaToken = /´$/.test(expectedLetter);
+  const actualLetter = runtime.metricVerseCount <= 8 ? letter.toLowerCase() : letter.toUpperCase();
+  const displayedLetter = `${actualLetter}${isAgudaToken ? '´' : ''}`;
+  const artMismatch = Boolean(letter && actualLetter !== letter);
   const classes = ['scheme-chip', status.valid ? 'is-valid' : 'is-invalid', 'info-click', status.valid ? '' : 'jump-to-verse'].filter(Boolean).join(' ');
   const suffix = status.valid ? (isAgudaToken ? '' : '✓') : '✕';
-  const title = (status.reasons ?? []).length ? status.reasons.join(' · ') : `Cumple el esquema ${rhymeSchemeValidation.scheme}.`;
+  const artTitle = artMismatch
+    ? `La letra configurada ${expectedLetter} no corresponde al arte ${runtime.metricVerseCount <= 8 ? 'menor' : 'mayor'} del verso.`
+    : '';
+  const title = [...(status.reasons ?? []), artTitle].filter(Boolean).join(' · ') || `Cumple el esquema ${rhymeSchemeValidation.scheme}.`;
   const jumpAttrs = `${status.valid ? '' : ` data-jump-line="${runtime.lineIndex}"`} role="button" tabindex="0" data-info="${escapeHtml(title)}"`;
-  return `<span class="${classes}" title="${escapeHtml(title)}"${jumpAttrs}>${escapeHtml(expectedLetter)} ${suffix}</span>`;
+  return `<span class="${classes}" title="${escapeHtml(title)}"${jumpAttrs}>${escapeHtml(displayedLetter)} ${suffix}</span>`;
 }
 
 function getManualRhymeKey(lineIndex) {
@@ -4967,12 +5235,100 @@ function parseStressPattern(value) {
   return parseNumberList(value);
 }
 
+function parseStressPatternAlternatives(value) {
+  return String(value ?? '')
+    .split(/[,;|]+/)
+    .map((pattern) => parseStressPattern(pattern))
+    .filter((pattern) => pattern.length);
+}
+
+function chooseStressPattern(value, naturalStressPositions = []) {
+  const alternatives = parseStressPatternAlternatives(value);
+  if (alternatives.length < 2) return alternatives[0] ?? [];
+
+  const natural = new Set(naturalStressPositions);
+  return alternatives.reduce((best, pattern) => {
+    const score = pattern.filter((position) => natural.has(position)).length;
+    const bestScore = best.filter((position) => natural.has(position)).length;
+    if (score !== bestScore) return score > bestScore ? pattern : best;
+    return pattern.length < best.length ? pattern : best;
+  });
+}
+
+function normalizeStressPatterns(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const normalized = {};
+  for (const [rawCount, rawPattern] of Object.entries(value)) {
+    const count = Number(rawCount);
+    const pattern = String(rawPattern ?? '').trim();
+    if (Number.isInteger(count) && count > 0 && count <= 20 && pattern) {
+      normalized[count] = pattern;
+    }
+  }
+  return normalized;
+}
+
+function getConfiguredSyllableCounts(pattern = syllablePattern?.value ?? '') {
+  return [...new Set(parseSyllablePattern(pattern).flat())].sort((left, right) => left - right);
+}
+
+function getDefaultStressPattern(count) {
+  return Number(count) === 11 ? '6-10' : '';
+}
+
+function resolveStoredStressPatterns(settings) {
+  const normalized = normalizeStressPatterns(settings?.stressPatterns);
+  if (Object.keys(normalized).length) return normalized;
+
+  const legacyPattern = String(settings?.stressCustom ?? '').trim();
+  const counts = getConfiguredSyllableCounts(settings?.syllablePattern ?? '');
+  if (legacyPattern && counts.length === 1) {
+    return { [counts[0]]: legacyPattern };
+  }
+  return normalized;
+}
+
+function readStressPatternsFromControls() {
+  if (!stressPatternFields) return {};
+  const patterns = {};
+  for (const group of stressPatternFields.querySelectorAll('[data-stress-group]')) {
+    const count = Number(group.dataset.stressGroup);
+    const alternatives = [...group.querySelectorAll('[data-stress-count]')]
+      .map((input) => String(input.value ?? '').trim())
+      .filter(Boolean);
+    if (Number.isInteger(count) && alternatives.length) patterns[count] = alternatives.join(', ');
+  }
+  return patterns;
+}
+
+function renderStressPatternFields(patterns = readStressPatternsFromControls()) {
+  if (!stressPatternFields) return;
+  const normalized = normalizeStressPatterns(patterns);
+  const counts = getConfiguredSyllableCounts();
+  if (!counts.length) {
+    stressPatternFields.innerHTML = '<span class="hint">Define primero el conteo silábico.</span>';
+    return;
+  }
+
+  stressPatternFields.innerHTML = counts.map((count) => {
+    const value = normalized[count] ?? getDefaultStressPattern(count);
+    const alternatives = String(value).split(/[,;|]+/).map((pattern) => pattern.trim()).filter(Boolean);
+    if (!alternatives.length) alternatives.push('');
+    const inputs = alternatives.map((pattern, index) => `
+      <div class="stress-pattern-entry">
+        <input type="text" data-stress-count="${count}" value="${escapeHtml(pattern)}" placeholder="${count === 11 ? '6-10' : 'Ej: 3-6'}" aria-label="Acento versal ${index + 1} para ${count} sílabas" />
+        ${index ? '<button type="button" class="stress-pattern-remove" data-remove-stress title="Eliminar patrón" aria-label="Eliminar patrón">−</button>' : ''}
+      </div>`).join('');
+    return `<div class="stress-pattern-group" data-stress-group="${count}"><div class="stress-pattern-heading"><strong>${count} sílabas</strong><button type="button" class="stress-pattern-add" data-add-stress="${count}" title="Añadir otro acento versal" aria-label="Añadir otro acento versal para ${count} sílabas">+</button></div>${inputs}</div>`;
+  }).join('');
+}
+
 function parseHemistichPositions(value) {
   return parseNumberList(value);
 }
 
-function buildValidationBoundaries(lineAnalysis, lineIndex) {
-  const effectivePattern = getEffectiveStressPattern(lineIndex);
+function buildValidationBoundaries(lineAnalysis, lineIndex, verseIndex = 0, patternOverride = null) {
+  const effectivePattern = patternOverride ?? getEffectiveStressPattern(lineAnalysis, lineIndex, verseIndex);
   const localOverride = getLineOverride(lineIndex);
   const forceOn = parseNumberList(localOverride.sinalefaOn ?? '');
   const forceOff = parseNumberList(localOverride.sinalefaOff ?? '');
@@ -5012,12 +5368,20 @@ function getLineOverride(lineIndex) {
   return state.lineOverrides[lineIndex] ?? {};
 }
 
-function getEffectiveStressPattern(lineIndex) {
-  const local = parseStressPattern(getLineOverride(lineIndex).stress ?? '');
-  return getLineOverride(lineIndex).stress?.trim() ? local : state.stressPattern;
+function getEffectiveStressPattern(lineAnalysis, lineIndex, verseIndex = 0, metricCount = lineAnalysis?.poeticCount) {
+  const naturalStress = getNaturalStressPositions(buildSyllableEntries(lineAnalysis, []));
+  const local = chooseStressPattern(getLineOverride(lineIndex).stress ?? '', naturalStress);
+  if (getLineOverride(lineIndex).stress?.trim()) return local;
+
+  const expectedCounts = getExpectedSyllableCounts(state.syllablePattern, Math.max(0, verseIndex));
+  const selectedCount = expectedCounts.includes(Number(metricCount))
+    ? Number(metricCount)
+    : expectedCounts[0];
+  if (!selectedCount) return [];
+  return chooseStressPattern(state.stressPatterns?.[selectedCount] ?? getDefaultStressPattern(selectedCount), naturalStress);
 }
 
-function getEffectiveHemistichPositions(lineAnalysis, lineIndex) {
+function getEffectiveHemistichPositions(lineAnalysis, lineIndex, verseIndex = 0, effectivePattern = null) {
   const inlineHemistich = getInlineHemistichBoundaries(lineAnalysis);
   if (inlineHemistich.length) {
     return { boundaries: inlineHemistich, invalid: [] };
@@ -5029,7 +5393,7 @@ function getEffectiveHemistichPositions(lineAnalysis, lineIndex) {
 
   const override = getLineOverride(lineIndex).hemistich;
   const inputPositions = override?.trim() ? parseHemistichPositions(override) : state.hemistichPositions;
-  const validationBoundaries = buildValidationBoundaries(lineAnalysis, lineIndex);
+  const validationBoundaries = buildValidationBoundaries(lineAnalysis, lineIndex, verseIndex, effectivePattern);
 
   const total = lineAnalysis.rawCount;
   const boundaries = [];
@@ -5333,10 +5697,10 @@ function applySinalefaChains(lineAnalysis, activeBoundaries) {
   return sinalefaChains;
 }
 
-function buildLineRuntime(lineAnalysis, lineIndex) {
-  const effectivePattern = getEffectiveStressPattern(lineIndex);
+function buildLineRuntime(lineAnalysis, lineIndex, verseIndex = 0, forcedStressPattern = null) {
+  const effectivePattern = forcedStressPattern ?? getEffectiveStressPattern(lineAnalysis, lineIndex, verseIndex);
   const inlineHemistich = getInlineHemistichBoundaries(lineAnalysis);
-  const configHemistich = getEffectiveHemistichPositions(lineAnalysis, lineIndex);
+  const configHemistich = getEffectiveHemistichPositions(lineAnalysis, lineIndex, verseIndex, effectivePattern);
   const hemistichBoundaries = inlineHemistich.length ? inlineHemistich : configHemistich.boundaries;
   const hasHemistich = hemistichBoundaries.length > 0;
 
@@ -5449,6 +5813,7 @@ function buildLineRuntime(lineAnalysis, lineIndex) {
       versalConflictPositions,
       versalConflictBoundaryIndices,
       countLabel,
+      metricVerseCount: segmentCounts.reduce((total, count) => total + count, 0),
       hemistichWarning
     };
   }
@@ -5476,6 +5841,18 @@ function buildLineRuntime(lineAnalysis, lineIndex) {
     ? 'Hay sinalefas forzadas sobre acento versal (amarillo). Detectar automáticamente las rompe si no están forzadas.'
     : '';
 
+  if (!forcedStressPattern && !getLineOverride(lineIndex).stress?.trim()) {
+    const resolvedPattern = getEffectiveStressPattern(
+      lineAnalysis,
+      lineIndex,
+      verseIndex,
+      metricState.metricVerseCount
+    );
+    if (resolvedPattern.join('-') !== effectivePattern.join('-')) {
+      return buildLineRuntime(lineAnalysis, lineIndex, verseIndex, resolvedPattern);
+    }
+  }
+
   const rhymeData = extractRhymeData(lineAnalysis, { distinguishSZInRhyme: state.distinguishSZInRhyme });
   const mode = getEffectiveRhymeMode(lineIndex);
   const manualKey = getManualRhymeKey(lineIndex);
@@ -5489,6 +5866,7 @@ function buildLineRuntime(lineAnalysis, lineIndex) {
   return {
     lineIndex,
     lineAnalysis,
+    configuredStressPattern: effectivePattern,
     effectivePattern: metricState.effectivePatternWithNatural,
     activeBoundaries,
     hemistichBoundaries,
@@ -5500,6 +5878,7 @@ function buildLineRuntime(lineAnalysis, lineIndex) {
     segments: metricState.segments,
     naturalStress: metricState.naturalStress,
     countLabel: metricState.countLabel,
+    metricVerseCount: metricState.metricVerseCount,
     hemistichWarning: metricState.hemistichWarning,
     rhyme: {
       mode,
@@ -5754,6 +6133,20 @@ function renderInvalidHemistich(runtime) {
     .join(' ');
 }
 
+function renderMetricCount(runtime) {
+  const validation = runtime.syllableValidation;
+  if (!validation) {
+    return escapeHtml(runtime.countLabel);
+  }
+
+  const expectedLabel = validation.expected.join(' o ');
+  const title = validation.valid
+    ? `Cumple el conteo esperado: ${expectedLabel}.`
+    : `Se esperaban ${expectedLabel} sílabas métricas; se contaron ${validation.actual}.`;
+  const statusClass = validation.valid ? 'is-valid' : 'is-invalid';
+  return `<span class="metric-count ${statusClass}" title="${escapeHtml(title)}">${escapeHtml(runtime.countLabel)}</span>`;
+}
+
 function renderLineAdvanced(runtime) {
   const override = getLineOverride(runtime.lineIndex);
   const lineRhymeText = String(override.rhymeText ?? '').trim();
@@ -5769,7 +6162,7 @@ function renderLineAdvanced(runtime) {
       <div class="line-advanced-grid">
         <label>
           Acento versal
-          <input type="text" data-role="line-stress" data-line="${runtime.lineIndex}" value="${escapeHtml(override.stress ?? '')}" placeholder="${escapeHtml(state.stressPattern.join('-'))}" title="Posiciones de acento versal para esta línea (ej: 4-8-10)." />
+          <input type="text" data-role="line-stress" data-line="${runtime.lineIndex}" value="${escapeHtml(override.stress ?? '')}" placeholder="${escapeHtml(runtime.configuredStressPattern.join('-'))}" title="Posiciones de acento versal para esta línea (ej: 4-8-10)." />
         </label>
         <label>
           Hemistiquio
@@ -5801,7 +6194,11 @@ function renderAnalysis(result) {
     return;
   }
 
-  const runtimes = result.lines.map((line, index) => buildLineRuntime(line, index));
+  let runtimeVerseIndex = -1;
+  const runtimes = result.lines.map((line, index) => {
+    if (line.text.trim()) runtimeVerseIndex += 1;
+    return buildLineRuntime(line, index, Math.max(0, runtimeVerseIndex));
+  });
   state.currentAnalysisTitle = normalizePoemTitle(poemTitle?.value ?? savedPoemName?.value ?? 'Sin título');
   applyPoemScreenTheme(state.currentAnalysisTitle);
   let verseCounter = 0;
@@ -5809,8 +6206,22 @@ function renderAnalysis(result) {
     if (runtime.lineAnalysis.text.trim()) {
       verseCounter += 1;
       runtime.verseNumber = verseCounter;
+      const expected = getExpectedSyllableCounts(
+        state.syllablePattern,
+        verseCounter - 1
+      );
+      runtime.syllableValidation = expected.length ? {
+        actual: runtime.metricVerseCount,
+        expected,
+        valid: matchesSyllablePattern(
+          runtime.metricVerseCount,
+          state.syllablePattern,
+          verseCounter - 1
+        )
+      } : null;
     } else {
       runtime.verseNumber = 0;
+      runtime.syllableValidation = null;
     }
   }
   assignRhymeLabels(runtimes);
@@ -5854,7 +6265,7 @@ function renderAnalysis(result) {
                   <div class="analysis-col rhyme-col">${renderRhyme(runtime)}</div>
                   <div class="analysis-col scheme-col">${renderRhymeSchemeStatus(runtime, rhymeSchemeValidation)}</div>
                   <div class="analysis-col advanced-col">${renderLineAdvanced(runtime)}</div>
-                  <div class="analysis-col count-col">${runtime.countLabel}${runtime.hemistichWarning ? ` <span class="hover-hint info-click jump-to-verse" role="button" tabindex="0" data-info="${escapeHtml(runtime.hemistichWarning)}" data-jump-line="${runtime.lineIndex}" title="${escapeHtml(runtime.hemistichWarning)}">!</span>` : ''}</div>
+                  <div class="analysis-col count-col">${renderMetricCount(runtime)}${runtime.hemistichWarning ? ` <span class="hover-hint info-click jump-to-verse" role="button" tabindex="0" data-info="${escapeHtml(runtime.hemistichWarning)}" data-jump-line="${runtime.lineIndex}" title="${escapeHtml(runtime.hemistichWarning)}">!</span>` : ''}</div>
                 </div>
               </div>
             `;
@@ -5871,7 +6282,9 @@ function renderAnalysis(result) {
 }
 
 function syncStateFromControls() {
-  state.stressPattern = parseStressPattern(stressCustom.value);
+  state.poeticForm = Object.hasOwn(POETIC_FORM_PRESETS, poeticForm?.value) ? poeticForm.value : 'custom';
+  state.syllablePattern = syllablePattern?.value ?? '';
+  state.stressPatterns = readStressPatternsFromControls();
   state.hemistichPositions = parseHemistichPositions(hemistichSplit.value);
   state.hemistichEnabled = state.hemistichPositions.length > 0;
   state.rhymeMode = rhymeMode?.value === 'consonante' ? 'consonante' : rhymeMode?.value === 'sextina' ? 'sextina' : 'asonante';
@@ -5879,6 +6292,37 @@ function syncStateFromControls() {
   state.repeatRhymeScheme = Boolean(repeatRhymeScheme?.checked);
   state.distinguishSZInRhyme = Boolean(distinguishSZInRhyme?.checked);
   state.sinalefaEnabled = true;
+}
+
+function updatePoeticFormHint() {
+  if (!poeticFormHint) return;
+  const preset = POETIC_FORM_PRESETS[poeticForm?.value] ?? POETIC_FORM_PRESETS.custom;
+  const details = [];
+  if (preset.verseCount) details.push(`${preset.verseCount} versos`);
+  if (preset.syllablePattern) details.push(`metro ${preset.syllablePattern}`);
+  if (preset.rhymeScheme) details.push(`rima ${preset.rhymeScheme}`);
+  poeticFormHint.textContent = details.length
+    ? `${preset.label}: ${details.join(' · ')}. Puedes ajustar cualquier campo.`
+    : 'Forma editable: configura libremente el conteo, acento versal y rima.';
+}
+
+function applyPoeticFormPreset() {
+  const preset = POETIC_FORM_PRESETS[poeticForm?.value] ?? POETIC_FORM_PRESETS.custom;
+  if (syllablePattern) syllablePattern.value = preset.syllablePattern ?? '';
+  renderStressPatternFields(preset.stressPatterns ?? {});
+  if (hemistichSplit) hemistichSplit.value = preset.hemistichSplit ?? '';
+  if (rhymeMode) rhymeMode.value = preset.rhymeMode ?? 'asonante';
+  if (rhymeScheme) rhymeScheme.value = preset.rhymeScheme ?? '';
+  if (repeatRhymeScheme) repeatRhymeScheme.checked = Boolean(preset.repeatRhymeScheme);
+  updatePoeticFormHint();
+  recomputeLookupRhymes();
+  refreshLookupBar();
+  updateAnalysis();
+}
+
+function markPoeticFormCustom() {
+  if (poeticForm) poeticForm.value = 'custom';
+  updatePoeticFormHint();
 }
 
 function syncRhymeSchemePreset() {
@@ -5926,6 +6370,7 @@ function buildStanzaSummary(text) {
 function updateAnalysis() {
   const focusSnapshot = captureInlineInputFocus();
   setPoemTitleDisplay(poemTitle?.value ?? '');
+  updatePoeticFormHint();
   syncRhymeSchemePreset();
   syncStateFromControls();
   const text = normalizeInput(poemInput.value);
@@ -5975,20 +6420,52 @@ poemInput.addEventListener('input', () => {
   scheduleAutoSave();
 });
 
-stressPreset.addEventListener('change', () => {
-  if (stressPreset.value !== 'custom') {
-    stressCustom.value = stressPreset.value;
+poeticForm?.addEventListener('change', applyPoeticFormPreset);
+syllablePattern?.addEventListener('input', () => {
+  const currentPatterns = readStressPatternsFromControls();
+  markPoeticFormCustom();
+  renderStressPatternFields(currentPatterns);
+  updateAnalysis();
+});
+
+stressPatternFields?.addEventListener('input', () => {
+  markPoeticFormCustom();
+  updateAnalysis();
+});
+
+stressPatternFields?.addEventListener('click', (event) => {
+  const addButton = event.target.closest('[data-add-stress]');
+  const removeButton = event.target.closest('[data-remove-stress]');
+  if (!addButton && !removeButton) return;
+
+  const patterns = readStressPatternsFromControls();
+  if (addButton) {
+    const count = Number(addButton.dataset.addStress);
+    const group = addButton.closest('[data-stress-group]');
+    const entry = document.createElement('div');
+    entry.className = 'stress-pattern-entry';
+    entry.innerHTML = `<input type="text" data-stress-count="${count}" value="" placeholder="${count === 11 ? '6-10' : 'Ej: 3-6'}" aria-label="Otro acento versal para ${count} sílabas" /><button type="button" class="stress-pattern-remove" data-remove-stress title="Eliminar patrón" aria-label="Eliminar patrón">−</button>`;
+    group?.append(entry);
+    entry.querySelector('input')?.focus();
+    return;
+  } else {
+    const group = removeButton.closest('[data-stress-group]');
+    removeButton.closest('.stress-pattern-entry')?.remove();
+    const count = Number(group?.dataset.stressGroup);
+    const values = [...group.querySelectorAll('[data-stress-count]')].map((input) => input.value.trim()).filter(Boolean);
+    patterns[count] = values.join(', ');
   }
+  renderStressPatternFields(patterns);
+  markPoeticFormCustom();
   updateAnalysis();
 });
 
-stressCustom.addEventListener('input', () => {
-  stressPreset.value = 'custom';
+hemistichSplit.addEventListener('input', () => {
+  markPoeticFormCustom();
   updateAnalysis();
 });
-
-hemistichSplit.addEventListener('input', updateAnalysis);
 rhymeMode?.addEventListener('change', () => {
+  markPoeticFormCustom();
   syncRhymeSchemePreset();
   recomputeLookupRhymes();
   refreshLookupBar();
@@ -5997,8 +6474,12 @@ rhymeMode?.addEventListener('change', () => {
   }
   updateAnalysis();
 });
-rhymeScheme?.addEventListener('input', updateAnalysis);
+rhymeScheme?.addEventListener('input', () => {
+  markPoeticFormCustom();
+  updateAnalysis();
+});
 repeatRhymeScheme?.addEventListener('change', () => {
+  markPoeticFormCustom();
   updateAnalysis();
 });
 distinguishSZInRhyme?.addEventListener('change', () => {
@@ -6023,6 +6504,17 @@ fontScaleControl?.addEventListener('input', () => {
   state.fontScale = clampFontScale(fontScaleControl.value);
   applyFontScale();
   saveUiPreferences();
+});
+for (const selector of poemFontSelectors) {
+  selector.addEventListener('change', () => {
+    applyPoemFont(selector.value);
+    scheduleAutoSave();
+  });
+}
+defaultPoemFont?.addEventListener('change', () => {
+  const font = saveDefaultPoemFont(defaultPoemFont.value);
+  defaultPoemFont.value = font;
+  showToast('Fuente por defecto actualizada.', 'success');
 });
 fontSizeDown?.addEventListener('click', () => {
   adjustFontScale(-5);
@@ -6753,6 +7245,7 @@ restoreLastWorkedPoemOnStartup();
 applyAnalysisMode();
 setPoemTitleDisplay(poemTitle?.value ?? '');
 updateDefaultColorButton();
+updateDefaultPoemFontControl();
 updateVersionManagerStatus();
 renderSavedVersionList(savedPoemName?.value ?? '', savedPoemVersion?.value ?? '');
 refreshLookupBar();

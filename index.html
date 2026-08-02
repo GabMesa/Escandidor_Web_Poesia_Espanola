@@ -8,9 +8,32 @@
       name="description"
       content="Analizador básico de poesía en español con separación silábica, conteo métrico y acentuación visible."
     />
+    <link rel="canonical" href="https://mesa-de-poesia.pages.dev/" />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="es_ES" />
+    <meta property="og:site_name" content="Mesa de Poesía" />
+    <meta property="og:title" content="Escandidor de poesía española" />
+    <meta
+      property="og:description"
+      content="Analiza poemas en español: separación silábica, conteo métrico, acentuación y rima."
+    />
+    <meta property="og:url" content="https://mesa-de-poesia.pages.dev/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Escandidor de poesía española" />
+    <meta
+      name="twitter:description"
+      content="Analiza poemas en español: separación silábica, conteo métrico, acentuación y rima."
+    />
     <link
       rel="icon"
       href="https://raw.githubusercontent.com/GabMesa/escandador/refs/heads/main/favicon.ico"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;700&amp;family=Atkinson+Hyperlegible:wght@400;700&amp;family=Bebas+Neue&amp;family=Bungee&amp;family=Caveat:wght@400;700&amp;family=Cinzel:wght@400;700&amp;family=Cormorant+Garamond:wght@400;600;700&amp;family=EB+Garamond:wght@400;600;700&amp;family=Josefin+Sans:wght@400;600;700&amp;family=Lexend:wght@400;600;700&amp;family=Libre+Baskerville:wght@400;700&amp;family=Lora:wght@400;600;700&amp;family=Merriweather:wght@400;700&amp;family=Montserrat:wght@400;600;700&amp;family=Nunito:wght@400;600;700&amp;family=Pacifico&amp;family=Permanent+Marker&amp;family=Playfair+Display:wght@400;600;700&amp;family=Source+Sans+3:wght@400;600;700&amp;family=UnifrakturCook:wght@700&amp;display=swap"
+      rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
     <style>
@@ -170,20 +193,15 @@
           <summary>
             <span>Configuración</span>
             <span class="summary-hint">
-              Acento versal, hemistiquio, sinalefa y rima
+              Forma, conteo silábico, acento versal y rima
               <span class="guide-hover" tabindex="0">
                 <span class="guide-trigger" aria-label="Ver guía de formas"
                   >i</span
                 >
                 <span class="guide-popover">
-                  <strong>Soneto:</strong> 14 versos, acento versal sugerido
-                  6-10, esquema habitual ABBA ABBA CDC DCD.<br />
-                  <strong>Espinela:</strong> 10 versos, octosílabo, acento
-                  versal sugerido 7, esquema ABBAACCDDC.<br />
-                  <strong>Sonetillo:</strong> 14 versos octosílabos; puedes usar
-                  el mismo esquema del soneto.<br />
-                  <strong>Sextina:</strong> usa modo de rima Sextina para
-                  comparar palabras finales completas.
+                  Elige una forma para cargar su metro, acento versal y rima.
+                  Todos los valores siguen siendo editables. En metros mixtos,
+                  escribe la secuencia completa: 7-5-7-5.
                 </span>
               </span>
               <svg
@@ -198,102 +216,96 @@
           </summary>
 
           <div class="config-grid">
-            <details class="config-group" open>
-              <summary>Acento versal</summary>
-              <div class="config-body">
-                <label for="stressPreset">Patrón</label>
-                <select
-                  id="stressPreset"
-                  title="Selecciona un patrón sugerido de acentos versales."
-                >
-                  <option value="6-10">Endecasílabo 6-10</option>
-                  <option value="2-4-8-10">Endecasílabo 2-4-8-10</option>
-                  <option value="3-6-10">Endecasílabo 3-6-10</option>
-                  <option value="3-7">Octosílabo 3-7</option>
-                  <option value="custom" selected>Personalizado</option>
-                </select>
-                <label for="stressCustom">Personalizado (ej: 2-4-8-10)</label>
-                <input
-                  id="stressCustom"
-                  type="text"
-                  value=""
-                  title="Escribe posiciones de acento versal separadas por guiones o comas (ej: 4-8-10)."
-                />
-              </div>
-            </details>
-
-            <details class="config-group" open>
-              <summary>Hemistiquio</summary>
-              <div class="config-body">
-                <label for="hemistichSplit">Cortes globales (ej: 6,12)</label>
-                <input
-                  id="hemistichSplit"
-                  type="text"
-                  value=""
-                  title="Define cortes de hemistiquio globales. Si está vacío, no se aplica hemistiquio."
-                />
-                <p class="hint">
-                  Si este campo está vacío, no se aplica hemistiquio global.
-                </p>
-                <p class="hint">
-                  También puedes usar <strong>/</strong> dentro del verso para
-                  separar hemistiquios manualmente.
-                </p>
-              </div>
-            </details>
-
-            <details class="config-group" open>
-              <summary>Sinalefa</summary>
-              <div class="config-body">
-                <button
-                  id="sinalefaEnabled"
-                  type="button"
-                  class="secondary compact-action"
-                  title="Recalcula la sinalefa automática y limpia overrides globales."
-                >
-                  Detectar automáticamente
-                </button>
-                <p class="hint">
-                  Haz clic en cada unión para forzar o romper la sinalefa. El
-                  acento versal siempre la corta.
-                </p>
-              </div>
-            </details>
-
-            <details class="config-group" open>
-              <summary>Rima</summary>
-              <div class="config-body">
-                <label for="rhymeMode">Modo global</label>
-                <select
-                  id="rhymeMode"
-                  title="Define el modo de comparación de rima por defecto para todos los versos."
-                >
-                  <option value="asonante" selected>Asonante</option>
-                  <option value="consonante">Consonante</option>
-                  <option value="sextina">Sextina</option>
-                </select>
-                <label for="rhymeScheme">Esquema de rima</label>
-                <input
-                  id="rhymeScheme"
-                  type="text"
-                  value=""
-                  title="Escribe un esquema de rima como ABBAACCDDC o ABBAABBA CDE CDE. Se validan las letras de los versos en orden."
-                />
-                <label class="checkbox-row" for="repeatRhymeScheme">
-                  <input id="repeatRhymeScheme" type="checkbox" />
-                  Repetir esquema por estrofa
+            <details class="config-group poetic-form-group" open>
+              <summary>Forma métrica</summary>
+              <div class="config-body poetic-form-layout">
+                <label class="poetic-form-selector">
+                  Forma o estrofa
+                  <select id="poeticForm" title="Carga el metro, acento versal y rima de una forma poética.">
+                    <option value="custom" selected>Personalizada</option>
+                    <option value="copla">Copla</option>
+                    <option value="cuadernaVia">Cuaderna vía</option>
+                    <option value="cuarteta">Cuarteta</option>
+                    <option value="cuarteto">Cuarteto</option>
+                    <option value="decima">Décima o espinela</option>
+                    <option value="pieQuebrado">Estrofa de pie quebrado</option>
+                    <option value="lira">Lira</option>
+                    <option value="octavaReal">Octava real</option>
+                    <option value="octavilla">Octavilla</option>
+                    <option value="pareado">Pareado</option>
+                    <option value="quinteto">Quinteto</option>
+                    <option value="quintilla">Quintilla</option>
+                    <option value="redondilla">Redondilla</option>
+                    <option value="romance">Romance</option>
+                    <option value="seguidilla">Seguidilla</option>
+                    <option value="serventesio">Serventesio</option>
+                    <option value="sextina">Sextina</option>
+                    <option value="silva">Silva</option>
+                    <option value="silvaArromanzada">Silva arromanzada</option>
+                    <option value="soneto">Soneto</option>
+                    <option value="terceto">Terceto</option>
+                    <option value="tercetillo">Tercetillo</option>
+                  </select>
                 </label>
-                <label class="checkbox-row" for="distinguishSZInRhyme">
-                  <input id="distinguishSZInRhyme" type="checkbox" />
-                  Distinguir s y z en consonante
-                </label>
-                <p class="hint">
-                  Si está activo, los grupos separados por espacios se repiten
-                  por estrofa. Ej: ABAB ABBA → ABAB ABBA ABAB ABBA...
-                </p>
-                <p class="hint">
-                  Haz clic en el color de cada rima para personalizarlo; los
-                  colores se guardan para ese poema.
+
+                <div class="metric-config-row">
+                  <section class="metric-config-section meter-config-section" aria-labelledby="meterConfigTitle">
+                    <h3 id="meterConfigTitle">Conteo silábico por verso</h3>
+                    <input id="syllablePattern" type="text" inputmode="numeric" value="" placeholder="Ej: 11, 7-5-7-5 o 7 11" aria-label="Conteo silábico por verso" title="Usa guiones para una secuencia ordenada y espacios para permitir varios conteos en cualquier orden." />
+                  </section>
+
+                  <section class="metric-config-section rhyme-config-section" aria-labelledby="rhymeConfigTitle">
+                    <h3 id="rhymeConfigTitle">Tipo de rima</h3>
+                    <select id="rhymeMode" aria-label="Tipo de rima" title="Define el modo de comparación de rima por defecto para todos los versos.">
+                      <option value="asonante" selected>Asonante</option>
+                      <option value="consonante">Consonante</option>
+                      <option value="sextina">Sextina</option>
+                    </select>
+                  </section>
+
+                  <section class="metric-config-section hemistich-config-section" aria-labelledby="hemistichConfigTitle">
+                    <h3 id="hemistichConfigTitle">Hemistiquio</h3>
+                    <input id="hemistichSplit" type="text" value="" placeholder="Ej: 7" title="Define cortes de hemistiquio globales. Si está vacío, no se aplica hemistiquio." />
+                    <label for="hemistichSplit">Cortes globales</label>
+                    <p class="hint">También puedes usar <strong>/</strong> dentro del verso.</p>
+                  </section>
+
+                  <section class="metric-config-section sinalefa-config-section" aria-labelledby="sinalefaConfigTitle">
+                    <h3 id="sinalefaConfigTitle">Sinalefa</h3>
+                    <button id="sinalefaEnabled" type="button" class="secondary compact-action" title="Recalcula la sinalefa automática y limpia overrides globales.">
+                      Detectar automáticamente
+                    </button>
+                    <p class="hint">Haz clic en cada unión para forzar o romper la sinalefa. El acento versal siempre la corta.</p>
+                  </section>
+                </div>
+
+                <div class="metric-detail-row">
+                  <fieldset class="metric-detail-section stress-pattern-config">
+                    <legend>Acento versal por conteo</legend>
+                    <div id="stressPatternFields" class="stress-pattern-fields">
+                      <span class="hint">Define primero el conteo silábico.</span>
+                    </div>
+                    <p class="hint config-field-help">Usa <strong>+</strong> para añadir varios patrones al mismo conteo.</p>
+                  </fieldset>
+
+                  <fieldset class="metric-detail-section rhyme-scheme-config">
+                    <legend>Esquema de rima</legend>
+                    <input id="rhymeScheme" type="text" value="" placeholder="Ej: ABBA, abab o AbAb" aria-label="Esquema de rima" title="Minúscula exige arte menor (8 sílabas o menos); mayúscula, arte mayor (más de 8). Usa - para versos sueltos." />
+                    <div class="rhyme-scheme-options">
+                      <label class="checkbox-row" for="repeatRhymeScheme">
+                        <input id="repeatRhymeScheme" type="checkbox" />
+                        Repetir esquema
+                      </label>
+                      <label class="checkbox-row" for="distinguishSZInRhyme">
+                        <input id="distinguishSZInRhyme" type="checkbox" />
+                        Distinguir s y z en consonante
+                      </label>
+                    </div>
+                  </fieldset>
+                </div>
+
+                <p id="poeticFormHint" class="hint poetic-form-hint">
+                  El conteo se valida en cada verso analizado.
                 </p>
               </div>
             </details>
@@ -368,6 +380,58 @@
                     </button>
                   </div>
                   <div class="version-modal-actions-row">
+                    <label class="manager-font-control" for="defaultPoemFont">
+                      Fuente por defecto
+                      <select id="defaultPoemFont" class="poem-font-selector">
+                        <option value="open-dyslexic">OpenDyslexic</option>
+                        <option value="atkinson" selected>Atkinson Hyperlegible</option>
+                        <option value="alegreya">Alegreya · literaria</option>
+                        <option value="lora">Lora · formal</option>
+                        <option value="cormorant">Cormorant Garamond · elegante</option>
+                        <option value="eb-garamond">EB Garamond · clásica</option>
+                        <option value="playfair">Playfair Display · editorial</option>
+                        <option value="libre-baskerville">Libre Baskerville · tradicional</option>
+                        <option value="merriweather">Merriweather · lectura</option>
+                        <option value="montserrat">Montserrat · moderna</option>
+                        <option value="nunito">Nunito · informal</option>
+                        <option value="source-sans">Source Sans 3 · limpia</option>
+                        <option value="lexend">Lexend · accesible</option>
+                        <option value="josefin">Josefin Sans · geométrica</option>
+                        <option value="cinzel">Cinzel · épica</option>
+                        <option value="bebas-neue">Bebas Neue · cartel</option>
+                        <option value="caveat">Caveat · manuscrita</option>
+                        <option value="pacifico">Pacifico · alegre</option>
+                        <option value="permanent-marker">Permanent Marker · rotulador</option>
+                        <option value="bungee">Bungee · urbana</option>
+                        <option value="unifraktur">UnifrakturCook · gótica</option>
+                      </select>
+                    </label>
+                    <label class="manager-font-control" for="poemFontManager">
+                      Fuente del poema
+                      <select id="poemFontManager" class="poem-font-selector">
+                        <option value="open-dyslexic">OpenDyslexic</option>
+                        <option value="atkinson" selected>Atkinson Hyperlegible</option>
+                        <option value="alegreya">Alegreya · literaria</option>
+                        <option value="lora">Lora · formal</option>
+                        <option value="cormorant">Cormorant Garamond · elegante</option>
+                        <option value="eb-garamond">EB Garamond · clásica</option>
+                        <option value="playfair">Playfair Display · editorial</option>
+                        <option value="libre-baskerville">Libre Baskerville · tradicional</option>
+                        <option value="merriweather">Merriweather · lectura</option>
+                        <option value="montserrat">Montserrat · moderna</option>
+                        <option value="nunito">Nunito · informal</option>
+                        <option value="source-sans">Source Sans 3 · limpia</option>
+                        <option value="lexend">Lexend · accesible</option>
+                        <option value="josefin">Josefin Sans · geométrica</option>
+                        <option value="cinzel">Cinzel · épica</option>
+                        <option value="bebas-neue">Bebas Neue · cartel</option>
+                        <option value="caveat">Caveat · manuscrita</option>
+                        <option value="pacifico">Pacifico · alegre</option>
+                        <option value="permanent-marker">Permanent Marker · rotulador</option>
+                        <option value="bungee">Bungee · urbana</option>
+                        <option value="unifraktur">UnifrakturCook · gótica</option>
+                      </select>
+                    </label>
                     <button
                       id="defaultPoemColorBtn"
                       type="button"
@@ -502,10 +566,8 @@
             <p class="lookup-attribution">
   Definiciones obtenidas desde
   <a href="https://es.wiktionary.org/" target="_blank" rel="noopener noreferrer">Wikcionario</a>. <br>
-  Frecuencia desde
-  <a href="https://gist.github.com/epidemian/ebb3025e8cb25f6f4e3a" target="_blank" rel="noopener noreferrer">es.txt (epidemian)</a>. <br>
-  Rimas desde
-  <a href="https://raw.githubusercontent.com/xavier-hernandez/spanish-wordlist/refs/heads/main/text/spanish_words.txt" target="_blank" rel="noopener noreferrer">spanish-wordlist</a>. <br>
+  Frecuencia y rimas desde
+  <a href="https://github.com/rspeer/wordfreq" target="_blank" rel="noopener noreferrer">rspeer/wordfreq</a>. <br>
   Sinónimos desde
   <a href="https://github.com/edublancas/sinonimos" target="_blank" rel="noopener noreferrer">edublancas/sinonimos</a>.
   <br>
@@ -534,8 +596,8 @@
               max="500"
               step="5"
               value="100"
-              title="Ajusta el tamaño de texto en escritura y análisis."
-              aria-label="Tamaño de texto"
+              title="Ajusta el tamaño de texto de toda la página."
+              aria-label="Tamaño de texto de toda la página"
             />
             <button
               id="fontSizeUp"
@@ -576,6 +638,34 @@
                 role="group"
                 aria-label="Acciones de poema"
               >
+                <select
+                  id="poemFontTop"
+                  class="poem-font-selector top-font-selector"
+                  title="Fuente del poema"
+                  aria-label="Fuente del poema"
+                >
+                  <option value="open-dyslexic">OpenDyslexic</option>
+                  <option value="atkinson" selected>Atkinson Hyperlegible</option>
+                  <option value="alegreya">Alegreya · literaria</option>
+                  <option value="lora">Lora · formal</option>
+                  <option value="cormorant">Cormorant Garamond · elegante</option>
+                  <option value="eb-garamond">EB Garamond · clásica</option>
+                  <option value="playfair">Playfair Display · editorial</option>
+                  <option value="libre-baskerville">Libre Baskerville · tradicional</option>
+                  <option value="merriweather">Merriweather · lectura</option>
+                  <option value="montserrat">Montserrat · moderna</option>
+                  <option value="nunito">Nunito · informal</option>
+                  <option value="source-sans">Source Sans 3 · limpia</option>
+                  <option value="lexend">Lexend · accesible</option>
+                  <option value="josefin">Josefin Sans · geométrica</option>
+                  <option value="cinzel">Cinzel · épica</option>
+                  <option value="bebas-neue">Bebas Neue · cartel</option>
+                  <option value="caveat">Caveat · manuscrita</option>
+                  <option value="pacifico">Pacifico · alegre</option>
+                  <option value="permanent-marker">Permanent Marker · rotulador</option>
+                  <option value="bungee">Bungee · urbana</option>
+                  <option value="unifraktur">UnifrakturCook · gótica</option>
+                </select>
                 <button
                   id="newPoemTop"
                   type="button"
@@ -604,15 +694,11 @@
                   type="button"
                   class="secondary icon-action"
                   title="Importar poemas desde archivo Markdown"
+                  aria-label="Importar poemas desde archivo Markdown"
                 >
-                </button><button
-                  id="copyAnalysisText"
-                  type="button"
-                  class="secondary compact-action hidden"
-                  title="Copiar el análisis en formato texto."
-                >
-                  Copiar
-                  📥
+                  <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 3v12m0-12 4 4m-4-4L8 7M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
+                  </svg>
                 </button>
                 <button
                   id="exportPoemsMd"
@@ -761,6 +847,18 @@
                 title="Alterna entre vista visual y vista texto para copiar y pegar."
               >
                 Modo texto
+              </button
+              ><button
+                id="copyAnalysisText"
+                type="button"
+                class="secondary compact-action hidden"
+                title="Copiar el análisis en formato texto."
+              >
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="9" y="9" width="11" height="11" rx="2" />
+                  <path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3" />
+                </svg>
+                Copiar
               </button></span
             >
           </div>
@@ -834,6 +932,21 @@
         </div>
       </div>
 
+      <aside id="supportReminder" class="support-reminder" aria-label="Apoya el desarrollo">
+        <div class="support-reminder-copy">
+          <span class="support-reminder-mark" aria-hidden="true">♥</span>
+          <p>
+            <strong>¿Te resulta útil Escandidor?</strong>
+            Tu apoyo ayuda a mantenerlo y a seguir creando herramientas para poetas.
+            <span id="supporterCountMessage" class="supporter-count-message" aria-live="polite" hidden></span>
+          </p>
+        </div>
+        <div class="support-reminder-actions">
+          <a class="support-reminder-link" href="apoyar.html">Apoyar el proyecto</a>
+          <button id="dismissSupportReminder" class="support-reminder-dismiss" type="button" aria-label="Ocultar este recordatorio" title="Ocultar durante 30 días">×</button>
+        </div>
+      </aside>
+
       <footer
         class="app-footer"
         style="
@@ -851,7 +964,8 @@
             target="_blank"
             rel="noopener noreferrer"
             >Busto de Paellas</a
-          >. <a href="agradecimientos.html">Agradecimientos</a>.
+          >. <a href="agradecimientos.html">Agradecimientos</a> ·
+          <a href="apoyar.html">Apoya el proyecto</a>.
         </div>
         <div
           class="footer-credits"
@@ -865,16 +979,25 @@
         >
           Componentes y Recursos con Licencia de Código Abierto / Uso Público:
           fuente tipográfica <strong>OpenDyslexic</strong> incluida localmente
-          en <strong>opendyslexic-0.92</strong> (SIL Open Font License) y
+          en <strong>opendyslexic-0.92</strong> (<a href="opendyslexic-0.92/OFL.txt">SIL Open Font License 1.1</a>) y
           módulo de exportación de documentos <strong>jsPDF</strong>
           (Licencia MIT). Los indicadores MD y PDF se renderizan como texto
           local. Las herramientas de consulta operan mediante peticiones a
-          diccionarios de acceso público libre.
+          diccionarios de acceso público libre y utilizan los datos de
+          frecuencia léxica en español de
+          <a
+            href="https://github.com/rspeer/wordfreq"
+            target="_blank"
+            rel="noopener noreferrer"
+            >rspeer/wordfreq</a
+          > bajo <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 4.0</a>.
+          <a href="THIRD-PARTY-LICENSES.md">Licencias y atribuciones completas</a>.
         </div>
       </footer>
     </main>
 
     <script type="module" src="app.js"></script>
     <script type="module" src="auth.js"></script>
+    <script type="module" src="support-reminder.js"></script>
   </body>
 </html>

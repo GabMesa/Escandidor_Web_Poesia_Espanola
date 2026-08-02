@@ -9,6 +9,7 @@ Este documento define las reglas linguisticas usadas por el escandador basico de
 - Deteccion de silaba tonica.
 - Clasificacion acentual: aguda, llana, esdrujula, sobreesdrujula, monosilaba.
 - Conteo de silabas por linea.
+- Patron de conteo configurable: guiones para secuencias ordenadas y espacios para alternativas en cualquier orden.
 - Ajuste metrico por acento final del verso:
   - aguda: +1
   - llana: +0
@@ -98,7 +99,8 @@ Este documento define las reglas linguisticas usadas por el escandador basico de
 - En versos con hemistiquio, la visualizacion puede reiniciar la numeracion por segmento para mostrar cada hemistiquio como verso independiente.
 
 ## Acento versal
-- El poeta define un patron objetivo con posiciones silabicas (ej: 6-10, 2-4-8-10).
+- El poeta define un patron objetivo por cada conteo silabico configurado (ej: 7 -> 3-6 y 11 -> 6-10).
+- Los versos de 11 silabas usan 6-10 como valor sugerido inicial.
 - Por cada verso se comparan los acentos detectados con ese patron.
 - Ademas del patron escrito por el poeta, se incorpora el ultimo acento natural de cada hemistiquio al patron efectivo del analisis.
 - Estado visual:
@@ -177,6 +179,10 @@ Este documento define las reglas linguisticas usadas por el escandador basico de
 - En el envio final, un grupo como AB exige que ambas palabras-base aparezcan dentro del verso, no necesariamente como ultima palabra unica.
 
 ## Configuraciones poeticas sugeridas en la guia
+- Sintaxis del conteo:
+  - `7-5-7-5` exige esa secuencia ordenada y la repite.
+  - `7 11` permite versos de 7 u 11 silabas en cualquier orden.
+  - `8-7 11-8` permite 7 u 11 solo en la segunda posicion de la secuencia.
 - Soneto:
   - 14 versos
   - endecasilabo habitual

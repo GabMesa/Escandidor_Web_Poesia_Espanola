@@ -52,7 +52,11 @@ test('creates one cloud poem, appends versions, and preserves all settings', asy
   await sync.syncSavedVersion({ title: 'Mi poema', version: first });
   await sync.syncSavedVersion({
     title: 'Mi poema',
-    version: version('local-v2', 2, 'Segundo texto', { rhymeMode: 'asonante', repeatRhymeScheme: true }),
+    version: version('local-v2', 2, 'Segundo texto', {
+      poemFont: 'garamond', poeticForm: 'silva', syllablePattern: '7 11',
+      stressPatterns: { 7: '3-6', 11: '6-10' },
+      rhymeMode: 'asonante', repeatRhymeScheme: true,
+    }),
   });
 
   const writes = calls.filter((call) => call.method !== 'GET');
@@ -62,6 +66,10 @@ test('creates one cloud poem, appends versions, and preserves all settings', asy
     'PUT /api/poems/41',
   ]);
   assert.deepEqual(writes[1].body.settings, {
+    poemFont: 'garamond',
+    poeticForm: 'silva',
+    syllablePattern: '7 11',
+    stressPatterns: { 7: '3-6', 11: '6-10' },
     rhymeMode: 'asonante',
     repeatRhymeScheme: true,
     sinalefaOverrides: { '0:1': true },

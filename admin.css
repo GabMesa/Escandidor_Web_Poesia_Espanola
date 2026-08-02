@@ -202,3 +202,22 @@
     width: max-content;
   }
 }
+
+.admin-table-wrap input[type="text"],
+.admin-message-input {
+  min-width: 190px;
+  min-height: 34px;
+  padding: 5px 8px;
+  border: 1px solid rgba(53, 35, 18, 0.18);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+}
+
+.admin-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}

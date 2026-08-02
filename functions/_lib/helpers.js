@@ -8,6 +8,24 @@
 export const SESSION_COOKIE_NAME = 'escandidor_session';
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 dias
 const PBKDF2_ITERATIONS = 100000;
+const FONT_FAMILIES = new Set([
+  'open-dyslexic', 'atkinson', 'alegreya', 'lora', 'cormorant',
+  'eb-garamond', 'playfair', 'libre-baskerville', 'merriweather',
+  'montserrat', 'nunito', 'source-sans', 'lexend', 'josefin',
+  'cinzel', 'bebas-neue', 'caveat', 'pacifico', 'permanent-marker',
+  'bungee', 'unifraktur',
+]);
+
+export function normalizeFontFamily(value) {
+  const fontFamily = String(value ?? '').trim();
+  return FONT_FAMILIES.has(fontFamily) ? fontFamily : 'atkinson';
+}
+
+export async function hashIdentity(value) {
+  const bytes = new TextEncoder().encode(String(value || '').trim().toLowerCase());
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
 
 // ---------------------------------------------------------------------
 // Respuestas
@@ -195,6 +213,8 @@ export function serializePoem(row) {
   } catch (_) {
     settings = {};
   }
+  const fontFamily = normalizeFontFamily(row.font_family ?? settings.poemFont);
+  settings.poemFont = fontFamily;
   return {
     id: row.id,
     title: row.title,
@@ -202,6 +222,7 @@ export function serializePoem(row) {
     versionName: row.version_name,
     content: row.content,
     settings,
+    fontFamily,
     colorIndex: row.color_index,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

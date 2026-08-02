@@ -26,6 +26,7 @@ CREATE TABLE poems (
   user_id INTEGER NOT NULL,
   name TEXT NOT NULL,
   configurations TEXT NOT NULL DEFAULT '{}',
+  font_family TEXT NOT NULL DEFAULT 'open-dyslexic',
   color_index INTEGER,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -90,18 +91,21 @@ CREATE TABLE service_prices (
   FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE
 );
 
-CREATE TABLE subscriptions (
+CREATE TABLE supporters (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  service_id INTEGER NOT NULL,
+  user_id INTEGER,
+  service_id INTEGER,
   provider TEXT NOT NULL,
-  provider_subscription_id TEXT NOT NULL,
-  status TEXT NOT NULL,
+  provider_supporter_id TEXT NOT NULL,
+  support_type TEXT NOT NULL DEFAULT 'one_time' CHECK (support_type IN ('one_time', 'membership')),
+  status TEXT NOT NULL DEFAULT 'supporter' CHECK (status IN ('supporter', 'active', 'inactive', 'cancelled')),
+  display_name TEXT,
+  personalized_message TEXT,
   current_period_end TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-  UNIQUE (provider, provider_subscription_id),
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  UNIQUE (provider, provider_supporter_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
   FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE RESTRICT
 );
 
@@ -119,6 +123,18 @@ CREATE TABLE user_entitlements (
   FOREIGN KEY (feature_id) REFERENCES features(id) ON DELETE CASCADE
 );
 
+CREATE TABLE kofi_payments (
+  transaction_id TEXT PRIMARY KEY,
+  supporter_id INTEGER NOT NULL,
+  payment_type TEXT NOT NULL,
+  is_subscription_payment INTEGER NOT NULL DEFAULT 0 CHECK (is_subscription_payment IN (0, 1)),
+  amount_minor INTEGER NOT NULL DEFAULT 0 CHECK (amount_minor >= 0),
+  currency TEXT NOT NULL DEFAULT 'EUR',
+  paid_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (supporter_id) REFERENCES supporters(id) ON DELETE CASCADE
+);
+
 CREATE INDEX idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
 CREATE INDEX idx_poems_user_updated ON poems(user_id, updated_at DESC);
@@ -127,8 +143,9 @@ CREATE INDEX idx_deleted_poems_user_deleted ON deleted_poems(user_id, deleted_at
 CREATE UNIQUE INDEX idx_deleted_poems_user_poem
   ON deleted_poems(user_id, poem_id) WHERE poem_id IS NOT NULL;
 CREATE INDEX idx_service_prices_service ON service_prices(service_id, status);
-CREATE INDEX idx_subscriptions_user_status ON subscriptions(user_id, status);
+CREATE INDEX idx_supporters_user_status ON supporters(user_id, status);
 CREATE INDEX idx_entitlements_user_feature ON user_entitlements(user_id, feature_id, ends_at);
+CREATE INDEX idx_kofi_payments_supporter ON kofi_payments(supporter_id);
 
 CREATE VIEW current_poems AS
 SELECT
@@ -136,6 +153,7 @@ SELECT
   p.user_id,
   p.name AS title,
   p.configurations AS settings_json,
+  p.font_family,
   p.color_index,
   p.created_at,
   p.updated_at,

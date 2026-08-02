@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Administración · Escandidor</title>
     <link rel="icon" href="favicon.ico" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&amp;family=Cormorant+Garamond:wght@600;700&amp;display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="admin.css" />
   </head>
@@ -28,11 +31,15 @@
           <div><strong id="userCount">0</strong><span>Usuarios</span></div>
           <div><strong id="poemCount">0</strong><span>Poemas</span></div>
           <div><strong id="adminCount">0</strong><span>Administradores</span></div>
+          <div><strong id="payingUserCount">0</strong><span>Usuarios de pago</span></div>
+          <div><strong id="earnedTotal">0</strong><span>Ingresos recibidos</span></div>
+          <div><strong id="nextMonthTotal">0</strong><span>Previsión próximo mes</span></div>
         </div>
 
         <div class="admin-toolbar">
           <div class="admin-tabs" role="tablist" aria-label="Secciones de administración">
             <button id="usersTab" class="admin-tab is-active" type="button" role="tab" aria-selected="true">Usuarios</button>
+            <button id="supportersTab" class="admin-tab" type="button" role="tab" aria-selected="false">Supporters</button>
             <button id="poemsTab" class="admin-tab" type="button" role="tab" aria-selected="false">Poemas</button>
           </div>
           <label class="admin-search">
@@ -45,8 +52,17 @@
         <section id="usersPanel" class="admin-panel" role="tabpanel" aria-labelledby="usersTab">
           <div class="admin-table-wrap">
             <table>
-              <thead><tr><th>Usuario</th><th>Correo</th><th>Poemas</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead>
+              <thead><tr><th>Usuario</th><th>Correo</th><th>Discord</th><th>Poemas</th><th>Rol</th><th>Estado</th><th>Pago</th><th>Mensaje</th><th>Acciones</th></tr></thead>
               <tbody id="usersTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="supportersPanel" class="admin-panel hidden" role="tabpanel" aria-labelledby="supportersTab">
+          <div class="admin-table-wrap">
+            <table>
+              <thead><tr><th>Proveedor</th><th>Usuario vinculado</th><th>Tipo</th><th>Estado</th><th>Recibido</th><th>Último pago</th><th>Mensaje personalizado</th><th>Acciones</th></tr></thead>
+              <tbody id="supportersTableBody"></tbody>
             </table>
           </div>
         </section>

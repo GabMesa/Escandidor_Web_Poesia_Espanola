@@ -34,6 +34,28 @@ export async function onRequestPatch(context) {
     await env.escandidor_db.prepare('DELETE FROM sessions WHERE user_id = ?').bind(targetId).run();
   }
 
+  if (typeof body.paying === 'boolean') {
+    if (body.paying) {
+      await env.escandidor_db
+        .prepare(
+          `INSERT INTO supporters
+            (user_id, provider, provider_supporter_id, support_type, status, personalized_message)
+           VALUES (?, 'admin', ?, 'membership', 'active', ?)
+           ON CONFLICT(provider, provider_supporter_id) DO UPDATE SET
+             user_id = excluded.user_id, status = 'active',
+             personalized_message = COALESCE(excluded.personalized_message, supporters.personalized_message),
+             updated_at = datetime('now')`
+        )
+        .bind(target.id, `user:${target.id}`, String(body.personalizedMessage || '').trim().slice(0, 180) || null)
+        .run();
+    } else {
+      await env.escandidor_db
+        .prepare("UPDATE supporters SET status = 'inactive', updated_at = datetime('now') WHERE user_id = ?")
+        .bind(target.id)
+        .run();
+    }
+  }
+
   return jsonResponse({ ok: true, user: publicUser(row) });
 }
 

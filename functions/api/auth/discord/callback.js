@@ -1,5 +1,6 @@
 import {
   createSession,
+  hashIdentity,
   isSecureRequest,
   parseCookies,
   randomToken,
@@ -83,6 +84,18 @@ export async function resolveDiscordUser(env, profile) {
   }
 }
 
+async function linkSupporterByVerifiedEmail(env, user) {
+  if (!user?.email) return;
+  const emailHash = await hashIdentity(user.email);
+  await env.escandidor_db
+    .prepare(
+      `UPDATE supporters SET user_id = ?, updated_at = datetime('now')
+       WHERE provider = 'kofi' AND provider_supporter_id = ? AND user_id IS NULL`
+    )
+    .bind(user.id, emailHash)
+    .run();
+}
+
 export async function onRequestGet({ request, env }) {
   const secure = isSecureRequest(request);
   const headers = new Headers();
@@ -122,6 +135,7 @@ export async function onRequestGet({ request, env }) {
     }
 
     const user = await resolveDiscordUser(env, profile);
+    await linkSupporterByVerifiedEmail(env, user);
 
     if (user && user.status === 'disabled') throw new Error('Esta cuenta esta deshabilitada.');
 

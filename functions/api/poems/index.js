@@ -1,4 +1,6 @@
-import { jsonResponse, errorResponse, safeJson, requireUser, serializePoem } from '../../_lib/helpers.js';
+import {
+  jsonResponse, errorResponse, safeJson, requireUser, serializePoem, normalizeFontFamily,
+} from '../../_lib/helpers.js';
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -7,7 +9,7 @@ export async function onRequestGet(context) {
 
   const { results } = await env.escandidor_db
     .prepare(
-      `SELECT p.id, p.name AS title, p.configurations AS settings_json, p.color_index,
+      `SELECT p.id, p.name AS title, p.configurations AS settings_json, p.font_family, p.color_index,
               p.created_at, p.updated_at, pv.name AS version_name, pv.content,
               pv.version, pv.created_at AS version_created_at
        FROM poems p JOIN poem_versions pv ON pv.poem_id = p.id
@@ -52,6 +54,8 @@ export async function onRequestPost(context) {
   const versionName = (body.versionName || 'v1').trim().slice(0, 60);
   const content = typeof body.content === 'string' ? body.content : '';
   const settings = body.settings && typeof body.settings === 'object' ? body.settings : {};
+  const fontFamily = normalizeFontFamily(body.fontFamily ?? settings.poemFont);
+  settings.poemFont = fontFamily;
   const colorIndex = Number.isInteger(body.colorIndex) ? body.colorIndex : null;
 
   const sourcePoemId = Number(body.sourcePoemId);
@@ -76,10 +80,10 @@ export async function onRequestPost(context) {
 
   const poem = await env.escandidor_db
     .prepare(
-      `INSERT INTO poems (user_id, name, configurations, color_index)
-       VALUES (?, ?, ?, ?) RETURNING id`
+      `INSERT INTO poems (user_id, name, configurations, font_family, color_index)
+       VALUES (?, ?, ?, ?, ?) RETURNING id`
     )
-    .bind(user.id, title, JSON.stringify(settings), colorIndex)
+     .bind(user.id, title, JSON.stringify(settings), fontFamily, colorIndex)
     .first();
 
   await env.escandidor_db

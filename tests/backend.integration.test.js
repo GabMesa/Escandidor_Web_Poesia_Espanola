@@ -139,7 +139,12 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
       method: 'PUT', cookie: firstCookie,
       body: {
         versionName: 'revision', content: 'Segundo texto',
-        settings: { rhymeMode: 'asonante', stressPattern: [2, 6, 10], nested: { sinalefa: false } },
+        settings: {
+          poemFont: 'lora', poeticForm: 'soneto', syllablePattern: '11',
+          stressPatterns: { 11: '6-10' },
+          rhymeMode: 'asonante', stressPattern: [2, 6, 10],
+          nested: { sinalefa: false },
+        },
       },
     });
     assert.equal(revisionUpdate.response.status, 200);
@@ -149,8 +154,12 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     });
     assert.equal(finalUpdate.response.status, 200);
     assert.equal(finalUpdate.payload.poem.versionName, 'final');
+    assert.equal(finalUpdate.payload.poem.fontFamily, 'lora');
     assert.deepEqual(finalUpdate.payload.poem.settings, {
-      rhymeMode: 'asonante', stressPattern: [2, 6, 10], nested: { sinalefa: false },
+      poemFont: 'lora', poeticForm: 'soneto', syllablePattern: '11',
+      stressPatterns: { 11: '6-10' },
+      rhymeMode: 'asonante', stressPattern: [2, 6, 10],
+      nested: { sinalefa: false },
     });
 
     const secondPoem = await jsonRequest(baseUrl, '/api/poems', {
@@ -258,7 +267,13 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     assert.equal(staleReuploadAfterEmptyingTrash.response.status, 409);
 
     const stats = await jsonRequest(baseUrl, '/api/admin/stats', { cookie: firstCookie });
-    assert.deepEqual(stats.payload.stats, { userCount: 2, poemCount: 2, adminCount: 1 });
+    assert.deepEqual(stats.payload.stats, {
+      userCount: 2,
+      poemCount: 2,
+      adminCount: 1,
+      payingUserCount: 0,
+      revenue: [],
+    });
     const adminUsers = await jsonRequest(baseUrl, '/api/admin/users', { cookie: firstCookie });
     assert.equal(adminUsers.payload.users.length, 2);
     assert.equal(adminUsers.payload.users.find((user) => user.username === 'primera').poemCount, 2);
@@ -267,6 +282,27 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     assert.equal(adminPoems.payload.poems[0].owner.username, 'primera');
 
     const secondUser = adminUsers.payload.users.find((user) => user.username === 'segunda');
+    const markedAsPaying = await jsonRequest(baseUrl, `/api/admin/users/${secondUser.id}`, {
+      method: 'PATCH', cookie: firstCookie,
+      body: {
+        role: 'user',
+        status: 'active',
+        paying: true,
+        personalizedMessage: 'Gracias, segunda, por sostener cada verso.',
+      },
+    });
+    assert.equal(markedAsPaying.response.status, 200);
+
+    const supporterGreeting = await jsonRequest(baseUrl, '/api/supporters', { cookie: secondCookie });
+    assert.equal(supporterGreeting.payload.supporter.message, 'Gracias, segunda, por sostener cada verso.');
+
+    const adminSupporters = await jsonRequest(baseUrl, '/api/admin/supporters', { cookie: firstCookie });
+    assert.equal(adminSupporters.payload.supporters.length, 1);
+    assert.equal(adminSupporters.payload.supporters[0].user.username, 'segunda');
+
+    const payingStats = await jsonRequest(baseUrl, '/api/admin/stats', { cookie: firstCookie });
+    assert.equal(payingStats.payload.stats.payingUserCount, 1);
+
     const promoted = await jsonRequest(baseUrl, `/api/admin/users/${secondUser.id}`, {
       method: 'PATCH', cookie: firstCookie, body: { role: 'admin', status: 'active' },
     });
@@ -292,7 +328,7 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
   try {
     const output = runWrangler([
       'd1', 'execute', 'escandidor-db', '--local', '--persist-to', persistence, '--json',
-      '--command', `SELECT p.name, p.configurations, COUNT(pv.id) AS version_count,
+      '--command', `SELECT p.name, p.configurations, p.font_family, COUNT(pv.id) AS version_count,
         GROUP_CONCAT(pv.name || ':' || pv.content, '|') AS versions
         FROM poems p JOIN poem_versions pv ON pv.poem_id = p.id
         GROUP BY p.id ORDER BY p.id;`,
@@ -305,12 +341,17 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     assert.match(rows[0].versions, /borrador:Primer texto/);
     assert.doesNotMatch(rows[0].versions, /revision:Segundo texto/);
     assert.match(rows[0].versions, /final:Texto definitivo/);
+    assert.equal(rows[0].font_family, 'lora');
     assert.deepEqual(JSON.parse(rows[0].configurations), {
-      rhymeMode: 'asonante', stressPattern: [2, 6, 10], nested: { sinalefa: false },
+      poemFont: 'lora', poeticForm: 'soneto', syllablePattern: '11',
+      stressPatterns: { 11: '6-10' },
+      rhymeMode: 'asonante', stressPattern: [2, 6, 10],
+      nested: { sinalefa: false },
     });
     assert.equal(rows[1].name, 'Segundo poema');
     assert.equal(rows[1].version_count, 1);
-    assert.deepEqual(JSON.parse(rows[1].configurations), { form: 'libre' });
+    assert.equal(rows[1].font_family, 'atkinson');
+    assert.deepEqual(JSON.parse(rows[1].configurations), { form: 'libre', poemFont: 'atkinson' });
   } finally {
     rmSync(persistence, { recursive: true, force: true });
   }

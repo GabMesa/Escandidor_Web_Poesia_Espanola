@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://mesa-de-poesia.pages.dev/sitemap.xml

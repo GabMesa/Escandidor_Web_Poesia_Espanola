@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {
   getSpeechRecognitionErrorMessage,
   insertPoemLineBreak,
-  insertPoemText
+  insertPoemText,
+  remapPoemLineSettings
 } from '../poem-input-tools.js';
 
 test('inserts recognized text at the caret and preserves surrounding text', () => {
@@ -35,6 +36,32 @@ test('turns a dictation pause into a clean line break', () => {
   assert.deepEqual(insertPoemLineBreak('Primer verso\nSegundo', 13, 13), {
     text: 'Primer verso\nSegundo',
     cursor: 13
+  });
+});
+
+test('moves configured line settings when a verse is inserted in the middle', () => {
+  const previousText = 'Perdóname... te lo ruego\nhoy he sido un cruel villano';
+  const nextText = 'Perdóname... te lo ruego\nDonde se ahoga mi casa\nhoy he sido un cruel villano';
+
+  assert.deepEqual(remapPoemLineSettings(previousText, nextText, {
+    sinalefaOverrides: { '1:0': false, '1:2': true },
+    lineOverrides: { 1: { rhymeText: 'B', sinalefaOn: '3' } },
+    openAdvancedByLine: { 1: true }
+  }), {
+    sinalefaOverrides: { '2:0': false, '2:2': true },
+    lineOverrides: { 2: { rhymeText: 'B', sinalefaOn: '3' } },
+    openAdvancedByLine: { 2: true }
+  });
+});
+
+test('keeps configured line settings when editing that verse text', () => {
+  assert.deepEqual(remapPoemLineSettings('Primer verso\nSegundo verso', 'Primer verso\nSegundo verso corregido', {
+    sinalefaOverrides: { '1:0': true },
+    lineOverrides: { 1: { stress: '3-7' } }
+  }), {
+    sinalefaOverrides: { '1:0': true },
+    lineOverrides: { 1: { stress: '3-7' } },
+    openAdvancedByLine: {}
   });
 });
 

@@ -75,3 +75,9 @@ test('normalizes validation words and poem level analysis', () => {
   assert.equal(poem.lines.length, 2);
   assert.equal(poem.rawCount, line.rawCount + analyzeLine('Sabia y llamaba.').rawCount);
 });
+
+test('applies Rioplatense initial Y without changing conjunction y sinalefa', () => {
+  assert.deepEqual(analyzeLine('claro y el', { rioplatenseY: true }).boundaries.map((item) => item.candidate), [true, true]);
+  assert.equal(analyzeLine('claro yo').boundaries[0].candidate, true);
+  assert.equal(analyzeLine('claro yo', { rioplatenseY: true }).boundaries[0].candidate, false);
+});

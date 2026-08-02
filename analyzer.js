@@ -449,7 +449,7 @@ export function adjustPoeticCount(syllableCount, accentType) {
   return syllableCount;
 }
 
-export function analyzeLine(line) {
+export function analyzeLine(line, options = {}) {
   const wordMatches = getLineWordMatches(line);
   const words = wordMatches.map((item) => item.word);
   const analyses = words.map(analyzeWord);
@@ -478,7 +478,7 @@ export function analyzeLine(line) {
       separator,
       boundaryPosition,
       strongPause: /[.;:!?¡¿]/.test(separator),
-      candidate: isSinalefaCandidate(currentAnalysis, nextAnalysis),
+      candidate: isSinalefaCandidate(currentAnalysis, nextAnalysis, options),
       blockedByHemistich: false
     });
 
@@ -499,9 +499,9 @@ export function analyzeLine(line) {
   };
 }
 
-export function analyzePoem(text) {
+export function analyzePoem(text, options = {}) {
   const lines = splitIntoLines(text);
-  const analyzedLines = lines.map(analyzeLine);
+  const analyzedLines = lines.map((line) => analyzeLine(line, options));
 
   return {
     lines: analyzedLines,
@@ -510,7 +510,7 @@ export function analyzePoem(text) {
   };
 }
 
-function startsWithVowelSound(word) {
+function startsWithVowelSound(word, options = {}) {
   if (!word) {
     return false;
   }
@@ -521,6 +521,10 @@ function startsWithVowelSound(word) {
   }
 
   const first = normalized[0];
+  if (first === 'y') {
+    return normalized.length === 1 || !options.rioplatenseY;
+  }
+
   if (first === 'h') {
     const second = normalized[1] ?? '';
     return isVowelLike(second, 1, normalized);
@@ -543,12 +547,12 @@ function endsWithVowelSound(word) {
   return isVowelLike(last, normalized.length - 1, normalized);
 }
 
-export function isSinalefaCandidate(leftWordAnalysis, rightWordAnalysis) {
+export function isSinalefaCandidate(leftWordAnalysis, rightWordAnalysis, options = {}) {
   if (!leftWordAnalysis || !rightWordAnalysis) {
     return false;
   }
 
-  return endsWithVowelSound(leftWordAnalysis.normalized) && startsWithVowelSound(rightWordAnalysis.normalized);
+  return endsWithVowelSound(leftWordAnalysis.normalized) && startsWithVowelSound(rightWordAnalysis.normalized, options);
 }
 
 export function isUnstressedMonosyllable(word) {

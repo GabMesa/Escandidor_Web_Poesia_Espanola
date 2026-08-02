@@ -2,6 +2,80 @@ function needsSeparator(left, insertedText) {
   return Boolean(left && !/[\s\n]$/.test(left) && !/^[\s\n.,;:!?¡¿]/.test(insertedText));
 }
 
+function getPoemLines(text) {
+  const normalized = String(text ?? '').replace(/\r\n?/g, '\n').trimEnd();
+  return normalized ? normalized.split('\n') : [];
+}
+
+function buildLineIndexMap(previousText, nextText) {
+  const previousLines = getPoemLines(previousText);
+  const nextLines = getPoemLines(nextText);
+  const indexMap = new Map();
+  let prefixLength = 0;
+
+  while (
+    prefixLength < previousLines.length &&
+    prefixLength < nextLines.length &&
+    previousLines[prefixLength] === nextLines[prefixLength]
+  ) {
+    indexMap.set(prefixLength, prefixLength);
+    prefixLength += 1;
+  }
+
+  let suffixLength = 0;
+  while (
+    suffixLength < previousLines.length - prefixLength &&
+    suffixLength < nextLines.length - prefixLength &&
+    previousLines[previousLines.length - 1 - suffixLength] === nextLines[nextLines.length - 1 - suffixLength]
+  ) {
+    indexMap.set(
+      previousLines.length - 1 - suffixLength,
+      nextLines.length - 1 - suffixLength
+    );
+    suffixLength += 1;
+  }
+
+  const previousMiddleLength = previousLines.length - prefixLength - suffixLength;
+  const nextMiddleLength = nextLines.length - prefixLength - suffixLength;
+  const editedLineCount = Math.min(previousMiddleLength, nextMiddleLength);
+  for (let offset = 0; offset < editedLineCount; offset += 1) {
+    indexMap.set(prefixLength + offset, prefixLength + offset);
+  }
+
+  return indexMap;
+}
+
+function remapIndexedRecord(record, indexMap) {
+  const remapped = {};
+  for (const [line, value] of Object.entries(record ?? {})) {
+    const previousIndex = Number(line);
+    const nextIndex = indexMap.get(previousIndex);
+    if (Number.isInteger(nextIndex)) {
+      remapped[nextIndex] = value;
+    }
+  }
+  return remapped;
+}
+
+export function remapPoemLineSettings(previousText, nextText, settings = {}) {
+  const indexMap = buildLineIndexMap(previousText, nextText);
+  const sinalefaOverrides = {};
+
+  for (const [key, value] of Object.entries(settings.sinalefaOverrides ?? {})) {
+    const match = /^(\d+):(\d+)$/.exec(key);
+    const nextIndex = match ? indexMap.get(Number(match[1])) : undefined;
+    if (Number.isInteger(nextIndex)) {
+      sinalefaOverrides[`${nextIndex}:${match[2]}`] = value;
+    }
+  }
+
+  return {
+    sinalefaOverrides,
+    lineOverrides: remapIndexedRecord(settings.lineOverrides, indexMap),
+    openAdvancedByLine: remapIndexedRecord(settings.openAdvancedByLine, indexMap)
+  };
+}
+
 export function insertPoemText(currentText, selectionStart, selectionEnd, incomingText) {
   const text = String(currentText ?? '');
   const start = Math.max(0, Math.min(Number(selectionStart) || 0, text.length));

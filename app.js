@@ -20,7 +20,8 @@ import {
 import {
   getSpeechRecognitionErrorMessage,
   insertPoemLineBreak,
-  insertPoemText
+  insertPoemText,
+  remapPoemLineSettings
 } from './poem-input-tools.js';
 
 const poemInput = document.getElementById('poemInput');
@@ -35,6 +36,7 @@ const rhymeScheme = document.getElementById('rhymeScheme');
 const repeatRhymeScheme = document.getElementById('repeatRhymeScheme');
 const distinguishSZInRhyme = document.getElementById('distinguishSZInRhyme');
 const sinalefaEnabled = document.getElementById('sinalefaEnabled');
+const rioplatenseY = document.getElementById('rioplatenseY');
 const stanzaSummaryBadge = document.getElementById('stanzaSummaryBadge');
 const rhymeSchemeBadge = document.getElementById('rhymeSchemeBadge');
 const poemTitle = document.getElementById('poemTitle');
@@ -158,6 +160,7 @@ let speechRecognitionReceivedText = false;
 let speechRecognitionHadError = false;
 let voskScriptPromise = null;
 let voskModelPromise = null;
+let previousPoemText = '';
 let voskSession = null;
 let tesseractModulePromise = null;
 function loadLookupWordTypeCache() {
@@ -2827,6 +2830,9 @@ function loadVersionById(poemKey, versionId) {
     if (distinguishSZInRhyme) {
       distinguishSZInRhyme.checked = Boolean(version.settings.distinguishSZInRhyme);
     }
+    if (rioplatenseY) {
+      rioplatenseY.checked = Boolean(version.settings.rioplatenseY);
+    }
   }
 
   state.sinalefaOverrides = version.sinalefaOverrides && typeof version.sinalefaOverrides === 'object'
@@ -3501,7 +3507,8 @@ function buildCurrentSnapshot() {
       rhymeMode: rhymeMode?.value ?? 'asonante',
       rhymeScheme: rhymeScheme?.value ?? '',
       repeatRhymeScheme: Boolean(repeatRhymeScheme?.checked),
-      distinguishSZInRhyme: Boolean(distinguishSZInRhyme?.checked)
+      distinguishSZInRhyme: Boolean(distinguishSZInRhyme?.checked),
+      rioplatenseY: Boolean(rioplatenseY?.checked)
     },
     sinalefaOverrides: state.sinalefaOverrides,
     lineOverrides: state.lineOverrides
@@ -3531,7 +3538,8 @@ function getSnapshotSignature(snapshot) {
       rhymeMode: String(snapshot.settings?.rhymeMode ?? 'asonante'),
       rhymeScheme: String(snapshot.settings?.rhymeScheme ?? ''),
       repeatRhymeScheme: Boolean(snapshot.settings?.repeatRhymeScheme),
-      distinguishSZInRhyme: Boolean(snapshot.settings?.distinguishSZInRhyme)
+      distinguishSZInRhyme: Boolean(snapshot.settings?.distinguishSZInRhyme),
+      rioplatenseY: Boolean(snapshot.settings?.rioplatenseY)
     },
     sinalefaOverrides: snapshot.sinalefaOverrides ?? {},
     lineOverrides: snapshot.lineOverrides ?? {}
@@ -3611,6 +3619,9 @@ function createNewPoem() {
   }
   if (distinguishSZInRhyme) {
     distinguishSZInRhyme.checked = false;
+  }
+  if (rioplatenseY) {
+    rioplatenseY.checked = false;
   }
 
   state.sinalefaOverrides = {};
@@ -4295,7 +4306,8 @@ function importPoemsFromMarkdown(markdown) {
         rhymeMode: rhymeMode?.value ?? 'asonante',
         rhymeScheme: rhymeScheme?.value ?? '',
         repeatRhymeScheme: Boolean(repeatRhymeScheme?.checked),
-        distinguishSZInRhyme: Boolean(distinguishSZInRhyme?.checked)
+        distinguishSZInRhyme: Boolean(distinguishSZInRhyme?.checked),
+        rioplatenseY: Boolean(rioplatenseY?.checked)
       },
       sinalefaOverrides: {},
       lineOverrides: {},
@@ -5666,8 +5678,42 @@ function extractVowelsForChain(text) {
   return [...String(text ?? '').toLowerCase()].filter((ch) => isVowelForChain(ch));
 }
 
+function getSinalefaVowelWarning(lineAnalysis, boundary) {
+  if (!boundary?.active) {
+    return null;
+  }
+
+  const leftWord = lineAnalysis?.analyses?.[boundary.index];
+  const rightWord = lineAnalysis?.analyses?.[boundary.index + 1];
+  const leftSyllable = leftWord?.syllables?.at(-1) ?? '';
+  const rightSyllable = rightWord?.syllables?.[0] ?? '';
+  const vowelCount = extractVowelsForChain(leftSyllable).length + extractVowelsForChain(rightSyllable).length;
+
+  if (vowelCount < 3) {
+    return null;
+  }
+
+  return {
+    vowelCount,
+    location: `${leftWord.original} + ${rightWord.original}`
+  };
+}
+
 function canMergeBoundariesAsTriphthong(lineAnalysis, leftBoundaryIndex) {
-  return false;
+  const leftWord = lineAnalysis?.analyses?.[leftBoundaryIndex];
+  const middleWord = lineAnalysis?.analyses?.[leftBoundaryIndex + 1];
+  const rightWord = lineAnalysis?.analyses?.[leftBoundaryIndex + 2];
+  const vowels = [
+    ...extractVowelsForChain(leftWord?.syllables?.at(-1)),
+    ...extractVowelsForChain(middleWord?.original),
+    ...extractVowelsForChain(rightWord?.syllables?.[0])
+  ];
+
+  return vowels.length === 3 &&
+    isStrongVowelForChain(vowels[0]) &&
+    isWeakVowelForChain(vowels[1]) &&
+    isStrongVowelForChain(vowels[2]) &&
+    !isAccentedWeakForChain(vowels[1]);
 }
 
 function applySinalefaChains(lineAnalysis, activeBoundaries) {
@@ -6028,6 +6074,21 @@ function renderSinalefaMarker(boundary, lineIndex) {
   const leftStress = leftWord && wordHasMainStress(leftWord) && leftWord.stressIndex === leftWord.syllables.length - 1;
   const rightStress = rightWord && wordHasMainStress(rightWord) && rightWord.stressIndex === 0;
   const mergedTonic = boundary.active && (leftStress || rightStress);
+  const vowelWarning = getSinalefaVowelWarning(runtime?.lineAnalysis, boundary);
+  const chainWords = boundary.active && boundary.chainLength > 1
+    ? runtime.lineAnalysis.analyses.slice(boundary.chainStart, boundary.chainEnd + 2)
+    : [];
+  const chainVowelCount = chainWords.reduce((total, word, index) => {
+    const syllable = index === 0
+      ? word.syllables.at(-1)
+      : index === chainWords.length - 1
+        ? word.syllables[0]
+        : word.original;
+    return total + extractVowelsForChain(syllable).length;
+  }, 0);
+  const chainWarning = chainVowelCount >= 3
+    ? { vowelCount: chainVowelCount, location: chainWords.map((word) => word.original).join(' + ') }
+    : null;
   const inactiveLabel = `(${(leftStress ? `<strong>${escapeHtml(leftSyllable)}</strong>` : escapeHtml(leftSyllable))} ${(rightStress ? `<strong>${escapeHtml(rightSyllable)}</strong>` : escapeHtml(rightSyllable))})`;
   const label = boundary.active && boundary.chainLength > 1
     ? renderSinalefaChainLabel(runtime, boundary.chainStart, boundary.chainEnd)
@@ -6038,7 +6099,7 @@ function renderSinalefaMarker(boundary, lineIndex) {
   const classes = [
     'sinalefa-toggle',
     boundary.active ? 'is-active' : 'is-inactive',
-    boundary.active && (boundary.chainLength > 1 || runtime?.versalConflictBoundaryIndices?.has(boundary.index)) ? 'is-warning' : '',
+    boundary.active && (chainWarning || vowelWarning || runtime?.versalConflictBoundaryIndices?.has(boundary.index)) ? 'is-warning' : '',
     boundary.blockedByHemistich ? 'is-locked' : ''
   ]
     .filter(Boolean)
@@ -6046,6 +6107,10 @@ function renderSinalefaMarker(boundary, lineIndex) {
 
   const title = boundary.blockedByHemistich
     ? 'Bloqueada por hemistiquio'
+    : chainWarning
+      ? `Triptongo en sinalefa ${boundary.uiIndex}: ${chainWarning.location} (${chainWarning.vowelCount} vocales). Clic para separar.`
+    : vowelWarning
+      ? `Triptongo en sinalefa ${boundary.uiIndex}: ${vowelWarning.location} (${vowelWarning.vowelCount} vocales). Clic para separar.`
     : boundary.active && boundary.chainLength > 1
       ? `Triptongo: ${boundary.chainLength} sinalefas enlazadas. Clic para separar.`
       : boundary.active && runtime?.versalConflictBoundaryIndices?.has(boundary.index)
@@ -6311,6 +6376,7 @@ function syncStateFromControls() {
   state.rhymeScheme = rhymeScheme?.value ?? '';
   state.repeatRhymeScheme = Boolean(repeatRhymeScheme?.checked);
   state.distinguishSZInRhyme = Boolean(distinguishSZInRhyme?.checked);
+  state.rioplatenseY = Boolean(rioplatenseY?.checked);
   state.sinalefaEnabled = true;
 }
 
@@ -6394,7 +6460,8 @@ function updateAnalysis() {
   syncRhymeSchemePreset();
   syncStateFromControls();
   const text = normalizeInput(poemInput.value);
-  const result = analyzePoem(text);
+  previousPoemText = poemInput.value;
+  const result = analyzePoem(text, { rioplatenseY: state.rioplatenseY });
   const stanzaSummary = buildStanzaSummary(text);
   if (stanzaSummaryBadge) {
     stanzaSummaryBadge.textContent = stanzaSummary;
@@ -6727,6 +6794,10 @@ async function recognizePoemImage(file) {
 
 poemInput.value = SAMPLE_POEM;
 poemInput.addEventListener('input', () => {
+  const remappedSettings = remapPoemLineSettings(previousPoemText, poemInput.value, state);
+  state.sinalefaOverrides = remappedSettings.sinalefaOverrides;
+  state.lineOverrides = remappedSettings.lineOverrides;
+  state.openAdvancedByLine = remappedSettings.openAdvancedByLine;
   updateAnalysis();
   scheduleAutoSave();
 });
@@ -6801,6 +6872,7 @@ distinguishSZInRhyme?.addEventListener('change', () => {
   renderLookupResults();
   updateAnalysis();
 });
+rioplatenseY?.addEventListener('change', updateAnalysis);
 analysisModeToggle?.addEventListener('click', () => {
   state.analysisMode = state.analysisMode === 'visual' ? 'text' : 'visual';
   applyAnalysisMode();

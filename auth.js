@@ -1,4 +1,5 @@
 import { createCloudSync } from './cloud-sync.js';
+import { applicationState } from './application-state.js';
 
 const guestActions = document.getElementById('accountGuestActions');
 const userActions = document.getElementById('accountUserActions');
@@ -27,10 +28,8 @@ const importLocalPoems = document.getElementById('importLocalPoems');
 const keepLocalPoemsSeparate = document.getElementById('keepLocalPoemsSeparate');
 const discardLocalPoems = document.getElementById('discardLocalPoems');
 
-let authMode = 'login';
-let currentUser = null;
-
 const cloudSync = createCloudSync({
+  state: applicationState.sync,
   onStatus(status, message) {
     if (!cloudSaveStatus) return;
     cloudSaveStatus.textContent = message;
@@ -66,7 +65,7 @@ async function apiRequest(path, options = {}) {
 }
 
 function renderUser(user) {
-  currentUser = user || null;
+  applicationState.auth.user = user || null;
   guestActions.classList.toggle('hidden', Boolean(user));
   userActions.classList.toggle('hidden', !user);
   accountIdentity.textContent = user ? user.username : '';
@@ -77,7 +76,7 @@ function renderUser(user) {
 
 function showSessionConflict(otherSessions) {
   const count = Number(otherSessions) || 0;
-  if (!count || !currentUser) return;
+  if (!count || !applicationState.auth.user) return;
   sessionConflictMessage.textContent = count === 1
     ? 'Esta cuenta está abierta en otro navegador. Cierra esa sesión para continuar aquí.'
     : `Esta cuenta está abierta en otros ${count} navegadores. Cierra esas sesiones para continuar aquí.`;
@@ -87,7 +86,7 @@ function showSessionConflict(otherSessions) {
 
 function offerLocalImport() {
   const localCount = cloudSync.getAnonymousPoemCount();
-  if (!currentUser || !localCount || localImportDialog.open) return;
+  if (!applicationState.auth.user || !localCount || localImportDialog.open) return;
   localImportMessage.textContent = localCount === 1
     ? 'Hay un poema local en este navegador. Puedes importarlo sin borrar la copia local.'
     : `Hay ${localCount} poemas locales en este navegador. Puedes importarlos sin borrar las copias locales.`;
@@ -95,7 +94,7 @@ function offerLocalImport() {
 }
 
 function handleAuthState(payload) {
-  const wasAnonymous = !currentUser;
+  const wasAnonymous = !applicationState.auth.user;
   renderUser(payload.user);
   if (!payload.user) return;
 
@@ -112,7 +111,7 @@ function handleAuthState(payload) {
 }
 
 function setMode(mode) {
-  authMode = mode;
+  applicationState.auth.mode = mode;
   const registering = mode === 'register';
   authTitle.textContent = registering ? 'Crear cuenta' : 'Iniciar sesión';
   authSubmit.textContent = registering ? 'Crear cuenta' : 'Iniciar sesión';
@@ -137,7 +136,7 @@ function openAuth(mode) {
 document.getElementById('openLogin').addEventListener('click', () => openAuth('login'));
 document.getElementById('openRegister').addEventListener('click', () => openAuth('register'));
 document.getElementById('closeAuthDialog').addEventListener('click', () => authDialog.close());
-toggleAuthMode.addEventListener('click', () => setMode(authMode === 'login' ? 'register' : 'login'));
+toggleAuthMode.addEventListener('click', () => setMode(applicationState.auth.mode === 'login' ? 'register' : 'login'));
 document.getElementById('discordLogin').addEventListener('click', () => {
   window.location.assign('/api/auth/discord');
 });
@@ -147,10 +146,10 @@ authForm.addEventListener('submit', async (event) => {
   authStatus.textContent = '';
   authSubmit.disabled = true;
   try {
-    const body = authMode === 'register'
+    const body = applicationState.auth.mode === 'register'
       ? { username: usernameInput.value, email: identifierInput.value, password: passwordInput.value }
       : { email: identifierInput.value, password: passwordInput.value };
-    const payload = await apiRequest(`/api/auth/${authMode}`, {
+    const payload = await apiRequest(`/api/auth/${applicationState.auth.mode}`, {
       method: 'POST',
       body: JSON.stringify(body),
     });
@@ -187,7 +186,7 @@ window.addEventListener('escandidor:trash-emptied', () => {
 loadDataFromServer?.addEventListener('click', async () => {
   loadDataFromServer.disabled = true;
   await cloudSync.loadFromServer();
-  loadDataFromServer.disabled = !currentUser;
+  loadDataFromServer.disabled = !applicationState.auth.user;
 });
 
 retryCloudSync.addEventListener('click', () => cloudSync.retryPending());
@@ -245,7 +244,7 @@ closeOtherSessions.addEventListener('click', async () => {
 });
 
 async function checkCurrentSession() {
-  if (!currentUser || document.hidden) return;
+  if (!applicationState.auth.user || document.hidden) return;
   try {
     const payload = await apiRequest('/api/auth/me');
     if (!payload.user) {

@@ -1,0 +1,72 @@
+export const applicationState = {
+  schemaVersion: 1,
+  editor: {
+    stressPattern: [],
+    hemistichEnabled: false,
+    hemistichPositions: [],
+    rhymeMode: 'asonante',
+    rhymeScheme: '',
+    repeatRhymeScheme: false,
+    distinguishSZInRhyme: false,
+    analysisMode: 'visual',
+    panelViewMode: 'both',
+    fontScale: 100,
+    sinalefaEnabled: true,
+    conservativeSinalefa: true,
+    loadedVersionId: '',
+    loadedVersionTitle: '',
+    selectorEditMode: false,
+    sinalefaOverrides: {},
+    lineOverrides: {},
+    openAdvancedByLine: {},
+    currentAnalysisTitle: '',
+    selectedLookupWord: 'copla',
+    lookupDefinition: '',
+    lookupFrequency: '',
+    lookupSynonyms: [],
+    lookupRhymes: [],
+    lookupRhymeCandidates: [],
+    lookupMode: 'asonante',
+    lookupSyllableFilter: 'all',
+    lookupExcludedWords: [],
+    lookupLoadingDefinition: false,
+    lookupLoadingRhymes: false,
+    lookupLoadingWordTypes: false,
+    lookupError: '',
+    lookupDefinitionRequestId: 0,
+    lookupRhymeRequestId: 0,
+    lookupRhymePage: 1,
+    lookupRhymePageSize: 24,
+    lookupWordTypeFilter: 'all',
+    lookupWordTypeRequestId: 0,
+    lookupWordTypeScanComplete: true,
+    lookupVisibleWordTypes: {},
+  },
+  library: {
+    schemaVersion: 2,
+    poems: {},
+    trash: {},
+  },
+  auth: {
+    mode: 'login',
+    user: null,
+  },
+  sync: {
+    user: null,
+    queue: Promise.resolve(),
+  },
+  runtime: {
+    analysis: [],
+    selectedVersionIds: new Set(),
+    timers: {},
+  },
+};
+
+export function replaceLibraryState(memory) {
+  applicationState.library = {
+    schemaVersion: 2,
+    poems: memory?.poems && typeof memory.poems === 'object' ? memory.poems : {},
+    trash: memory?.trash && typeof memory.trash === 'object' ? memory.trash : {},
+  };
+  return applicationState.library;
+}

@@ -8,6 +8,7 @@ import {
   normalizeRhymeChunk,
   extractRhymeData
 } from './analyzer.js';
+import { applicationState, replaceLibraryState } from './application-state.js';
 
 const poemInput = document.getElementById('poemInput');
 const analysisOutput = document.getElementById('analysisOutput');
@@ -60,6 +61,7 @@ const downloadPoemPdf = document.getElementById('downloadPoemPdf');
 const importPoemsFile = document.getElementById('importPoemsFile');
 const analysisModeToggle = document.getElementById('analysisModeToggle');
 const analysisTextOutput = document.getElementById('analysisTextOutput');
+const copyAnalysisText = document.getElementById('copyAnalysisText');
 const fontScaleControl = document.getElementById('fontScaleControl');
 const fontScaleValue = document.getElementById('fontScaleValue');
 const fontSizeDown = document.getElementById('fontSizeDown');
@@ -111,48 +113,7 @@ const OPEN_SYNONYMS_SOURCE_URL = 'https://cdn.jsdelivr.net/gh/edublancas/sinonim
 const OPEN_FREQUENCY_LIST_SOURCE_URL = 'https://gist.githubusercontent.com/epidemian/ebb3025e8cb25f6f4e3a/raw/aaac303d8b21eb38a65c38eaaae5fd51660f7500/es.txt';
 const OPEN_RHYME_WORDLIST_SOURCE_URL = 'https://cdn.jsdelivr.net/gh/xavier-hernandez/spanish-wordlist@main/text/spanish_words.txt';
 
-const state = {
-  stressPattern: [],
-  hemistichEnabled: false,
-  hemistichPositions: [],
-  rhymeMode: 'asonante',
-  rhymeScheme: '',
-  repeatRhymeScheme: false,
-  distinguishSZInRhyme: false,
-  analysisMode: 'visual',
-  panelViewMode: 'both',
-  fontScale: 100,
-  sinalefaEnabled: true,
-  conservativeSinalefa: true,
-  loadedVersionId: '',
-  loadedVersionTitle: '',
-  selectorEditMode: false,
-  sinalefaOverrides: {},
-  lineOverrides: {},
-  openAdvancedByLine: {},
-  currentAnalysisTitle: '',
-  selectedLookupWord: '',
-  lookupDefinition: '',
-  lookupFrequency: '',
-  lookupSynonyms: [],
-  lookupRhymes: [],
-  lookupRhymeCandidates: [],
-  lookupMode: 'asonante',
-  lookupSyllableFilter: 'all',
-  lookupExcludedWords: [],
-  lookupLoadingDefinition: false,
-  lookupLoadingRhymes: false,
-  lookupLoadingWordTypes: false,
-  lookupError: '',
-  lookupDefinitionRequestId: 0,
-  lookupRhymeRequestId: 0,
-  lookupRhymePage: 1,
-  lookupRhymePageSize: 24,
-  lookupWordTypeFilter: 'all',
-  lookupWordTypeRequestId: 0,
-  lookupWordTypeScanComplete: true,
-  lookupVisibleWordTypes: {}
-};
+const state = applicationState.editor;
 
 const LOOKUP_RHYME_PAGE_SIZE = 24;
 const LOOKUP_WORD_TYPE_CACHE_KEY = 'escandador.lookupWordTypeCache.v1';
@@ -1920,16 +1881,14 @@ function renderLookupResults() {
     : '';
 
   const mode = rhymeMode?.value === 'consonante' ? 'consonante' : rhymeMode?.value === 'sextina' ? 'sextina' : 'asonante';
-  const rhymePageState = getLookupRhymePageState();
+  const filteredRhymes = filterRhymesByWordType(state.lookupRhymes, state.lookupWordTypeFilter);
   const syllableFilterOptions = buildLookupSyllableFilterOptions(state.lookupSyllableFilter);
-  const pageSizeOptions = buildLookupPageSizeOptions(state.lookupRhymePageSize);
   const wordTypeFilterOptions = buildLookupWordTypeOptions(state.lookupWordTypeFilter);
-  const visibleRhymeItems = rhymePageState.items;
   const rhymeCountLabel = state.lookupWordTypeFilter !== 'all' && !state.lookupWordTypeScanComplete
     ? '?'
-    : String(rhymePageState.total);
+    : String(filteredRhymes.length);
 
-  const filteredList = visibleRhymeItems.length > 0 ? visibleRhymeItems
+  const filteredList = filteredRhymes.length > 0 ? filteredRhymes
     .map((item) => `
       <li>
         <span>${escapeHtml(item)}</span>
@@ -1938,25 +1897,6 @@ function renderLookupResults() {
     `)
     .join('') : '<li>No se encontraron rimas con los filtros actuales y el corpus abierto cargado.</li>';
 
-  const rhymePagination = rhymePageState.total > 0
-    ? `
-      <div class="">
-      <div class="lookup-rhyme-pagination">
-        <label class="lookup-rhyme-pagination-size">
-          <span>Por página</span>
-          <select id="lookupRhymePageSize">
-            ${pageSizeOptions}
-          </select>
-        </label>
-        </div>
-        <div class="lookup-rhyme-pagination">
-        <button type="button" data-action="lookup-rhyme-page-prev" ${rhymePageState.currentPage <= 1 ? 'disabled' : ''}>Anterior</button>
-        <span>Página <input id="lookupRhymePageInput" type="number" min="1" value="${rhymePageState.currentPage}" inputmode="numeric" /> · ${rhymeCountLabel} rimas</span>
-        <button type="button" data-action="lookup-rhyme-page-next" ${rhymePageState.currentPage >= rhymePageState.totalPages ? 'disabled' : ''}>Siguiente</button>
-        </div>
-      </div>
-    `
-    : '';
   const rhymeControls = `
     <div class="lookup-rhyme-controls">
       <label class="lookup-rhyme-control">
@@ -2002,10 +1942,14 @@ function renderLookupResults() {
     <details class="lookup-collapsible-section" open>
       <summary class="lookup-section" style="cursor: pointer; list-style: max-content; margin-top: 1rem;">
         <strong>Rimas filtradas (${mode})</strong>
+        <span class="guide-hover lookup-rhyme-mode-help" tabindex="0">
+          <span class="guide-trigger" aria-label="Información sobre el tipo de rima">i</span>
+          <span class="guide-popover" role="tooltip">Puedes cambiar el tipo de rima del poema en <strong>Configuración</strong>.</span>
+        </span>
       </summary>
       ${rhymeControls}
       ${typeLoadingNotice}
-      ${rhymePagination}
+      <p class="lookup-rhyme-count">${rhymeCountLabel} rimas</p>
       <ul class="lookup-rhyme-list" style="margin-top: 0.5rem;">
         ${filteredList}
       </ul>
@@ -2328,12 +2272,12 @@ function loadPoemMemoryStore() {
   try {
     const raw = localStorage.getItem(LOCAL_POEM_MEMORY_KEY);
     if (!raw) {
-      return emptyStore;
+      return replaceLibraryState(emptyStore);
     }
 
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') {
-      return emptyStore;
+      return replaceLibraryState(emptyStore);
     }
 
     let poems = parsed.poems && typeof parsed.poems === 'object' ? parsed.poems : {};
@@ -2395,9 +2339,9 @@ function loadPoemMemoryStore() {
       }
     }
 
-    return { schemaVersion: 2, poems, trash };
+    return replaceLibraryState({ schemaVersion: 2, poems, trash });
   } catch {
-    return emptyStore;
+    return replaceLibraryState(emptyStore);
   }
 }
 
@@ -2573,6 +2517,7 @@ window.addEventListener('escandidor:trash-synced', (event) => {
 });
 
 window.addEventListener('escandidor:library-changed', () => {
+  replaceLibraryState(loadPoemMemoryStore());
   selectedVersionIds = new Set();
   state.loadedVersionId = '';
   state.loadedVersionTitle = '';
@@ -3521,6 +3466,11 @@ function saveCurrentPoemVersion(options = {}) {
     return false;
   }
 
+  if (previousTitle && previousTitle !== title) {
+    renamePoemColorKey(previousTitle, title);
+    renameRhymeColorStoreKey(previousTitle, title);
+  }
+
   refreshSavedPoemNameOptions(poemKey);
   refreshSavedPoemVersionOptions(poemKey, nextVersion.id);
   state.loadedVersionTitle = poemKey;
@@ -4222,7 +4172,7 @@ function formatWordPlain(wordAnalysis) {
   return wordAnalysis.syllables
     .map((syllable, index) => {
       if (displayStressIndices.has(index)) {
-        return `*${syllable}*`;
+        return `**${syllable}**`;
       }
       return syllable;
     })
@@ -4244,7 +4194,9 @@ function renderAnnotatedLinePlain(runtime) {
     const separator = lineAnalysis.separators[index] ?? ' ';
     const cleanedSeparator = separator.replace(/\//g, '');
 
-    if (!boundary?.active || /[^\s]/.test(cleanedSeparator)) {
+    if (boundary?.active) {
+      chunks.push(/[^\s]/.test(cleanedSeparator) ? `${cleanedSeparator}⏝` : '⏝');
+    } else {
       chunks.push(cleanedSeparator);
     }
 
@@ -4286,7 +4238,6 @@ function buildAnalysisText(runtimes, stanzaSummary) {
     }
 
     output.push(`${renderAnnotatedLinePlain(runtime)} ${runtime.rhyme.label} ${runtime.countLabel}`.trim());
-    output.push('');
   }
 
   return output.join('\n').trimEnd();
@@ -4299,6 +4250,9 @@ function applyAnalysisMode() {
   }
   if (analysisTextOutput) {
     analysisTextOutput.classList.toggle('hidden', !textMode);
+  }
+  if (copyAnalysisText) {
+    copyAnalysisText.classList.toggle('hidden', !textMode);
   }
   if (analysisModeToggle) {
     analysisModeToggle.textContent = textMode ? 'Modo visual' : 'Modo texto';
@@ -6056,6 +6010,15 @@ analysisModeToggle?.addEventListener('click', () => {
   state.analysisMode = state.analysisMode === 'visual' ? 'text' : 'visual';
   applyAnalysisMode();
 });
+copyAnalysisText?.addEventListener('click', async () => {
+  const text = analysisTextOutput?.textContent ?? '';
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('Análisis copiado.', 'success');
+  } catch {
+    showToast('No se pudo copiar el análisis.', 'error');
+  }
+});
 fontScaleControl?.addEventListener('input', () => {
   state.fontScale = clampFontScale(fontScaleControl.value);
   applyFontScale();
@@ -6793,6 +6756,7 @@ updateDefaultColorButton();
 updateVersionManagerStatus();
 renderSavedVersionList(savedPoemName?.value ?? '', savedPoemVersion?.value ?? '');
 refreshLookupBar();
+queueLookupAutoFetch();
 
 window.PoetryAnalyzer = {
   analyzePoem,

@@ -469,6 +469,10 @@ h1 {
   margin-top: 0.5rem;
   display: grid;
   gap: 8px;
+  max-height: 14rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
 }
 
 .lookup-synonym-group-card {
@@ -512,11 +516,19 @@ h1 {
   padding: 0;
   list-style: none;
   display: flex;
+  align-content: flex-start;
   flex-wrap: wrap;
   gap: 6px;
-  max-height: 14rem;
-  overflow: auto;
+  height: 14rem;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 4px;
+}
+
+.lookup-rhyme-count {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.75rem;
 }
 
 .lookup-rhyme-list li {
@@ -788,6 +800,16 @@ h1 {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
+}
+
+.lookup-rhyme-mode-help {
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.lookup-rhyme-mode-help .guide-popover {
+  right: auto;
+  left: 0;
 }
 
 .config-chevron {
@@ -2816,6 +2838,35 @@ body.has-poem-theme .workspace {
   button {
     padding: 0.78rem 1rem;
     font-size: 0.93rem;
+  }
+
+  .panel-header-meta,
+  .top-action-group {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .top-action-group .icon-action,
+  .top-action-group .format-action,
+  .top-action-group .poem-color-btn {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+  }
+
+  .top-action-group .format-action {
+    width: auto;
+    min-width: 64px;
+    padding: 0 10px;
+  }
+
+  .input-memory-bar .icon-action,
+  .input-memory-bar select,
+  .input-memory-bar input {
+    min-height: 40px;
   }
 
   .config-group {

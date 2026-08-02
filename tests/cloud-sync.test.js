@@ -218,6 +218,56 @@ test('keeps autosaves local instead of creating backend version spam', async () 
   assert.equal(requests, 0);
 });
 
+test('promotes an offline autosave once when the account reconnects', async () => {
+  const remote = {
+    ...version('cloud-81-1', 1, 'Versión en nube'),
+    settings: {},
+    sinalefaOverrides: {},
+    lineOverrides: {},
+  };
+  remote.poemTitle = 'Borrador recuperado';
+  const draft = { ...version('offline-draft', 2, 'Cambios sin conexión'), kind: 'autosave' };
+  draft.poemTitle = 'Borrador recuperado';
+  const storage = new MemoryStorage({
+    'escandador.poemMemory.user.14.v1': JSON.stringify({
+      schemaVersion: 2,
+      poems: { 'server:81': [remote, draft] },
+      trash: {},
+    }),
+  });
+  const writes = [];
+  const request = async (path, options = {}) => {
+    if (path === '/api/poems' && !options.method) return jsonResponse({ ok: true, poems: [{
+      id: 81,
+      title: 'Borrador recuperado',
+      settings: {},
+      versions: [{
+        version: 1,
+        versionName: 'v1',
+        content: 'Versión en nube',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      }],
+    }] });
+    if (path === '/api/trash') return jsonResponse({ ok: true, trash: [], deletedPoemIds: [] });
+    if (path === '/api/poems/81' && options.method === 'PUT') {
+      writes.push(JSON.parse(options.body));
+      return jsonResponse({ ok: true, poem: { id: 81, version: 2 } });
+    }
+    throw new Error(`Solicitud inesperada: ${options.method || 'GET'} ${path}`);
+  };
+  const sync = createCloudSync({ request, storage });
+  sync.setUser({ id: 14 });
+
+  await sync.loadFromServer();
+  await sync.loadFromServer();
+
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].content, 'Cambios sin conexión');
+  assert.match(writes[0].versionName, /^Recuperación sin conexión/);
+  const memory = JSON.parse(storage.getItem('escandador.poemMemory.v1'));
+  assert.equal(memory.poems['server:81'].some((entry) => entry.poemText === 'Cambios sin conexión'), true);
+});
+
 test('keeps same-title server poems separate by stable poem ID', async () => {
   const request = async (path) => {
     if (path === '/api/poems') return jsonResponse({ ok: true, poems: [

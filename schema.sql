@@ -55,12 +55,18 @@ CREATE TABLE deleted_poems (
 
 CREATE TABLE services (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  description TEXT NOT NULL
+  key TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE features (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  description TEXT NOT NULL
+  key TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE service_features (
@@ -71,13 +77,46 @@ CREATE TABLE service_features (
   FOREIGN KEY (feature_id) REFERENCES features(id) ON DELETE CASCADE
 );
 
-CREATE TABLE payments (
-  payment_id INTEGER PRIMARY KEY AUTOINCREMENT,
+CREATE TABLE service_prices (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  service_id INTEGER NOT NULL,
+  provider TEXT NOT NULL,
+  provider_price_id TEXT NOT NULL,
+  currency TEXT NOT NULL,
+  amount_minor INTEGER NOT NULL CHECK (amount_minor >= 0),
+  billing_period TEXT CHECK (billing_period IN ('month', 'year')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
+  UNIQUE (provider, provider_price_id),
+  FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE
+);
+
+CREATE TABLE subscriptions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
   service_id INTEGER NOT NULL,
+  provider TEXT NOT NULL,
+  provider_subscription_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  current_period_end TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (provider, provider_subscription_id),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE user_entitlements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  feature_id INTEGER NOT NULL,
+  source_type TEXT NOT NULL CHECK (source_type IN ('subscription', 'purchase', 'promotion', 'admin')),
+  source_id TEXT,
+  starts_at TEXT NOT NULL DEFAULT (datetime('now')),
+  ends_at TEXT,
+  revoked_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (feature_id) REFERENCES features(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_sessions_user_id ON sessions(user_id);
@@ -87,8 +126,9 @@ CREATE INDEX idx_poem_versions_poem_version ON poem_versions(poem_id, version DE
 CREATE INDEX idx_deleted_poems_user_deleted ON deleted_poems(user_id, deleted_at DESC, id DESC);
 CREATE UNIQUE INDEX idx_deleted_poems_user_poem
   ON deleted_poems(user_id, poem_id) WHERE poem_id IS NOT NULL;
-CREATE INDEX idx_payments_user_id ON payments(user_id);
-CREATE INDEX idx_payments_service_id ON payments(service_id);
+CREATE INDEX idx_service_prices_service ON service_prices(service_id, status);
+CREATE INDEX idx_subscriptions_user_status ON subscriptions(user_id, status);
+CREATE INDEX idx_entitlements_user_feature ON user_entitlements(user_id, feature_id, ends_at);
 
 CREATE VIEW current_poems AS
 SELECT

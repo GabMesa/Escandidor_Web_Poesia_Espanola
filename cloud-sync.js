@@ -53,12 +53,13 @@ function mergeUniqueVersions(title, remoteVersions, localVersions) {
 export function createCloudSync({
   request = fetch,
   storage = localStorage,
+  state = { user: null, queue: Promise.resolve() },
   onStatus = () => {},
   onTrash = () => {},
   onLibrary = () => {},
 } = {}) {
-  let user = null;
-  let queue = Promise.resolve();
+  let user = state.user;
+  let queue = state.queue;
 
   function mapKey() {
     return `${CLOUD_MAP_PREFIX}:${user?.id ?? 'anonymous'}`;
@@ -226,6 +227,7 @@ export function createCloudSync({
     if (versionId) {
       record.versions[versionId] = {
         signature,
+        stateSignature: versionSignature(title, version),
         cloudVersion: Number(result?.poem?.version) || null,
       };
     }
@@ -293,6 +295,7 @@ export function createCloudSync({
     }).catch((error) => {
       onStatus('error', error.message || 'Error de nube');
     });
+    state.queue = queue;
     return queue;
   }
 
@@ -301,6 +304,7 @@ export function createCloudSync({
       const previousUser = user;
       preserveActiveMemory();
       user = nextUser || null;
+      state.user = user;
       if (!user) {
         activateMemory(readMemory(ANONYMOUS_MEMORY_KEY), 'anonymous');
         onStatus('ready', 'Nube desconectada');
@@ -380,13 +384,15 @@ export function createCloudSync({
             Object.values(record.versions).map((entry) => entry?.stateSignature).filter(Boolean)
           );
           for (const version of versions) {
-            if (version.kind === 'autosave') continue;
             const stateSignature = versionSignature(title, version);
             if (knownSignatures.has(stateSignature)) continue;
             const nextNumber = Object.keys(record.versions).length + 1;
+            const isOfflineDraft = version.kind === 'autosave';
             const payload = {
               ...buildPayload(title, version),
-              versionName: `${title}_version_${nextNumber}`.slice(0, 60),
+              versionName: (isOfflineDraft
+                ? `Recuperación sin conexión ${version.savedAt || ''}`
+                : `${title}_version_${nextNumber}`).trim().slice(0, 60),
               ...(record.poemId ? { sourcePoemId: record.poemId } : {}),
             };
             const result = record.poemId

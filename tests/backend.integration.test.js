@@ -200,6 +200,16 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
       ]
     );
 
+    const applicationState = await jsonRequest(baseUrl, '/api/state', { cookie: firstCookie });
+    assert.equal(applicationState.response.status, 200);
+    assert.equal(applicationState.payload.state.schemaVersion, 1);
+    assert.equal(applicationState.payload.state.poems.length, 2);
+    assert.deepEqual(applicationState.payload.state.deletedPoemIds, [disposablePoem.payload.poem.id]);
+    assert.equal(
+      applicationState.payload.state.poems.find((poem) => poem.id === poemId).versions.length,
+      3,
+    );
+
     const otherUserList = await jsonRequest(baseUrl, '/api/poems', { cookie: secondCookie });
     assert.deepEqual(otherUserList.payload.poems, []);
     const forbiddenUpdate = await jsonRequest(baseUrl, `/api/poems/${poemId}`, {

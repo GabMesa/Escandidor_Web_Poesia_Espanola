@@ -111,6 +111,28 @@ export function insertPoemLineBreak(currentText, selectionStart, selectionEnd) {
   };
 }
 
+export function cutPoemLine(currentText, cursorPosition) {
+  const text = String(currentText ?? '');
+  const cursor = Math.max(0, Math.min(Number(cursorPosition) || 0, text.length));
+  const lineStart = text.lastIndexOf('\n', Math.max(0, cursor - 1)) + 1;
+  const lineEnd = text.indexOf('\n', cursor);
+
+  if (lineEnd >= 0) {
+    return {
+      text: `${text.slice(0, lineStart)}${text.slice(lineEnd + 1)}`,
+      cursor: lineStart,
+      cutText: text.slice(lineStart, lineEnd + 1)
+    };
+  }
+
+  const removalStart = lineStart > 0 ? lineStart - 1 : 0;
+  return {
+    text: `${text.slice(0, removalStart)}${text.slice(text.length)}`,
+    cursor: removalStart,
+    cutText: text.slice(lineStart)
+  };
+}
+
 export function getSpeechRecognitionErrorMessage(errorCode) {
   const messages = {
     'audio-capture': 'No se encontró un micrófono disponible.',

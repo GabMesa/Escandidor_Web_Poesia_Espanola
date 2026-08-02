@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  cutPoemLine,
   getSpeechRecognitionErrorMessage,
   insertPoemLineBreak,
   insertPoemText,
@@ -36,6 +37,24 @@ test('turns a dictation pause into a clean line break', () => {
   assert.deepEqual(insertPoemLineBreak('Primer verso\nSegundo', 13, 13), {
     text: 'Primer verso\nSegundo',
     cursor: 13
+  });
+});
+
+test('cuts the whole current line from a collapsed selection', () => {
+  assert.deepEqual(cutPoemLine('Primero\nSegundo\nTercero', 11), {
+    text: 'Primero\nTercero',
+    cursor: 8,
+    cutText: 'Segundo\n'
+  });
+  assert.deepEqual(cutPoemLine('Primero\nSegundo', 2), {
+    text: 'Segundo',
+    cursor: 0,
+    cutText: 'Primero\n'
+  });
+  assert.deepEqual(cutPoemLine('Primero\nSegundo', 12), {
+    text: 'Primero',
+    cursor: 7,
+    cutText: 'Segundo'
   });
 });
 

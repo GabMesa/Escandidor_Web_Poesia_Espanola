@@ -18,6 +18,7 @@ import {
   parseSyllablePattern
 } from './poetic-forms.js';
 import {
+  cutPoemLine,
   getSpeechRecognitionErrorMessage,
   insertPoemLineBreak,
   insertPoemText,
@@ -6800,6 +6801,28 @@ poemInput.addEventListener('input', () => {
   state.openAdvancedByLine = remappedSettings.openAdvancedByLine;
   updateAnalysis();
   scheduleAutoSave();
+});
+poemInput.addEventListener('keydown', async (event) => {
+  if (!(event.ctrlKey || event.metaKey) || event.altKey || String(event.key).toLowerCase() !== 'x') {
+    return;
+  }
+
+  if (poemInput.selectionStart !== poemInput.selectionEnd) {
+    return;
+  }
+
+  event.preventDefault();
+  const result = cutPoemLine(poemInput.value, poemInput.selectionStart);
+  try {
+    await navigator.clipboard.writeText(result.cutText);
+  } catch {
+    showToast('No se pudo copiar el verso al portapapeles.', 'error');
+    return;
+  }
+
+  poemInput.value = result.text;
+  poemInput.setSelectionRange(result.cursor, result.cursor);
+  poemInput.dispatchEvent(new Event('input', { bubbles: true }));
 });
 speechToText?.addEventListener('click', toggleSpeechRecognition);
 imageToText?.addEventListener('click', () => poemImageFile?.click());

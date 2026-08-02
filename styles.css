@@ -449,10 +449,15 @@ h1 {
     linear-gradient(var(--poem-surface-strong, transparent), var(--poem-surface-strong, transparent)),
     rgba(var(--surface-rgb), 0.8);
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   flex-wrap: wrap;
   transition: background 260ms ease, border-color 260ms ease;
+}
+
+.quick-controls:focus-within {
+  z-index: 12;
+  box-shadow: 0 8px 24px rgba(58, 37, 20, 0.12);
 }
 
 .quick-control-group {
@@ -462,15 +467,32 @@ h1 {
   min-width: 0;
 }
 
+.quick-control-group:first-child {
+  display: grid;
+  grid-template-columns: auto 40px 40px 48px;
+  gap: 8px;
+  font-size: 16px;
+}
+
+.quick-control-group:first-child .compact-action {
+  width: 40px;
+  padding: 7px 4px;
+  font-size: 13px;
+}
+
+.quick-control-group:first-child .quick-control-label {
+  font-size: 13px;
+}
+
+.quick-control-group:first-child .quick-control-value {
+  font-size: 12px;
+}
+
 .quick-control-label {
   font-size: 0.82rem;
   color: var(--muted);
   font-weight: 700;
   white-space: nowrap;
-}
-
-.quick-control-group input[type="range"] {
-  width: 150px;
 }
 
 .quick-control-group select {
@@ -484,7 +506,7 @@ h1 {
 .quick-control-value {
   font-size: 0.78rem;
   color: var(--accent-2);
-  min-width: 42px;
+  min-width: 48px;
   text-align: right;
 }
 
@@ -1266,11 +1288,22 @@ h1 {
 
 .top-action-group {
   flex: 1 1 auto;
+  width: 100%;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
   min-width: 0;
   max-width: 100%;
   white-space: normal;
+}
+
+.top-action-group .top-font-selector {
+  flex: 1 1 240px;
+  width: auto;
+  min-width: 180px;
+}
+
+.top-action-group .format-action {
+  flex: 0 0 auto;
 }
 
 .top-action-group .icon-action,
@@ -1396,6 +1429,7 @@ body.has-poem-theme .workspace {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 18px 20px 12px;
   border-bottom: 1px solid rgba(53, 35, 18, 0.08);
@@ -1411,10 +1445,13 @@ body.has-poem-theme .workspace {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   justify-content: flex-end;
   white-space: normal;
   overflow: visible;
-  max-width: none;
   margin-left: auto;
 }
 
@@ -1464,6 +1501,13 @@ body.has-poem-theme .workspace {
   overflow-x: hidden;
 }
 
+.input-memory-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .input-memory-bar .format-action {
   min-width: 0;
 }
@@ -1472,6 +1516,52 @@ body.has-poem-theme .workspace {
   font-size: 0.78rem;
   color: var(--muted);
   white-space: nowrap;
+}
+
+.poem-capture-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(53, 35, 18, 0.08);
+  background: rgba(var(--surface-rgb), 0.28);
+}
+
+.capture-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0.35rem 0.62rem;
+  border-radius: 8px;
+  border: 1px solid rgba(53, 35, 18, 0.16);
+  box-shadow: none;
+}
+
+.capture-action:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.capture-action.is-active {
+  color: #fff;
+  background: #a33b35;
+}
+
+.capture-action.is-busy svg {
+  animation: capture-pulse 1s ease-in-out infinite;
+}
+
+.capture-status {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+@keyframes capture-pulse {
+  50% { opacity: 0.35; }
 }
 
 .input-memory-bar input,
@@ -1790,7 +1880,8 @@ body.has-poem-theme .workspace {
   align-items: center;
   gap: 6px;
   flex-wrap: nowrap;
-  min-width: 0;
+  flex: 1 1 auto;
+  width: auto;
 }
 
 .saved-version-label-input {
@@ -1954,7 +2045,7 @@ body.has-poem-theme .workspace {
 .version-modal-actions {
   display: grid;
   flex: 0 0 auto;
-  gap: 8px;
+  width: auto;
   overflow: visible;
 }
 
@@ -2987,12 +3078,12 @@ body.has-poem-theme .workspace {
   .panel-header-meta {
     width: 100%;
     justify-content: flex-end;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 6px;
   }
 
   .top-action-group {
-    width: auto;
+    width: 100%;
     justify-content: flex-end;
   }
 
@@ -3195,32 +3286,152 @@ body.has-poem-theme .workspace {
 }
 
 @media (max-width: 560px) {
+  .app-shell {
+    width: calc(100% - 16px);
+    padding-top: 10px;
+  }
+
+  .hero {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-size: 2.15rem;
+  }
+
+  .lede {
+    font-size: 0.88rem;
+    line-height: 1.45;
+  }
+
+  .account-bar,
+  .account-actions {
+    width: 100%;
+  }
+
+  .account-actions button {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 44px;
+    padding-inline: 10px;
+  }
+
   button {
     padding: 0.78rem 1rem;
     font-size: 0.93rem;
+  }
+
+  .config-shell {
+    border-radius: 8px;
+  }
+
+  .config-shell > summary {
+    min-height: 48px;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .config-shell > summary .summary-hint {
+    width: auto;
+    margin-left: auto;
+    flex-wrap: nowrap;
+    font-size: 0;
+  }
+
+  .config-shell > summary .guide-trigger {
+    font-size: 0.72rem;
+  }
+
+  .guide-popover,
+  .lookup-rhyme-mode-help .guide-popover {
+    position: fixed;
+    top: 50%;
+    right: 12px;
+    left: 12px;
+    z-index: 20;
+    width: auto;
+    max-width: none;
+    transform: translateY(calc(-50% - 4px));
+  }
+
+  .guide-hover:hover .guide-popover,
+  .guide-hover:focus-within .guide-popover {
+    transform: translateY(-50%);
+  }
+
+  .quick-controls {
+    padding: 10px;
+  }
+
+  .quick-control-group {
+    width: 100%;
+  }
+
+  .quick-control-group:first-child {
+    display: grid;
+    grid-template-columns: 40px 40px 48px;
+  }
+
+  .quick-control-group:first-child .quick-control-label {
+    grid-column: 1 / -1;
+  }
+
+  .quick-control-group select {
+    min-height: 44px;
+  }
+
+  .quick-control-value {
+    min-width: 0;
   }
 
   .panel-header-meta,
   .top-action-group {
     width: 100%;
     justify-content: flex-start;
-    flex-wrap: wrap;
+  }
+
+  .top-action-group {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) repeat(3, 40px);
+    gap: 6px;
+    overflow: visible;
+  }
+
+  .top-action-group .top-font-selector {
+    grid-column: 1;
+    width: 100%;
+    min-width: 0;
+    height: 40px;
+  }
+
+  .top-action-group #importPoemsMd {
+    grid-column: 1 / 2;
+  }
+
+  .top-action-group #exportPoemsMd {
+    grid-column: 2 / 4;
+  }
+
+  .top-action-group #downloadPoemPdf {
+    grid-column: 4 / 5;
   }
 
   .top-action-group .icon-action,
   .top-action-group .format-action,
   .top-action-group .poem-color-btn {
-    width: 40px;
-    min-width: 40px;
+    width: 100%;
+    min-width: 0;
     height: 40px;
     min-height: 40px;
     padding: 0;
   }
 
   .top-action-group .format-action {
-    width: auto;
-    min-width: 64px;
-    padding: 0 10px;
+    min-width: 0;
+    padding: 0 4px;
   }
 
   .input-memory-bar .icon-action,

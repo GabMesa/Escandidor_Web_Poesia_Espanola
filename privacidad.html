@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacidad | Escandidor</title>
+    <meta name="description" content="Información sobre los datos que trata Escandidor y los servicios externos que utiliza." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&amp;family=Cormorant+Garamond:wght@600;700&amp;display=swap" rel="stylesheet" />
+    <style>
+      :root { color-scheme: light; --bg: #efe7db; --panel: #fdf7ee; --text: #1f160f; --muted: #705f50; --accent: #8b4d2c; --danger: #9f2f27; }
+      * { box-sizing: border-box; }
+      body { margin: 0; color: var(--text); background: var(--bg); font-family: "Atkinson Hyperlegible", sans-serif; line-height: 1.65; letter-spacing: 0; }
+      main { width: min(820px, calc(100% - 24px)); margin: 0 auto; padding: 36px 0 56px; }
+      article { border-top: 6px solid var(--accent); background: var(--panel); padding: clamp(20px, 4vw, 36px); }
+      h1, h2 { font-family: "Cormorant Garamond", Garamond, serif; letter-spacing: 0; }
+      h1 { margin: 0; font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1; }
+      h2 { margin: 30px 0 8px; font-size: 1.55rem; }
+      p, ul { margin-top: 8px; }
+      .updated, .note { color: var(--muted); }
+      a { color: var(--accent); }
+      .data-deletion { margin-top: 18px; padding: 18px; border: 1px solid rgba(159, 47, 39, 0.3); }
+      .data-deletion label { display: block; font-weight: 700; }
+      .data-deletion-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-top: 12px; }
+      .data-deletion-controls div { flex: 1 1 220px; }
+      .data-deletion input { width: 100%; min-height: 42px; margin-top: 5px; padding: 8px 10px; border: 1px solid #9b8876; background: #fff; color: var(--text); font: inherit; }
+      .data-deletion button { min-height: 42px; padding: 8px 14px; border: 0; background: var(--danger); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+      .data-deletion button:disabled { opacity: 0.45; cursor: not-allowed; }
+      .data-deletion-status { min-height: 1.5em; margin-bottom: 0; }
+      nav { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 18px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <article>
+        <h1>Privacidad</h1>
+        <p class="updated">Última actualización: 2 de agosto de 2026.</p>
+        <p>Escandidor puede usarse localmente sin crear una cuenta. Esta página explica qué datos trata la aplicación cuando utilizas sus funciones locales, una cuenta, Discord o el sistema de apoyos de Ko-fi.</p>
+
+        <h2>Datos tratados</h2>
+        <ul>
+          <li>Sin cuenta, los poemas, preferencias, cachés léxicas y recordatorios se guardan en el almacenamiento local de tu navegador.</li>
+          <li>Con una cuenta, se guardan el nombre de usuario, correo, credenciales protegidas, sesiones y los poemas y versiones que decidas sincronizar.</li>
+          <li>Al entrar con Discord, se reciben el identificador de Discord, nombre de perfil y correo verificado. Se conservan el identificador y el correo necesarios para vincular la cuenta.</li>
+          <li>Cuando Ko-fi notifica un apoyo, se guarda un hash SHA-256 del correo, el identificador de la transacción, importe, moneda, fecha, tipo de apoyo y, solo si el apoyo es público, el nombre público comunicado por Ko-fi. Escandidor no recibe datos de tarjeta.</li>
+        </ul>
+
+        <h2>Finalidades</h2>
+        <p>Los datos se utilizan para autenticar cuentas, sincronizar y recuperar poemas, impedir conflictos entre sesiones, administrar el servicio, contabilizar apoyos, mostrar agradecimientos autorizados y vincular un apoyo con una cuenta cuyo correo verificado coincida.</p>
+
+        <h2>Cookies y almacenamiento local</h2>
+        <p>La autenticación usa una cookie técnica <code>escandidor_session</code>, HttpOnly y SameSite=Lax, con una duración máxima de 30 días. Discord utiliza temporalmente otra cookie técnica para validar el inicio de sesión. No se instalan cookies publicitarias propias. El navegador conserva datos locales hasta que los elimines desde la aplicación o desde su configuración.</p>
+
+        <h2>Servicios externos</h2>
+        <p>Cloudflare aloja la aplicación y la base de datos. Según las funciones utilizadas, el navegador puede conectarse a Google Fonts, jsDelivr, GitHub, Wikcionario, Discord y Ko-fi. La consulta léxica descarga datos de Wikcionario, wordfreq y el corpus de sinónimos; el OCR carga Tesseract.js; la exportación PDF carga jsPDF. Estos proveedores pueden recibir datos técnicos como la dirección IP conforme a sus propias políticas. El dictado alternativo con Vosk se procesa localmente en el navegador.</p>
+
+        <h2>Conservación y control</h2>
+        <p>Las sesiones caducan como máximo a los 30 días. Los datos de cuenta, poemas sincronizados y registros de apoyo se conservan mientras sean necesarios para prestar y administrar el servicio o cumplir obligaciones aplicables. Puedes borrar poemas desde la aplicación. Para solicitar acceso o rectificación, contacta con el responsable del proyecto mediante el perfil del repositorio enlazado abajo.</p>
+
+        <section class="data-deletion" aria-labelledby="deleteDataTitle">
+          <h2 id="deleteDataTitle">Borrar mis datos</h2>
+          <p id="deleteDataDescription">Esta acción elimina definitivamente tu cuenta, sesiones, poemas sincronizados y datos locales de este navegador. Los registros de apoyo que deban conservarse quedan desvinculados de tu cuenta.</p>
+          <div class="data-deletion-controls">
+            <div>
+              <label for="deleteDataConfirmation">Escribe BORRAR para confirmar</label>
+              <input id="deleteDataConfirmation" type="text" autocomplete="off" aria-describedby="deleteDataDescription deleteDataStatus" />
+            </div>
+            <button id="deleteData" type="button" disabled>Borrar mi cuenta y datos</button>
+          </div>
+          <p id="deleteDataStatus" class="data-deletion-status note" aria-live="polite"></p>
+        </section>
+
+        <h2>Licencias y contenido</h2>
+        <p>Conservas los derechos sobre los poemas que introduces. No publiques contenido que no tengas derecho a utilizar. Las licencias y atribuciones de componentes externos están en el aviso de terceros.</p>
+
+        <nav aria-label="Enlaces legales y de navegación">
+          <a href="index.html">Volver al escandidor</a>
+          <a href="THIRD-PARTY-LICENSES.md">Licencias de terceros</a>
+          <a href="https://github.com/GabMesa" target="_blank" rel="noopener noreferrer">Contacto del proyecto</a>
+        </nav>
+      </article>
+    </main>
+    <script src="privacidad.js"></script>
+  </body>
+</html>

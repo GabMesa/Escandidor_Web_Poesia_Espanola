@@ -9,5 +9,8 @@
   },
   "devDependencies": {
     "wrangler": "^4.86.0"
+  },
+  "dependencies": {
+    "vosk-browser": "^0.0.8"
   }
 }

@@ -72,6 +72,29 @@ SOFTWARE.
 
 - Source: https://github.com/edublancas/sinonimos
 
+## Vosk Browser and Spanish speech model
+
+The application distributes Vosk Browser 0.0.8 and the
+`vosk-model-small-es-0.42` Spanish speech-recognition model. They run locally
+in the browser as the dictation fallback when the Web Speech recognition API
+is unavailable. Both resources are distributed under the Apache License 2.0.
+
+- Vosk Browser source: https://github.com/ccoreilly/vosk-browser
+- Vosk source: https://github.com/alphacep/vosk-api
+- Spanish model: https://alphacephei.com/vosk/models
+- License: https://www.apache.org/licenses/LICENSE-2.0
+
+Copyright 2019-2022 Alpha Cephei Inc and Vosk contributors
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this file except in compliance with the License. You may obtain a copy of the
+License at https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed
+under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+CONDITIONS OF ANY KIND, either express or implied. See the License for the
+specific language governing permissions and limitations under the License.
+
 ## jsPDF
 
 jsPDF is loaded as an ES module from jsDelivr and is distributed under the MIT
@@ -99,6 +122,47 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 - Source: https://github.com/parallax/jsPDF
+
+## Tesseract.js
+
+Tesseract.js 6.0.1 is loaded from jsDelivr when optical character recognition
+is requested. It is distributed under the Apache License 2.0.
+
+- Source: https://github.com/naptha/tesseract.js
+- License: https://www.apache.org/licenses/LICENSE-2.0
+
+## MessagePack and fflate
+
+The rhyme-search worker loads `@msgpack/msgpack` 3.1.2 and `fflate` 0.8.2 from
+jsDelivr to decode and decompress lexical frequency data. Both are distributed
+under the MIT License. Their complete copyright and license notices are
+available in their source repositories.
+
+- MessagePack source: https://github.com/msgpack/msgpack-javascript
+- fflate source: https://github.com/101arrowz/fflate
+- MIT License: https://opensource.org/license/mit
+
+## Google Fonts
+
+The interface loads several typefaces from Google Fonts. The font files are
+made available under their respective open font licenses, principally the SIL
+Open Font License 1.1. The applicable license and copyright metadata for each
+family are provided in the Google Fonts catalog and source repository.
+
+- Catalog: https://fonts.google.com/
+- Source and license metadata: https://github.com/google/fonts
+- SIL Open Font License 1.1: https://openfontlicense.org/open-font-license-official-text/
+
+Loading Google Fonts also makes a network request to Google; see the
+application privacy notice for information about external services.
+
+## Notices embedded in Vosk Browser
+
+The bundled `vendor/vosk/vosk.js` includes third-party components whose
+copyright and license notices are preserved in the distributed source file,
+including TypeScript helpers, UUID utilities, JavaScript-MD5 and related
+cryptographic utilities. Those embedded notices form part of this
+distribution and must not be removed.
 
 ## Resources not redistributed
 

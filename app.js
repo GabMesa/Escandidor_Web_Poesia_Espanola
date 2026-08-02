@@ -17,6 +17,11 @@ import {
   matchesSyllablePattern,
   parseSyllablePattern
 } from './poetic-forms.js';
+import {
+  getSpeechRecognitionErrorMessage,
+  insertPoemLineBreak,
+  insertPoemText
+} from './poem-input-tools.js';
 
 const poemInput = document.getElementById('poemInput');
 const analysisOutput = document.getElementById('analysisOutput');
@@ -69,10 +74,13 @@ const importPoemsMd = document.getElementById('importPoemsMd');
 const exportPoemsMd = document.getElementById('exportPoemsMd');
 const downloadPoemPdf = document.getElementById('downloadPoemPdf');
 const importPoemsFile = document.getElementById('importPoemsFile');
+const speechToText = document.getElementById('speechToText');
+const imageToText = document.getElementById('imageToText');
+const poemImageFile = document.getElementById('poemImageFile');
+const captureStatus = document.getElementById('captureStatus');
 const analysisModeToggle = document.getElementById('analysisModeToggle');
 const analysisTextOutput = document.getElementById('analysisTextOutput');
 const copyAnalysisText = document.getElementById('copyAnalysisText');
-const fontScaleControl = document.getElementById('fontScaleControl');
 const fontScaleValue = document.getElementById('fontScaleValue');
 const fontSizeDown = document.getElementById('fontSizeDown');
 const fontSizeUp = document.getElementById('fontSizeUp');
@@ -124,6 +132,9 @@ const LOOKUP_WIKTIONARY_BASE_URL = 'https://es.wiktionary.org/wiki/';
 const LOOKUP_WIKTIONARY_API_BASE_URL = 'https://es.wiktionary.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&origin=*&titles=';
 const OPEN_SYNONYMS_SOURCE_URL = 'https://cdn.jsdelivr.net/gh/edublancas/sinonimos@master/sinonimos.json';
 const WORDFREQ_SOURCE_URL = 'https://raw.githubusercontent.com/rspeer/wordfreq/master/wordfreq/data/large_es.msgpack.gz';
+const TESSERACT_CDN_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/+esm';
+const VOSK_SCRIPT_URL = './vendor/vosk/vosk.js';
+const VOSK_SPANISH_MODEL_URL = './vendor/vosk/model/vosk-model-small-es-0.42.tar.gz';
 
 const state = applicationState.editor;
 
@@ -139,6 +150,16 @@ let autoSaveTimer = null;
 let toastTimer = null;
 let selectedVersionIds = new Set();
 let lookupAutoFetchTimer = null;
+let speechRecognition = null;
+let isSpeechRecognitionActive = false;
+let isSpeechRecognitionStarting = false;
+let shouldContinueSpeechRecognition = false;
+let speechRecognitionReceivedText = false;
+let speechRecognitionHadError = false;
+let voskScriptPromise = null;
+let voskModelPromise = null;
+let voskSession = null;
+let tesseractModulePromise = null;
 function loadLookupWordTypeCache() {
   try {
     const raw = localStorage.getItem(LOOKUP_WORD_TYPE_CACHE_KEY);
@@ -2049,7 +2070,9 @@ function renderLookupResults() {
     ? '?'
     : String(filteredRhymes.length);
 
-  const filteredList = filteredRhymes.length > 0 ? filteredRhymes
+  const filteredList = state.lookupLoadingRhymes
+    ? '<li class="lookup-rhyme-loading"><span class="lookup-spinner" aria-hidden="true"></span>Cargando rimas...</li>'
+    : filteredRhymes.length > 0 ? filteredRhymes
     .map((item) => `
       <li>
         <span>${escapeHtml(item)}</span>
@@ -2078,7 +2101,7 @@ function renderLookupResults() {
     ? '<p class="lookup-loader" style="margin-top: 0.35rem;"><span class="lookup-spinner" aria-hidden="true"></span>Clasificando por páginas y guardando caché desde Wikcionario...</p>'
     : '';
 
-  const loaderVisible = state.lookupLoadingDefinition || state.lookupLoadingRhymes;
+  const loaderVisible = state.lookupLoadingDefinition;
   const loaderMessage = wordCorpusLoadingMessage || 'Cargando información desde las fuentes...';
   const loaderBlock = loaderVisible ? `<p class="lookup-loader"><span class="lookup-spinner" aria-hidden="true"></span>${escapeHtml(loaderMessage)}</p>` : '';
   const errorLine = state.lookupError ? `<p class="lookup-definition">${escapeHtml(state.lookupError)}</p>` : '';
@@ -2278,7 +2301,7 @@ function clampFontScale(value) {
     return 100;
   }
 
-  return Math.max(5, Math.round(numeric / 5) * 5);
+  return Math.min(500, Math.max(10, Math.round(numeric / 5) * 5));
 }
 
 function loadUiPreferences() {
@@ -2317,10 +2340,6 @@ function applyFontScale() {
   const scale = clampFontScale(state.fontScale);
   state.fontScale = scale;
   document.documentElement.style.setProperty('--user-font-scale', String(scale / 100));
-
-  if (fontScaleControl) {
-    fontScaleControl.value = String(scale);
-  }
 
   if (fontScaleValue) {
     fontScaleValue.textContent = `${scale}%`;
@@ -3046,7 +3065,8 @@ function updateSelectAllButtonLabel(totalItems) {
   }
 
   const checked = selectedVersionIds.size;
-  selectAllVersions.textContent = totalItems > 0 && checked >= totalItems ? 'Deseleccionar todo' : 'Seleccionar todo';
+  selectAllVersions.innerHTML = `<span aria-hidden="true">☑</span> ${totalItems > 0 && checked >= totalItems ? 'Deseleccionar todo' : 'Seleccionar todo'}`;
+  selectAllVersions.disabled = totalItems === 0;
 }
 
 function updateVersionManagerStatus() {
@@ -6414,11 +6434,305 @@ function clearAutomaticSinalefaOverrides() {
   state.lineOverrides = cleanedLineOverrides;
 }
 
+function insertIntoPoemInput(recognizedText) {
+  const result = insertPoemText(
+    poemInput.value,
+    poemInput.selectionStart,
+    poemInput.selectionEnd,
+    recognizedText
+  );
+
+  if (result.text === poemInput.value) return;
+
+  poemInput.value = result.text;
+  poemInput.focus();
+  poemInput.setSelectionRange(result.cursor, result.cursor);
+  poemInput.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function insertLineBreakIntoPoemInput() {
+  const result = insertPoemLineBreak(
+    poemInput.value,
+    poemInput.selectionStart,
+    poemInput.selectionEnd
+  );
+
+  if (result.text === poemInput.value) return;
+
+  poemInput.value = result.text;
+  poemInput.focus();
+  poemInput.setSelectionRange(result.cursor, result.cursor);
+  poemInput.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function setSpeechRecognitionActive(active) {
+  isSpeechRecognitionActive = active;
+  if (active) isSpeechRecognitionStarting = false;
+  speechToText?.classList.toggle('is-active', active);
+  speechToText?.classList.toggle('is-busy', isSpeechRecognitionStarting);
+  speechToText?.setAttribute('aria-pressed', String(active));
+  speechToText?.setAttribute('aria-busy', String(isSpeechRecognitionStarting));
+  speechToText?.setAttribute('title', active ? 'Detener dictado' : 'Iniciar dictado en español');
+  if (captureStatus) {
+    captureStatus.textContent = active
+      ? 'Escuchando...'
+      : isSpeechRecognitionStarting
+        ? 'Preparando micrófono...'
+        : '';
+  }
+}
+
+function setSpeechRecognitionStarting(starting) {
+  isSpeechRecognitionStarting = starting;
+  setSpeechRecognitionActive(false);
+}
+
+function loadVoskScript() {
+  if (window.Vosk) return Promise.resolve(window.Vosk);
+  if (voskScriptPromise) return voskScriptPromise;
+
+  voskScriptPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = VOSK_SCRIPT_URL;
+    script.onload = () => resolve(window.Vosk);
+    script.onerror = () => reject(new Error('No se pudo cargar Vosk.'));
+    document.head.append(script);
+  }).catch((error) => {
+    voskScriptPromise = null;
+    throw error;
+  });
+
+  return voskScriptPromise;
+}
+
+async function getVoskModel() {
+  if (!voskModelPromise) {
+    voskModelPromise = loadVoskScript()
+      .then((Vosk) => Vosk.createModel(VOSK_SPANISH_MODEL_URL))
+      .catch((error) => {
+        voskModelPromise = null;
+        throw error;
+      });
+  }
+  return voskModelPromise;
+}
+
+async function startVoskRecognition() {
+  setSpeechRecognitionStarting(true);
+  if (captureStatus) captureStatus.textContent = 'Descargando dictado en español (40 MB)...';
+
+  try {
+    const [model, mediaStream] = await Promise.all([
+      getVoskModel(),
+      navigator.mediaDevices.getUserMedia({
+        video: false,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          channelCount: 1,
+          sampleRate: 16000
+        }
+      })
+    ]);
+
+    if (!shouldContinueSpeechRecognition) {
+      mediaStream.getTracks().forEach((track) => track.stop());
+      setSpeechRecognitionStarting(false);
+      return;
+    }
+
+    const audioContext = new AudioContext();
+    const recognizer = new model.KaldiRecognizer(audioContext.sampleRate);
+    const source = audioContext.createMediaStreamSource(mediaStream);
+    const processor = audioContext.createScriptProcessor(4096, 1, 1);
+    const silentOutput = audioContext.createGain();
+    silentOutput.gain.value = 0;
+
+    recognizer.on('result', (message) => {
+      const transcript = message.result?.text?.trim();
+      if (!transcript) return;
+      insertIntoPoemInput(transcript);
+      insertLineBreakIntoPoemInput();
+    });
+    processor.onaudioprocess = (event) => recognizer.acceptWaveform(event.inputBuffer);
+    source.connect(processor);
+    processor.connect(silentOutput);
+    silentOutput.connect(audioContext.destination);
+    voskSession = { audioContext, mediaStream, processor, recognizer, silentOutput, source };
+    setSpeechRecognitionActive(true);
+  } catch (error) {
+    shouldContinueSpeechRecognition = false;
+    setSpeechRecognitionStarting(false);
+    showToast(
+      error?.name === 'NotAllowedError'
+        ? getSpeechRecognitionErrorMessage('not-allowed')
+        : 'No se pudo cargar el dictado local para Firefox.',
+      'error'
+    );
+  }
+}
+
+function stopVoskRecognition() {
+  shouldContinueSpeechRecognition = false;
+  if (voskSession) {
+    voskSession.source.disconnect();
+    voskSession.processor.disconnect();
+    voskSession.silentOutput.disconnect();
+    voskSession.processor.onaudioprocess = null;
+    voskSession.mediaStream.getTracks().forEach((track) => track.stop());
+    voskSession.recognizer.remove();
+    voskSession.audioContext.close();
+    voskSession = null;
+  }
+  setSpeechRecognitionStarting(false);
+}
+
+function getSpeechRecognition() {
+  if (speechRecognition) return speechRecognition;
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return null;
+
+  speechRecognition = new SpeechRecognition();
+  speechRecognition.lang = 'es-ES';
+  speechRecognition.continuous = false;
+  speechRecognition.interimResults = false;
+  speechRecognition.maxAlternatives = 1;
+  speechRecognition.onstart = () => {
+    speechRecognitionReceivedText = false;
+    speechRecognitionHadError = false;
+    setSpeechRecognitionActive(true);
+  };
+  speechRecognition.onend = () => {
+    isSpeechRecognitionStarting = false;
+    if (!shouldContinueSpeechRecognition || speechRecognitionHadError) {
+      shouldContinueSpeechRecognition = false;
+      setSpeechRecognitionActive(false);
+      return;
+    }
+
+    if (speechRecognitionReceivedText) insertLineBreakIntoPoemInput();
+
+    try {
+      setSpeechRecognitionStarting(true);
+      speechRecognition.start();
+    } catch {
+      shouldContinueSpeechRecognition = false;
+      setSpeechRecognitionStarting(false);
+      showToast('No se pudo continuar el dictado.', 'error');
+    }
+  };
+  speechRecognition.onerror = (event) => {
+    speechRecognitionHadError = event.error !== 'aborted';
+    isSpeechRecognitionStarting = false;
+    if (speechRecognitionHadError) shouldContinueSpeechRecognition = false;
+    setSpeechRecognitionActive(false);
+    if (event.error !== 'aborted') {
+      const type = event.error === 'no-speech' ? 'warning' : 'error';
+      const isVsCodeBrowser = /Electron\//.test(navigator.userAgent);
+      const message = event.error === 'network' && isVsCodeBrowser
+        ? 'El navegador integrado de VS Code no ofrece el servicio Web Speech. Ábrelo en Chrome o Edge.'
+        : getSpeechRecognitionErrorMessage(event.error);
+      showToast(message, type);
+    }
+  };
+  speechRecognition.onresult = (event) => {
+    let transcript = '';
+    for (let index = event.resultIndex; index < event.results.length; index += 1) {
+      if (event.results[index].isFinal) transcript += event.results[index][0].transcript;
+    }
+    if (transcript.trim()) {
+      speechRecognitionReceivedText = true;
+      insertIntoPoemInput(transcript);
+    }
+  };
+
+  return speechRecognition;
+}
+
+function toggleSpeechRecognition() {
+  const recognition = getSpeechRecognition();
+  if (!recognition) {
+    if (isSpeechRecognitionActive || isSpeechRecognitionStarting) {
+      stopVoskRecognition();
+      return;
+    }
+    shouldContinueSpeechRecognition = true;
+    startVoskRecognition();
+    return;
+  }
+
+  if (isSpeechRecognitionActive || isSpeechRecognitionStarting) {
+    shouldContinueSpeechRecognition = false;
+    if (isSpeechRecognitionActive) recognition.stop();
+    else recognition.abort();
+    return;
+  }
+
+  try {
+    shouldContinueSpeechRecognition = true;
+    setSpeechRecognitionStarting(true);
+    recognition.start();
+  } catch {
+    shouldContinueSpeechRecognition = false;
+    setSpeechRecognitionStarting(false);
+    showToast('No se pudo iniciar el dictado. Recarga la página e inténtalo de nuevo.', 'error');
+  }
+}
+
+async function getTesseractModule() {
+  if (!tesseractModulePromise) {
+    tesseractModulePromise = import(TESSERACT_CDN_URL).catch((error) => {
+      tesseractModulePromise = null;
+      throw error;
+    });
+  }
+  return tesseractModulePromise;
+}
+
+async function recognizePoemImage(file) {
+  if (!file) return;
+
+  imageToText.disabled = true;
+  imageToText.classList.add('is-busy');
+  if (captureStatus) captureStatus.textContent = 'Preparando imagen...';
+  let worker = null;
+
+  try {
+    const { createWorker } = await getTesseractModule();
+    worker = await createWorker('spa', undefined, {
+      logger(message) {
+        if (message.status !== 'recognizing text' || !captureStatus) return;
+        captureStatus.textContent = `Leyendo texto... ${Math.round(message.progress * 100)} %`;
+      }
+    });
+    const result = await worker.recognize(file);
+    const text = String(result?.data?.text ?? '').trim();
+    if (!text) {
+      showToast('No se encontró texto legible en la imagen.', 'warning');
+      return;
+    }
+    insertIntoPoemInput(text);
+    showToast('Texto de la imagen añadido al poema.', 'success');
+  } catch {
+    showToast('No se pudo leer la imagen. Comprueba la conexión e inténtalo de nuevo.', 'error');
+  } finally {
+    await worker?.terminate();
+    imageToText.disabled = false;
+    imageToText.classList.remove('is-busy');
+    poemImageFile.value = '';
+    if (captureStatus) captureStatus.textContent = '';
+  }
+}
+
 poemInput.value = SAMPLE_POEM;
 poemInput.addEventListener('input', () => {
   updateAnalysis();
   scheduleAutoSave();
 });
+speechToText?.addEventListener('click', toggleSpeechRecognition);
+imageToText?.addEventListener('click', () => poemImageFile?.click());
+poemImageFile?.addEventListener('change', () => recognizePoemImage(poemImageFile.files?.[0]));
 
 poeticForm?.addEventListener('change', applyPoeticFormPreset);
 syllablePattern?.addEventListener('input', () => {
@@ -6499,11 +6813,6 @@ copyAnalysisText?.addEventListener('click', async () => {
   } catch {
     showToast('No se pudo copiar el análisis.', 'error');
   }
-});
-fontScaleControl?.addEventListener('input', () => {
-  state.fontScale = clampFontScale(fontScaleControl.value);
-  applyFontScale();
-  saveUiPreferences();
 });
 for (const selector of poemFontSelectors) {
   selector.addEventListener('change', () => {

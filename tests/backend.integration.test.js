@@ -309,6 +309,24 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     assert.equal(promoted.response.status, 200);
     assert.equal(promoted.payload.user.role, 'admin');
 
+    const unauthenticatedAccountDeletion = await jsonRequest(baseUrl, '/api/auth/account', {
+      method: 'DELETE',
+    });
+    assert.equal(unauthenticatedAccountDeletion.response.status, 401);
+
+    const accountDeletion = await jsonRequest(baseUrl, '/api/auth/account', {
+      method: 'DELETE', cookie: secondCookie,
+    });
+    assert.equal(accountDeletion.response.status, 200);
+    assert.match(accountDeletion.response.headers.get('set-cookie') || '', /Max-Age=0/);
+
+    const deletedAccountSession = await jsonRequest(baseUrl, '/api/auth/me', { cookie: secondCookie });
+    assert.equal(deletedAccountSession.payload.user, null);
+    const usersAfterSelfDeletion = await jsonRequest(baseUrl, '/api/admin/users', { cookie: firstCookie });
+    assert.equal(usersAfterSelfDeletion.payload.users.some((user) => user.id === secondUser.id), false);
+    const supportersAfterSelfDeletion = await jsonRequest(baseUrl, '/api/admin/supporters', { cookie: firstCookie });
+    assert.equal(supportersAfterSelfDeletion.payload.supporters[0].user, null);
+
     const sameTitleNewPoem = await jsonRequest(baseUrl, '/api/poems', {
       method: 'POST', cookie: firstCookie,
       body: { title: 'Poema eliminable', versionName: 'nuevo', content: 'Un poema diferente' },

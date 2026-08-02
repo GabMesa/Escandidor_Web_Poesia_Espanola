@@ -361,6 +361,7 @@
                       type="button"
                       class="secondary compact-action"
                     >
+                      <span aria-hidden="true">☑</span>
                       Seleccionar todo
                     </button>
                     <button
@@ -368,6 +369,7 @@
                       type="button"
                       class="secondary compact-action"
                     >
+                      <span aria-hidden="true">🗑</span>
                       Borrar seleccionadas
                     </button>
                     <button
@@ -514,7 +516,7 @@
           </div>
         </details>
 
-        <details id="lookupShell" class="control-card config-shell" open>
+        <details id="lookupShell" class="control-card config-shell">
           <summary>
             <span>Rimas y definición</span>
             <span class="summary-hint">
@@ -589,16 +591,6 @@
             >
               A-
             </button>
-            <input
-              id="fontScaleControl"
-              type="range"
-              min="10"
-              max="500"
-              step="5"
-              value="100"
-              title="Ajusta el tamaño de texto de toda la página."
-              aria-label="Tamaño de texto de toda la página"
-            />
             <button
               id="fontSizeUp"
               type="button"
@@ -629,6 +621,8 @@
               class="poem-panel-title-input"
               type="text"
               value="Sin título"
+              lang="es"
+              spellcheck="true"
               title="Título del poema"
               aria-label="Título del poema"
             />
@@ -754,75 +748,109 @@
             </span>
           </div>
           <div class="input-memory-bar">
-            <select
-              id="savedPoemName"
-              title="Selecciona un poema guardado en memoria local."
-            ></select>
-            <input
-              id="editPoemNameInput"
-              class="hidden"
-              type="text"
-              maxlength="80"
-              title="Editar nombre del poema"
-            />
+            <div class="input-memory-group">
+              <label for="savedPoemName">Título</label>
+              <select
+                id="savedPoemName"
+                title="Selecciona un poema guardado en memoria local."
+              ></select>
+              <input
+                id="editPoemNameInput"
+                class="hidden"
+                type="text"
+                maxlength="80"
+                title="Editar nombre del poema"
+              />
+              <button
+                id="editSelectors"
+                type="button"
+                class="secondary icon-action"
+                title="Editar poema y versión"
+              >
+                ✏
+              </button>
+              <button
+                id="saveSelectorEdits"
+                type="button"
+                class="secondary icon-action hidden"
+                title="Guardar cambios de poema y versión"
+              >
+                ✓
+              </button>
+              <button
+                id="cancelSelectorEdits"
+                type="button"
+                class="secondary icon-action hidden"
+                title="Cancelar edición"
+              >
+                ✕
+              </button>
+              <button
+                id="deletePoemEntry"
+                type="button"
+                class="secondary icon-action"
+                title="Eliminar todas las versiones del poema seleccionado"
+              >
+                🗑
+              </button>
+            </div>
+            <div class="input-memory-group">
+              <label for="savedPoemVersion">Versión</label>
+              <select
+                id="savedPoemVersion"
+                title="Selecciona una versión anterior del poema guardado."
+              ></select>
+              <input
+                id="editPoemVersionInput"
+                class="hidden"
+                type="text"
+                maxlength="48"
+                placeholder="Nombre de versión"
+                title="Editar nombre de la versión"
+              />
+              <button
+                id="deletePoemVersion"
+                type="button"
+                class="secondary icon-action"
+                title="Eliminar la versión seleccionada del historial"
+              >
+                🗑
+              </button>
+            </div>
+          </div>
+          <div class="poem-capture-bar" aria-label="Introducir poema por voz o imagen">
             <button
-              id="editSelectors"
+              id="speechToText"
               type="button"
-              class="secondary icon-action"
-              title="Editar poema y versión"
+              class="secondary capture-action"
+              title="Iniciar dictado en español"
+              aria-pressed="false"
             >
-              ✏
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 22h8" />
+              </svg>
+              <span>Dictar</span>
             </button>
             <button
-              id="saveSelectorEdits"
+              id="imageToText"
               type="button"
-              class="secondary icon-action hidden"
-              title="Guardar cambios de poema y versión"
+              class="secondary capture-action"
+              title="Sacar una foto o elegir una imagen para extraer el texto"
             >
-              ✓
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M14.5 4 16 6h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l1.5-2h5Z" />
+                <circle cx="12" cy="12.5" r="3.5" />
+              </svg>
+              <span>Foto a texto</span>
             </button>
-            <button
-              id="cancelSelectorEdits"
-              type="button"
-              class="secondary icon-action hidden"
-              title="Cancelar edición"
-            >
-              ✕
-            </button>
-            <button
-              id="deletePoemEntry"
-              type="button"
-              class="secondary icon-action"
-              title="Eliminar todas las versiones del poema seleccionado"
-            >
-              🗑
-            </button>
-            <label for="savedPoemVersion">Versión</label>
-            <select
-              id="savedPoemVersion"
-              title="Selecciona una versión anterior del poema guardado."
-            ></select>
-            <input
-              id="editPoemVersionInput"
-              class="hidden"
-              type="text"
-              maxlength="48"
-              placeholder="Nombre de versión"
-              title="Editar nombre de la versión"
-            />
-            <button
-              id="deletePoemVersion"
-              type="button"
-              class="secondary icon-action"
-              title="Eliminar la versión seleccionada del historial"
-            >
-              🗑
-            </button>
+            <span id="captureStatus" class="capture-status" role="status" aria-live="polite"></span>
           </div>
           <label class="sr-only" for="poemInput">Poema</label>
           <textarea
             id="poemInput"
-            spellcheck="false"
+            lang="es"
+            spellcheck="true"
             aria-label="Poema"
             title="Escribe o pega aquí tu poema. Usa líneas en blanco para separar estrofas."
           ></textarea>
@@ -831,6 +859,13 @@
             class="hidden"
             type="file"
             accept=".md,text/markdown,text/plain"
+          />
+          <input
+            id="poemImageFile"
+            class="hidden"
+            type="file"
+            accept="image/*"
+            capture="environment"
           />
         </article>
 
@@ -991,7 +1026,13 @@
             rel="noopener noreferrer"
             >rspeer/wordfreq</a
           > bajo <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 4.0</a>.
-          <a href="THIRD-PARTY-LICENSES.md">Licencias y atribuciones completas</a>.
+            El dictado local para Firefox utiliza
+            <a href="https://alphacephei.com/vosk/" target="_blank" rel="noopener noreferrer">Vosk</a>,
+            <a href="https://github.com/ccoreilly/vosk-browser" target="_blank" rel="noopener noreferrer">Vosk Browser</a>
+            y el modelo pequeno en espanol, bajo
+            <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener noreferrer">Apache 2.0</a>.
+          <a href="THIRD-PARTY-LICENSES.md">Licencias y atribuciones completas</a> ·
+          <a href="privacidad.html">Privacidad</a>.
         </div>
       </footer>
     </main>

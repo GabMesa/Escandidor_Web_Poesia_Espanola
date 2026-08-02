@@ -1,12 +1,22 @@
+const dataDeletion = document.getElementById('dataDeletion');
 const confirmationInput = document.getElementById('deleteDataConfirmation');
 const deleteButton = document.getElementById('deleteData');
 const status = document.getElementById('deleteDataStatus');
 
-confirmationInput.addEventListener('input', () => {
+fetch('/api/auth/me', { credentials: 'same-origin' })
+  .then((response) => response.ok ? response.json() : null)
+  .then((payload) => {
+    dataDeletion.hidden = !payload?.user;
+  })
+  .catch(() => {
+    dataDeletion.hidden = true;
+  });
+
+confirmationInput?.addEventListener('input', () => {
   deleteButton.disabled = confirmationInput.value.trim() !== 'BORRAR';
 });
 
-deleteButton.addEventListener('click', async () => {
+deleteButton?.addEventListener('click', async () => {
   if (confirmationInput.value.trim() !== 'BORRAR') return;
 
   const confirmed = window.confirm(

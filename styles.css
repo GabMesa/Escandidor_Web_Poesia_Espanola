@@ -1360,6 +1360,16 @@ h1 {
   gap: 8px;
 }
 
+.checkbox-row input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  min-height: 14px;
+  flex: 0 0 14px;
+  margin: 0;
+  padding: 0;
+}
+
 .hint {
   margin: 0;
   font-size: 0.8rem;

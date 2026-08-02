@@ -16,7 +16,7 @@ export const applicationState = {
     poemFont: 'atkinson',
     sinalefaEnabled: true,
     conservativeSinalefa: true,
-    rioplatenseY: false,
+    rioplatenseY: true,
     loadedVersionId: '',
     loadedVersionTitle: '',
     selectorEditMode: false,

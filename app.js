@@ -6,7 +6,8 @@ import {
   isUnstressedMonosyllable,
   normalizeValidationWord,
   normalizeRhymeChunk,
-  extractRhymeData
+  extractRhymeData,
+  extractVowelsForSinalefa
 } from './analyzer.js';
 import { applicationState, replaceLibraryState } from './application-state.js';
 import {
@@ -2832,7 +2833,9 @@ function loadVersionById(poemKey, versionId) {
       distinguishSZInRhyme.checked = Boolean(version.settings.distinguishSZInRhyme);
     }
     if (rioplatenseY) {
-      rioplatenseY.checked = Boolean(version.settings.rioplatenseY);
+      rioplatenseY.checked = version.settings.rioplatenseY === undefined
+        ? true
+        : Boolean(version.settings.rioplatenseY);
     }
   }
 
@@ -3622,7 +3625,7 @@ function createNewPoem() {
     distinguishSZInRhyme.checked = false;
   }
   if (rioplatenseY) {
-    rioplatenseY.checked = false;
+    rioplatenseY.checked = true;
   }
 
   state.sinalefaOverrides = {};
@@ -5648,10 +5651,6 @@ function resolveVersalStatus(entries, targetPosition, conflictPositions = new Se
   return 'yellow';
 }
 
-function isVowelForChain(ch) {
-  return /[aeiouaeiouuyáéíóúü]/i.test(ch);
-}
-
 function normalizeVowelForChain(ch) {
   const lower = String(ch ?? '').toLowerCase();
   if (lower === 'y') {
@@ -5676,7 +5675,7 @@ function isAccentedWeakForChain(ch) {
 }
 
 function extractVowelsForChain(text) {
-  return [...String(text ?? '').toLowerCase()].filter((ch) => isVowelForChain(ch));
+  return extractVowelsForSinalefa(text, { rioplatenseY: state.rioplatenseY });
 }
 
 function getSinalefaVowelWarning(lineAnalysis, boundary) {

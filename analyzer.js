@@ -118,6 +118,18 @@ function sanitizeWord(word) {
     .toLowerCase();
 }
 
+export function extractVowelsForSinalefa(text, options = {}) {
+  const normalized = sanitizeWord(String(text ?? ''));
+
+  return [...normalized].filter((ch, index) => {
+    if (ch === 'y' && options.rioplatenseY && index === 0 && normalized.length > 1) {
+      return false;
+    }
+
+    return isVowelLike(ch, index, normalized);
+  });
+}
+
 function sanitizeWordPreserveCase(word) {
   return String(word ?? '')
     .normalize('NFC')

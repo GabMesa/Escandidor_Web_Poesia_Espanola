@@ -10,7 +10,8 @@ import {
   classifyWordAccentType,
   adjustPoeticCount,
   analyzeLine,
-  analyzePoem
+  analyzePoem,
+  extractVowelsForSinalefa
 } from '../analyzer.js';
 
 function rhymeOf(word, options = {}) {
@@ -80,4 +81,6 @@ test('applies Rioplatense initial Y without changing conjunction y sinalefa', ()
   assert.deepEqual(analyzeLine('claro y el', { rioplatenseY: true }).boundaries.map((item) => item.candidate), [true, true]);
   assert.equal(analyzeLine('claro yo').boundaries[0].candidate, true);
   assert.equal(analyzeLine('claro yo', { rioplatenseY: true }).boundaries[0].candidate, false);
+  assert.deepEqual(extractVowelsForSinalefa('yo', { rioplatenseY: true }), ['o']);
+  assert.deepEqual(extractVowelsForSinalefa('y', { rioplatenseY: true }), ['y']);
 });

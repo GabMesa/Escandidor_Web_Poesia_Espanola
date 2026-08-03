@@ -1,3 +1,0 @@
-redisign the front end api to fix the following issues:
-- When logging in we need to set the poem and version selector correctly. Now it is not changing; it might be a problem with the state. We should move the state to the top level and pass it down to the components that need it, so we can change it when we log in and when we change the poem or version.
-the state should be stored in a single object that contains the current poem, version, and any other relevant information. This state should be updated whenever the user logs in, changes the poem, or changes the version. The components that need to access this state should receive it as props, and they should also receive functions to update the state when necessary.

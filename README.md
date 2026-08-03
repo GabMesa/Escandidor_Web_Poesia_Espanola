@@ -1,32 +1,37 @@
-## Contador de apoyos de Ko-fi
+# Escandidor de poesia espanola
 
-Ko-fi no ofrece una API de lectura para consultar el total de supporters. Su API envía un webhook por cada pago, por lo que Escandidor registra esos eventos en D1 y cuenta correos únicos mediante un hash SHA-256. No se guarda el correo ni se expone el token al navegador.
+Aplicacion web para escandir poesia en espanol, editar y versionar poemas, consultar recursos lexicos y sincronizar una biblioteca personal. El frontend es HTML, CSS y JavaScript sin compilacion; el backend usa Cloudflare Pages Functions y D1.
 
-1. Aplica la migración remota:
+Produccion: <https://mesa-de-poesia.pages.dev/>
 
-  ```powershell
-  npx wrangler d1 execute escandidor-db --remote --file=./migrations/0009_unify_supporters.sql
-  npx wrangler d1 execute escandidor-db --remote --file=./migrations/0010_supporter_management.sql
-  npx wrangler d1 execute escandidor-db --remote --file=./migrations/0011_auto_link_supporters.sql
-  ```
+## Retomar el proyecto
 
-2. En Cloudflare Pages, abre `Settings > Variables and Secrets` y crea el secreto `KOFI_VERIFICATION_TOKEN` con el token mostrado en la configuración de webhooks de Ko-fi.
-3. Si ya hubo donantes antes de activar el webhook, crea opcionalmente `KOFI_HISTORICAL_SUPPORTER_COUNT` con la cantidad de donantes únicos históricos. No incluyas en ese número los que lleguen después por webhook.
-4. Despliega el proyecto y configura en [Ko-fi Webhooks](https://ko-fi.com/manage/webhooks) esta URL:
+1. Instala una version LTS vigente de Node.js.
+2. Ejecuta `npm ci` y despues `npm test`.
+3. Lee [ARCHITECTURE.md](ARCHITECTURE.md) para entender responsabilidades y contratos.
+4. Lee [OPERATIONS.md](OPERATIONS.md) antes de tocar Cloudflare, D1, Discord o Ko-fi.
+5. Revisa [TODO.md](TODO.md) para conocer deuda y trabajo pendiente.
+6. Comprueba en Cloudflare que el proyecto, D1, dominios y secretos siguen activos.
+7. Antes de desplegar, revisa cambios incompatibles de Wrangler y actualiza `compatibility_date` deliberadamente.
 
-  ```text
-  https://TU-DOMINIO/api/webhooks/kofi
-  ```
+No ejecutes migraciones remotas ni despliegues hasta obtener una copia de seguridad de D1 y confirmar el proyecto y la cuenta de Cloudflare seleccionados.
 
-5. Envía un pago de prueba desde Ko-fi. El endpoint debe responder `200`; después `/api/supporters` mostrará el total.
+## Desarrollo
 
-Los reintentos de Ko-fi no duplican pagos ni supporters. Ko-fi no envía eventos cuando termina una membresía, así que este contador representa personas que han apoyado alguna vez, no membresías actualmente activas.
+```powershell
+npm ci
+npm test
+npm run dev
+```
 
-Cuando el correo del pago coincide con el correo verificado de una cuenta de Escandidor, el supporter se vincula automáticamente. Esto también ocurre de forma retroactiva al iniciar sesión con Discord. El nombre público de Ko-fi se muestra en administración como ayuda, pero nunca se usa para vincular cuentas porque no es un identificador único.
+`npm run dev` sirve el sitio completo con Pages Functions y una D1 local. Para usar solo el analizador sin cuentas se puede abrir `index.html`.
 
-# Escandador basico de poesia en espanol
+```powershell
+npm run check
+npm run deploy
+```
 
-Aplicacion estatica (HTML + CSS + JS) para analizar versos en espanol.
+`npm run deploy` publica conscientemente en Cloudflare Pages. El repositorio no mantiene un despliegue paralelo de GitHub Pages porque el hosting estatico no incluye Functions ni D1.
 
 ## Que hace hoy
 - Entrada de poema en un panel izquierdo.
@@ -56,7 +61,7 @@ Ejemplo de formato de salida:
 
 Ca-**mi**-no **len**-to por la **tar**-de **cla**-ra, 11 2-4-8-10
 
-## Estructura
+## Mapa del repositorio
 - index.html: estructura de la pagina.
 - styles.css: estilos y layout responsive.
 - analyzer.js: reglas de silabificacion, acentuacion y conteo.
@@ -82,7 +87,9 @@ Ca-**mi**-no **len**-to por la **tar**-de **cla**-ra, 11 2-4-8-10
   enruta `/api/*` a las funciones de `functions/`.
 - reglas_escanción.md: reglas linguisticas de referencia.
 
-## Como ejecutar local (solo analizador, sin cuentas)
+Los archivos web permanecen en la raiz porque `wrangler.jsonc` publica `.` y sus URL son parte del contrato. Moverlos requiere una migracion separada de referencias, sitemap, despliegue y pruebas.
+
+## Ejecucion sin backend
 1. Abre index.html en tu navegador.
 2. Escribe o pega tu poema en el panel izquierdo.
 3. Revisa el analisis en el panel derecho.
@@ -124,18 +131,18 @@ Functions + D1** que agrega:
 - **Panel de administracion** (`/admin.html`) para ver/editar/borrar
   usuarios y poemas de todos los usuarios.
 
-### 1. Requisitos
+### Requisitos
 - Cuenta de Cloudflare con Workers y D1 habilitados.
 - `npx wrangler` (no requiere instalacion global).
 
-### 2. Crear la base de datos D1 (si aun no existe)
+### Crear una base de datos D1 nueva
 ```bash
 npx wrangler d1 create escandidor-db
 ```
 Copia el `database_id` que te devuelve en `wrangler.jsonc` si es distinto
 al que ya esta configurado.
 
-### 3. Aplicar el esquema
+### Aplicar el esquema
 ```bash
 # Local (para wrangler dev)
 npx wrangler d1 execute escandidor-db --file=./schema.sql
@@ -146,31 +153,23 @@ npx wrangler d1 execute escandidor-db --remote --file=./schema.sql
 `schema.sql` crea las tablas y relaciones en una base de datos vacia; no
 incluye instrucciones para borrar datos existentes.
 
-En una base de datos existente, aplica las migraciones pendientes en orden. Las
-migraciones `0004` y `0005` son pasos historicos; `0006` mueve sus marcas a
-`deleted_poems` y elimina la tabla temporal `poem_tombstones`:
-```bash
-npx wrangler d1 execute escandidor-db --remote --file=./migrations/0003_deleted_poems.sql
-npx wrangler d1 execute escandidor-db --remote --file=./migrations/0004_poem_tombstones.sql
-npx wrangler d1 execute escandidor-db --remote --file=./migrations/0005_rekey_legacy_poem_tombstones.sql
-npx wrangler d1 execute escandidor-db --remote --file=./migrations/0006_consolidate_deleted_poems.sql
-```
+En una base existente aplica solo las migraciones pendientes en orden. Usa el flujo de migraciones documentado en [OPERATIONS.md](OPERATIONS.md); no repitas a ciegas pasos historicos.
 
-### 4. Ejecutar localmente
+### Ejecutar localmente
 ```bash
 npx wrangler pages dev .
 ```
 Esto sirve `index.html`, `app.js`, `admin.html`, etc. como estaticos y
 atiende las rutas `/api/*` con las funciones dentro de `functions/`.
 
-### 5. Desplegar
+### Desplegar
 ```bash
 npx wrangler pages deploy .
 ```
 (o conecta el repositorio en el dashboard de Cloudflare Pages para
 despliegues automaticos en cada push).
 
-### 6. Administradores
+### Administradores
 Todas las cuentas nuevas, incluida la primera de una base vacia, se crean con
 rol `user`. Un administrador existente puede promover usuarios desde
 `/admin.html`. Si la base aun no tiene administradores, el rol inicial debe
@@ -179,7 +178,7 @@ asignarse explicitamente desde D1:
 npx wrangler d1 execute escandidor-db --remote --command="UPDATE users SET role = 'admin' WHERE email = 'correo@example.com'"
 ```
 
-### 7. Acceso con Discord
+### Acceso con Discord
 Configura en Discord Developer Portal este redirect de OAuth2:
 `https://mesa-de-poesia.pages.dev/api/auth/discord/callback`.
 
@@ -245,7 +244,7 @@ Alcance principal de los cambios:
 | Papelera | Se muestran como maximo 10 grupos con contenido recuperable. Al vaciarla se borra ese contenido, pero se mantienen filas ID-only para bloquear cargas antiguas. | Se separa la experiencia de papelera de la proteccion de sincronizacion sin mantener dos tablas. |
 | Copias locales obsoletas | Si `/api/trash` marca un ID remoto como borrado, la reconciliacion elimina su copia local y su mapa de nube; no la vuelve a copiar en la papelera local. | La papelera del servidor ya contiene el archivo autorizado y no se duplica estado obsoleto del navegador. |
 | Migraciones D1 | `0003` creo `deleted_poems`; `0004` y `0005` fueron pasos historicos de tombstones; `0006` agrego `poem_id`, migro las marcas y elimino `poem_tombstones`. | `0006` se aplico y verifico en la D1 remota `escandidor-db`; ambas tablas estaban vacias antes de consolidarlas. |
-| Verificacion | Suite final: 22 pruebas aprobadas, 0 fallos. Se verificaron integracion D1, sesiones, versiones completas, IDs duplicados por titulo, importacion local idempotente e interrumpida, descarte local aislado, bloqueo de resurreccion, vaciado seguro y outbox. | Proporciona la linea base para auditar regresiones de este cambio. |
+| Verificacion | Linea base al 2026-08-03: 40 pruebas aprobadas, 0 fallos. | Ejecuta `npm test`; el numero crecera al agregar cobertura. |
 
 ## Hosting
 Con el backend, el hosting recomendado es **Cloudflare Pages**
@@ -253,11 +252,7 @@ Con el backend, el hosting recomendado es **Cloudflare Pages**
 Pages Functions de la carpeta `functions/` para atender las rutas
 `/api/*`.
 
-Si solo quieres el analizador sin cuentas ni backend, puedes seguir
-desplegando unicamente los archivos estaticos (index.html, styles.css,
-analyzer.js, app.js) en:
-- GitHub Pages
-- Amazon S3 (website hosting)
+Una copia estatica puede ejecutar parte del analizador, pero no representa la aplicacion completa y pierde cuentas, D1, administracion, sincronizacion y webhooks. El despliegue soportado es Cloudflare Pages.
 
 ## Metodologia del analizador (v2)
 1. Tokeniza lineas y palabras.

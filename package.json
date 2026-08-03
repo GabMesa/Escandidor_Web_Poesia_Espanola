@@ -5,7 +5,10 @@
   "version": "0.1.0",
   "description": "Escandador básico de poesía en español para hosting estático.",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "check": "node --check app.js && node --check analyzer.js && node --check auth.js && node --check cloud-sync.js",
+    "dev": "wrangler pages dev .",
+    "deploy": "wrangler pages deploy . --project-name mesa-de-poesia"
   },
   "devDependencies": {
     "wrangler": "^4.86.0"

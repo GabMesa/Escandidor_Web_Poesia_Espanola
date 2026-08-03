@@ -19,7 +19,7 @@ export const POETIC_FORM_PRESETS = Object.freeze({
   decima: { label: 'Décima o espinela', verseCount: 10, syllablePattern: '8', stressPatterns: { 8: '3-7' }, rhymeScheme: 'abbaaccddc', rhymeMode: 'consonante' },
   soneto: { label: 'Soneto', verseCount: 14, syllablePattern: '11', stressPatterns: { 11: '6-10' }, rhymeScheme: 'ABBA ABBA CDC DCD', rhymeMode: 'consonante' },
   romance: { label: 'Romance', syllablePattern: '8', stressPatterns: { 8: '3-7' }, rhymeScheme: '-a', rhymeMode: 'asonante', repeatRhymeScheme: true },
-  sextina: { label: 'Sextina', verseCount: 39, syllablePattern: '11', stressPatterns: { 11: '6-10' }, rhymeScheme: 'ABCDEF FAEBDC CFDABE ECBFAD DEACFB BDFECA AB DE CF', rhymeMode: 'sextina' },
+  sextina: { label: 'Sextina', verseCount: 39, syllablePattern: '11', stressPatterns: { 11: '6-10' }, rhymeScheme: 'ABCDEF FAEBDC CFDABE ECBFAD DEACFB BDFECA AB DE CF', rhymeMode: 'palabra-final' },
   silva: { label: 'Silva', syllablePattern: '7 11', stressPatterns: { 7: '3-6', 11: '6-10' }, rhymeMode: 'consonante' },
   silvaArromanzada: { label: 'Silva arromanzada', syllablePattern: '7 11', stressPatterns: { 7: '3-6', 11: '6-10' }, rhymeScheme: '-a', rhymeMode: 'asonante', repeatRhymeScheme: true },
 });

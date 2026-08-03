@@ -19,7 +19,7 @@ Este documento define las reglas linguisticas usadas por el escandador basico de
 - Hemistiquio por barra inline (/) y por corte global aplicado a todas las lineas.
 - Conteo en versos compuestos como n+m (cada hemistiquio se computa por separado).
 - Sinalefa automatica con posibilidad de forzar/romper manualmente por frontera.
-- Comparacion de rima por modo global: asonante, consonante o sextina.
+- Comparacion de rima por modo global: asonante, consonante o repeticion de palabra final.
 - Esquema de rima configurable por letras (ej: ABBAACCDDC).
 - Modo sextina con comparacion por palabra final completa y validacion del envio por grupos (ej: AB, DE, CF).
 - Revision de monosilabos atonos como soporte ritmico opcional (marcado con *).
@@ -142,7 +142,7 @@ Este documento define las reglas linguisticas usadas por el escandador basico de
       - Ejemplo: aceite ~ vete (ei -> e).
     - Finales esdrujulos/sobreesdrujulos: puede omitirse la silaba postonica inmediata.
       - Ejemplo: cantico ~ zanco (can-ti-co -> can-co).
-- Sextina: se compara la palabra final completa normalizada, no solo la terminacion rimica.
+- Repeticion de palabra final: se compara la palabra final completa normalizada, no solo la terminacion rimica. Puede usarse en cualquier forma o verso.
 
 ### 2) Palabra final usada para rima
 - La rima se calcula sobre la ultima palabra analizada de cada verso.
@@ -167,11 +167,11 @@ Este documento define las reglas linguisticas usadas por el escandador basico de
 - Cada verso validado puede marcarse como correcto o incorrecto respecto a la letra esperada.
 
 ### 4) Esquema de sextina
-- En modo sextina, los bloques de seis letras continuas se interpretan como seis versos separados:
+- Cuando la forma seleccionada es Sextina, los bloques de seis letras continuas se interpretan como seis versos separados:
   - ABCDEF = A, B, C, D, E, F
 - Los grupos del envio se mantienen como grupos:
   - AB, DE, CF
-- El esquema por defecto usado por la app en modo sextina es:
+- El esquema por defecto usado por la app para la Sextina es:
   - ABCDEF FAEBDC CFDABE ECBFAD DEACFB BDFECA AB DE CF
 
 ### 5) Validacion del envio en sextina

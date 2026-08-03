@@ -21,7 +21,7 @@ test('includes every stanza form from the referenced catalog', () => {
   assert.equal(POETIC_FORM_PRESETS.cuadernaVia.hemistichSplit, '7');
   assert.equal(POETIC_FORM_PRESETS.soneto.rhymeScheme, 'ABBA ABBA CDC DCD');
   assert.equal(POETIC_FORM_PRESETS.decima.rhymeScheme, 'abbaaccddc');
-  assert.equal(POETIC_FORM_PRESETS.sextina.rhymeMode, 'sextina');
+  assert.equal(POETIC_FORM_PRESETS.sextina.rhymeMode, 'palabra-final');
   assert.equal(POETIC_FORM_PRESETS.sextina.rhymeScheme, 'ABCDEF FAEBDC CFDABE ECBFAD DEACFB BDFECA AB DE CF');
 });
 

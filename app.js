@@ -115,6 +115,12 @@ es más estrellas que alarmas. `;
 
 const DEFAULT_SEXTINA_SCHEME = 'ABCDEF FAEBDC CFDABE ECBFAD DEACFB BDFECA AB CD EF';
 
+function normalizeRhymeMode(value) {
+  if (value === 'consonante') return 'consonante';
+  if (value === 'palabra-final' || value === 'sextina') return 'palabra-final';
+  return 'asonante';
+}
+
 const LOCAL_POEM_MEMORY_KEY = 'escandador.poemMemory.v1';
 const LOCAL_UI_PREFERENCES_KEY = 'escandador.uiPreferences.v1';
 const LOCAL_POEM_COLORS_KEY = 'escandador.poemColors.v1';
@@ -853,11 +859,7 @@ function extractLookupWord(rawText) {
 
 function refreshLookupBar() {
   const hasWord = Boolean(state.selectedLookupWord);
-  const configuredRhymeMode = rhymeMode?.value === 'consonante'
-    ? 'consonante'
-    : rhymeMode?.value === 'sextina'
-      ? 'sextina'
-      : 'asonante';
+  const configuredRhymeMode = normalizeRhymeMode(rhymeMode?.value);
 
   if (wordLookupBar) {
     wordLookupBar.classList.toggle('is-active', hasWord);
@@ -1630,7 +1632,7 @@ function filterRhymesByMode(targetWord, candidates, mode, syllableFilter = 'all'
 
     const isMatch = mode === 'consonante'
       ? isConsonantMatch
-      : mode === 'sextina'
+      : mode === 'palabra-final'
         ? candidateData.finalWordKey === targetData.finalWordKey
         : isAssonantOnlyMatch;
 
@@ -1653,11 +1655,7 @@ function recomputeLookupRhymes() {
     return;
   }
 
-  const mode = rhymeMode?.value === 'consonante'
-    ? 'consonante'
-    : rhymeMode?.value === 'sextina'
-      ? 'sextina'
-      : 'asonante';
+  const mode = normalizeRhymeMode(rhymeMode?.value);
 
   state.lookupMode = mode;
   const excludedComparables = new Set(
@@ -1850,7 +1848,7 @@ async function startLookupWordTypeScan() {
 }
 
 function isAsonanteRhymeMode() {
-  return rhymeMode?.value !== 'consonante' && rhymeMode?.value !== 'sextina';
+  return normalizeRhymeMode(rhymeMode?.value) === 'asonante';
 }
 
 function renderLookupExcludedBar() {
@@ -2070,7 +2068,7 @@ function renderLookupResults() {
       </p>`
     : '';
 
-  const mode = rhymeMode?.value === 'consonante' ? 'consonante' : rhymeMode?.value === 'sextina' ? 'sextina' : 'asonante';
+  const mode = normalizeRhymeMode(rhymeMode?.value);
   const filteredRhymes = filterRhymesByWordType(state.lookupRhymes, state.lookupWordTypeFilter);
   const syllableFilterOptions = buildLookupSyllableFilterOptions(state.lookupSyllableFilter);
   const wordTypeFilterOptions = buildLookupWordTypeOptions(state.lookupWordTypeFilter);
@@ -2225,11 +2223,7 @@ async function openOpenDataRhymesFromConfig() {
     return;
   }
 
-  const configuredRhymeMode = rhymeMode?.value === 'consonante'
-    ? 'consonante'
-    : rhymeMode?.value === 'sextina'
-      ? 'sextina'
-      : 'asonante';
+  const configuredRhymeMode = normalizeRhymeMode(rhymeMode?.value);
   const requestId = state.lookupRhymeRequestId + 1;
   state.lookupRhymeRequestId = requestId;
   state.lookupError = '';
@@ -2821,10 +2815,7 @@ function loadVersionById(poemKey, versionId) {
     renderStressPatternFields(resolveStoredStressPatterns(version.settings));
     hemistichSplit.value = String(version.settings.hemistichSplit ?? hemistichSplit.value);
     if (rhymeMode) {
-      const savedRhymeMode = String(version.settings.rhymeMode ?? 'asonante');
-      rhymeMode.value = savedRhymeMode === 'consonante' || savedRhymeMode === 'sextina'
-        ? savedRhymeMode
-        : 'asonante';
+      rhymeMode.value = normalizeRhymeMode(version.settings.rhymeMode);
     }
     if (rhymeScheme) {
       rhymeScheme.value = String(version.settings.rhymeScheme ?? rhymeScheme.value);
@@ -4628,8 +4619,8 @@ function focusPoemLine(lineIndex) {
 
 function getEffectiveRhymeMode(lineIndex) {
   const local = String(getLineOverride(lineIndex).rhymeMode ?? '').trim();
-  if (local === 'asonante' || local === 'consonante' || local === 'sextina') {
-    return local;
+  if (local) {
+    return normalizeRhymeMode(local);
   }
   return state.rhymeMode;
 }
@@ -4684,13 +4675,13 @@ function parseRhymeSchemeToken(token) {
   };
 }
 
-function tokenizeRhymeScheme(value, mode = state.rhymeMode) {
+function tokenizeRhymeScheme(value, isSextinaForm = state.poeticForm === 'sextina') {
   const raw = normalizeRhymeApostrophes(String(value ?? '').trim());
   if (!raw) {
     return [];
   }
 
-  if (mode === 'sextina') {
+  if (isSextinaForm) {
     const grouped = raw.match(/[A-Za-z]+/g) ?? [];
     const tokens = [];
 
@@ -4771,9 +4762,10 @@ function validateRhymeSchemeArt(lineStatus, runtime, tokenMeta) {
 
 function validateRhymeScheme(runtimes, schemeValue, mode = state.rhymeMode) {
   const verseRuntimes = runtimes.filter((runtime) => runtime.lineAnalysis.text.trim());
-  const tokens = tokenizeRhymeScheme(schemeValue, mode);
-  const repeatByStanza = Boolean(state.repeatRhymeScheme && mode !== 'sextina');
-  const scheme = mode === 'sextina' ? tokens.join(' ') : tokens.join('');
+  const isSextinaForm = state.poeticForm === 'sextina';
+  const tokens = tokenizeRhymeScheme(schemeValue, isSextinaForm);
+  const repeatByStanza = Boolean(state.repeatRhymeScheme && !isSextinaForm);
+  const scheme = isSextinaForm ? tokens.join(' ') : tokens.join('');
   const lineStatus = new Map();
 
   if (!tokens.length) {
@@ -4786,7 +4778,7 @@ function validateRhymeScheme(runtimes, schemeValue, mode = state.rhymeMode) {
     };
   }
 
-  if (mode === 'sextina') {
+  if (isSextinaForm) {
     const checkedCount = Math.min(verseRuntimes.length, tokens.length);
     const checkedRuntimes = verseRuntimes.slice(0, checkedCount);
     const baseWords = checkedRuntimes.slice(0, 6).map((runtime) => normalizeValidationWord(runtime.lineAnalysis.lastWord));
@@ -5928,7 +5920,7 @@ function buildLineRuntime(lineAnalysis, lineIndex, verseIndex = 0, forcedStressP
   const manualLabel = getManualRhymeLabel(lineIndex);
   const activeKey = manualKey || (mode === 'consonante'
     ? rhymeData.consonantKey
-    : mode === 'sextina'
+    : mode === 'palabra-final'
       ? rhymeData.finalWordKey
       : rhymeData.assonantKey);
 
@@ -5990,7 +5982,11 @@ function renderSinalefaChainLabel(runtime, startIndex, endIndex) {
 }
 
 function renderRhyme(runtime) {
-  const modeLabel = runtime.rhyme.mode === 'consonante' ? 'consonante' : runtime.rhyme.mode === 'sextina' ? 'sextina' : 'asonante';
+  const modeLabel = runtime.rhyme.mode === 'consonante'
+    ? 'consonante'
+    : runtime.rhyme.mode === 'palabra-final'
+      ? 'repetición de palabra final'
+      : 'asonante';
   const source = runtime.rhyme.manualLabel ? 'manual' : modeLabel;
   const label = String(runtime.rhyme.label ?? '').trim();
   const mixWarning = String(runtime.rhyme.mixWarning ?? '').trim();
@@ -6375,7 +6371,7 @@ function syncStateFromControls() {
   state.stressPatterns = readStressPatternsFromControls();
   state.hemistichPositions = parseHemistichPositions(hemistichSplit.value);
   state.hemistichEnabled = state.hemistichPositions.length > 0;
-  state.rhymeMode = rhymeMode?.value === 'consonante' ? 'consonante' : rhymeMode?.value === 'sextina' ? 'sextina' : 'asonante';
+  state.rhymeMode = normalizeRhymeMode(rhymeMode?.value);
   state.rhymeScheme = rhymeScheme?.value ?? '';
   state.repeatRhymeScheme = Boolean(repeatRhymeScheme?.checked);
   state.distinguishSZInRhyme = Boolean(distinguishSZInRhyme?.checked);
@@ -6420,7 +6416,7 @@ function syncRhymeSchemePreset() {
   }
 
   const normalizedCurrent = String(rhymeScheme.value ?? '').trim();
-  if (rhymeMode.value === 'sextina') {
+  if (poeticForm?.value === 'sextina') {
     if (!normalizedCurrent || normalizedCurrent === DEFAULT_SEXTINA_SCHEME) {
       rhymeScheme.value = DEFAULT_SEXTINA_SCHEME;
     }

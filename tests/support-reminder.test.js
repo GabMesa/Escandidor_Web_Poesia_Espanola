@@ -65,8 +65,8 @@ test('formats the supporter count for zero, singular and plural', () => {
     'Este proyecto vuela gracias a 4 cuervos y a la ilusión de su desarrollador.'
   );
   assert.equal(
-    formatSupporterMessage(4, { message: 'Gracias, Gabriel, por darle alas a cada verso.' }),
-    'Gracias, Gabriel, por darle alas a cada verso.'
+    formatSupporterMessage(4, { message: 'Gracias por darle alas a cada verso.' }),
+    'Gracias por darle alas a cada verso.'
   );
 });
 

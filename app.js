@@ -138,7 +138,10 @@ const OPEN_SYNONYMS_SOURCE_URL = 'https://cdn.jsdelivr.net/gh/edublancas/sinonim
 const WORDFREQ_SOURCE_URL = 'https://raw.githubusercontent.com/rspeer/wordfreq/master/wordfreq/data/large_es.msgpack.gz';
 const TESSERACT_CDN_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/+esm';
 const VOSK_SCRIPT_URL = './vendor/vosk/vosk.js';
-const VOSK_SPANISH_MODEL_URL = './vendor/vosk/model/vosk-model-small-es-0.42.tar.gz';
+const VOSK_SPANISH_MODEL_PART_URLS = [
+  './vendor/vosk/model/vosk-model-small-es-0.42.tar.gz.part-01',
+  './vendor/vosk/model/vosk-model-small-es-0.42.tar.gz.part-02'
+];
 
 const state = applicationState.editor;
 
@@ -6572,10 +6575,27 @@ function loadVoskScript() {
   return voskScriptPromise;
 }
 
+async function loadVoskModelArchiveUrl() {
+  const responses = await Promise.all(VOSK_SPANISH_MODEL_PART_URLS.map((url) => fetch(url)));
+  const failedResponse = responses.find((response) => !response.ok);
+  if (failedResponse) {
+    throw new Error(`No se pudo descargar el modelo de voz (${failedResponse.status}).`);
+  }
+
+  const parts = await Promise.all(responses.map((response) => response.blob()));
+  return URL.createObjectURL(new Blob(parts, { type: 'application/gzip' }));
+}
+
 async function getVoskModel() {
   if (!voskModelPromise) {
-    voskModelPromise = loadVoskScript()
-      .then((Vosk) => Vosk.createModel(VOSK_SPANISH_MODEL_URL))
+    voskModelPromise = Promise.all([loadVoskScript(), loadVoskModelArchiveUrl()])
+      .then(async ([Vosk, modelArchiveUrl]) => {
+        try {
+          return await Vosk.createModel(modelArchiveUrl);
+        } finally {
+          URL.revokeObjectURL(modelArchiveUrl);
+        }
+      })
       .catch((error) => {
         voskModelPromise = null;
         throw error;

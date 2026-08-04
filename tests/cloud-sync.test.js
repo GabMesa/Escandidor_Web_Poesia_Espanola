@@ -86,6 +86,29 @@ test('creates one cloud poem, appends versions, and preserves all settings', asy
   ]);
 });
 
+test('appends to a server poem when its local cloud mapping is missing', async () => {
+  const calls = [];
+  const sync = createCloudSync({
+    storage: new MemoryStorage(),
+    request: async (path, options = {}) => {
+      calls.push({ path, method: options.method || 'GET' });
+      if (path === '/api/poems/73' && options.method === 'PUT') {
+        return jsonResponse({ ok: true, poem: { id: 73, version: 2 } });
+      }
+      throw new Error(`Solicitud inesperada: ${options.method || 'GET'} ${path}`);
+    },
+  });
+  sync.setUser({ id: 9 });
+
+  await sync.syncSavedVersion({
+    poemKey: 'server:73',
+    title: 'Poema existente',
+    version: version('cloud-73-1', 2, 'Nueva versión'),
+  });
+
+  assert.deepEqual(calls, [{ path: '/api/poems/73', method: 'PUT' }]);
+});
+
 test('replaces account data from the server and restores anonymous data on logout', async () => {
   const anonymousMemory = { poems: { Anonimo: [version('anon-1', 1, 'Local')] }, trash: {} };
   const storage = new MemoryStorage({

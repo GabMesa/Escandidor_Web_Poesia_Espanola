@@ -37,6 +37,11 @@ function cloudPoemId(versionId) {
   return match ? Number(match[1]) : null;
 }
 
+function serverPoemId(poemKey) {
+  const match = /^server:(\d+)$/.exec(String(poemKey ?? ''));
+  return match ? Number(match[1]) : null;
+}
+
 function versionSignature(title, version) {
   const payload = buildPayload(title, version);
   return JSON.stringify({ content: payload.content, settings: payload.settings, colorIndex: payload.colorIndex });
@@ -208,7 +213,8 @@ export function createCloudSync({
     record.versions ||= {};
     const versionId = String(version.id ?? '');
     const payload = buildPayload(title, version);
-    const sourcePoemId = Number(record.poemId) || cloudPoemId(versionId);
+    const sourcePoemId = Number(record.poemId) || cloudPoemId(versionId) || serverPoemId(stableKey);
+    if (sourcePoemId) record.poemId = sourcePoemId;
     const requestPayload = sourcePoemId ? { ...payload, sourcePoemId } : payload;
     const signature = JSON.stringify(payload);
     const mappedVersion = record.versions[versionId];

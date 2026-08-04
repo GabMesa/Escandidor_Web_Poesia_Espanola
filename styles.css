@@ -3595,10 +3595,16 @@ body.has-poem-theme .workspace {
 
 .trash-item {
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
   font-size: 0.82rem;
   color: var(--muted-text);
+}
+
+.trash-item > span {
+  flex: 1 1 160px;
 }
 
 .config-field-help {

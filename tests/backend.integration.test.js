@@ -247,6 +247,17 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     const otherUserTrash = await jsonRequest(baseUrl, '/api/trash', { cookie: secondCookie });
     assert.deepEqual(otherUserTrash.payload.trash, []);
 
+    const restoredRevision = await jsonRequest(baseUrl, '/api/trash', {
+      method: 'POST', cookie: firstCookie, body: { trashId: deletedRevision.id },
+    });
+    assert.equal(restoredRevision.response.status, 200);
+    assert.equal(restoredRevision.payload.poemId, poemId);
+    const listAfterRestore = await jsonRequest(baseUrl, '/api/poems', { cookie: firstCookie });
+    const poemAfterRestore = listAfterRestore.payload.poems.find((poem) => poem.id === poemId);
+    assert.equal(poemAfterRestore.versions.at(-1).content, 'Segundo texto');
+    const trashAfterRestore = await jsonRequest(baseUrl, '/api/trash', { cookie: firstCookie });
+    assert.equal(trashAfterRestore.payload.trash.length, 1);
+
     const emptiedTrash = await jsonRequest(baseUrl, '/api/trash', {
       method: 'DELETE', cookie: firstCookie,
     });
@@ -355,9 +366,9 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     const rows = result[0].results;
     assert.equal(rows.length, 2);
     assert.equal(rows[0].name, 'Soneto de prueba');
-    assert.equal(rows[0].version_count, 2);
+    assert.equal(rows[0].version_count, 3);
     assert.match(rows[0].versions, /borrador:Primer texto/);
-    assert.doesNotMatch(rows[0].versions, /revision:Segundo texto/);
+    assert.match(rows[0].versions, /revision:Segundo texto/);
     assert.match(rows[0].versions, /final:Texto definitivo/);
     assert.equal(rows[0].font_family, 'lora');
     assert.deepEqual(JSON.parse(rows[0].configurations), {

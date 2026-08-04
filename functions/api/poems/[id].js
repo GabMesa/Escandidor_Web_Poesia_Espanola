@@ -18,6 +18,7 @@ async function archiveDeletedVersions(env, userId, poem, versions, poemId = null
          deleted_at = excluded.deleted_at`
     )
     .bind(userId, poemId, poem.name, JSON.stringify(versions.map((row) => ({
+      sourcePoemId: Number(poem.id),
       version: row.version,
       versionName: row.name,
       content: row.content,

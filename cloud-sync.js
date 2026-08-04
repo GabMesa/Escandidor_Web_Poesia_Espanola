@@ -425,6 +425,8 @@ export function createCloudSync({
           const existingGroups = memory.trash[entry.title] ||= [];
           if (existingGroups.some((group) => group.deletedAt === entry.deletedAt)) continue;
           existingGroups.push({
+            id: entry.id,
+            poemId: entry.poemId,
             deletedAt: entry.deletedAt,
             versions: entry.versions || [],
           });
@@ -535,6 +537,13 @@ export function createCloudSync({
     emptyTrash() {
       if (!user) return Promise.resolve();
       return enqueue(() => api('/api/trash', { method: 'DELETE' }));
+    },
+
+    restoreTrashEntry(trashId) {
+      if (!user || !Number.isInteger(Number(trashId))) return Promise.resolve();
+      return enqueue(() => api('/api/trash', {
+        method: 'POST', body: JSON.stringify({ trashId: Number(trashId) }),
+      }));
     },
 
     whenIdle() {

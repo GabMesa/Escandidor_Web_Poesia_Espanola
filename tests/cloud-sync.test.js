@@ -177,6 +177,28 @@ test('empties the database trash for an authenticated user', async () => {
   assert.deepEqual(calls, [{ path: '/api/trash', method: 'DELETE' }]);
 });
 
+test('restores a database trash entry for an authenticated user', async () => {
+  const calls = [];
+  const sync = createCloudSync({
+    storage: new MemoryStorage(),
+    request: async (path, options = {}) => {
+      calls.push({
+        path,
+        method: options.method || 'GET',
+        body: options.body ? JSON.parse(options.body) : null,
+      });
+      return jsonResponse({ ok: true, poemId: 73 });
+    },
+  });
+  sync.setUser({ id: 3 });
+
+  await sync.restoreTrashEntry(12);
+
+  assert.deepEqual(calls, [{
+    path: '/api/trash', method: 'POST', body: { trashId: 12 },
+  }]);
+});
+
 test('records a whole-poem deletion by cloud ID even without a local mapping', async () => {
   const calls = [];
   const sync = createCloudSync({

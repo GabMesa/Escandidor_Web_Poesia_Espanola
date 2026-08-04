@@ -2730,12 +2730,36 @@ function movePoemToTrash(store, title, versionsToTrash = null) {
 function renderPoemTrash() {
   if (!poemTrashList) return;
   const entries = Object.entries(loadPoemMemoryStore().trash)
-    .flatMap(([title, groups]) => groups.map((group) => ({ title, ...group })))
+    .flatMap(([title, groups]) => groups.map((group, groupIndex) => ({ title, groupIndex, ...group })))
     .sort((left, right) => new Date(right.deletedAt) - new Date(left.deletedAt));
   poemTrashList.innerHTML = entries.length
-    ? entries.map((entry) => `<div class="trash-item"><span>${escapeHtml(entry.title)} (${entry.versions.length})</span><time>${escapeHtml(formatVersionTimestamp(entry.deletedAt))}</time></div>`).join('')
+    ? entries.map((entry) => `<div class="trash-item"><span>${escapeHtml(entry.title)} (${entry.versions.length})</span><time>${escapeHtml(formatVersionTimestamp(entry.deletedAt))}</time><button type="button" class="secondary compact-action" data-action="restore-trash" data-title="${escapeHtml(entry.title)}" data-group-index="${entry.groupIndex}"${entry.id ? ` data-trash-id="${entry.id}"` : ''}>Restaurar</button></div>`).join('')
     : '<div class="saved-version-meta">La papelera está vacía.</div>';
   if (emptyPoemTrash) emptyPoemTrash.disabled = entries.length === 0;
+}
+
+function restorePoemTrashEntry(title, groupIndex, trashId) {
+  if (applicationState.auth.user && trashId) {
+    window.dispatchEvent(new CustomEvent('escandidor:trash-restored', {
+      detail: { trashId: Number(trashId) }
+    }));
+    return;
+  }
+
+  const store = loadPoemMemoryStore();
+  const groups = Array.isArray(store.trash?.[title]) ? store.trash[title] : [];
+  const group = groups[groupIndex];
+  if (!group?.versions?.length) return;
+  const poemKey = getPoemEntries(store).find((entry) => entry.title === title)?.poemKey
+    || `local:${crypto.randomUUID()}`;
+  const restored = group.versions.map((version) => ({ ...version, poemTitle: title }));
+  store.poems[poemKey] = [...(store.poems[poemKey] || []), ...restored];
+  groups.splice(groupIndex, 1);
+  if (!groups.length) delete store.trash[title];
+  if (!savePoemMemoryStore(store)) return;
+  refreshSavedPoemNameOptions(poemKey);
+  renderSavedVersionList(poemKey);
+  showToast('Versión restaurada.', 'success');
 }
 
 function dispatchPoemDeleted(poemKey, title, versionIds, wholePoem = false) {
@@ -2750,6 +2774,8 @@ window.addEventListener('escandidor:trash-synced', (event) => {
   for (const entry of event.detail?.trash ?? []) {
     const title = normalizePoemTitle(entry.title ?? 'poema');
     (store.trash[title] ||= []).push({
+      id: entry.id,
+      poemId: entry.poemId,
       deletedAt: entry.deletedAt,
       versions: Array.isArray(entry.versions) ? entry.versions : []
     });
@@ -7235,6 +7261,15 @@ emptyPoemTrash?.addEventListener('click', () => {
     renderPoemTrash();
     window.dispatchEvent(new CustomEvent('escandidor:trash-emptied'));
   }
+});
+poemTrashList?.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-action="restore-trash"]');
+  if (!button) return;
+  restorePoemTrashEntry(
+    String(button.dataset.title ?? ''),
+    Number(button.dataset.groupIndex),
+    button.dataset.trashId,
+  );
 });
 downloadSelectedMd?.addEventListener('click', downloadSelectedVersionsAsMarkdown);
 downloadSelectedPdf?.addEventListener('click', downloadSelectedVersionsAsPdf);

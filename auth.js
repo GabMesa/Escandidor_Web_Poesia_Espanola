@@ -183,6 +183,11 @@ window.addEventListener('escandidor:trash-emptied', () => {
   cloudSync.emptyTrash();
 });
 
+window.addEventListener('escandidor:trash-restored', async (event) => {
+  await cloudSync.restoreTrashEntry(event.detail?.trashId);
+  await cloudSync.loadFromServer();
+});
+
 loadDataFromServer?.addEventListener('click', async () => {
   loadDataFromServer.disabled = true;
   await cloudSync.loadFromServer();

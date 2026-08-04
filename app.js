@@ -2785,10 +2785,19 @@ window.addEventListener('escandidor:trash-synced', (event) => {
 });
 
 window.addEventListener('escandidor:library-changed', () => {
+  const loadedPoemKey = String(state.loadedVersionTitle ?? '').trim();
+  const loadedVersionId = String(state.loadedVersionId ?? '').trim();
   replaceLibraryState(loadPoemMemoryStore());
   selectedVersionIds = new Set();
   state.loadedVersionId = '';
   state.loadedVersionTitle = '';
+  const restoredLoadedVersion = loadedPoemKey && loadedVersionId
+    ? loadVersionById(loadedPoemKey, loadedVersionId)
+    : false;
+  if (restoredLoadedVersion) {
+    renderPoemTrash();
+    return;
+  }
   refreshSavedPoemNameOptions('');
   renderSavedVersionList(savedPoemName?.value ?? '', savedPoemVersion?.value ?? '');
   renderPoemTrash();

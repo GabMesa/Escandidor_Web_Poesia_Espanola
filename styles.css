@@ -2278,6 +2278,10 @@ body.has-poem-theme .workspace {
   background: transparent;
 }
 
+.analysis-row:has(.line-advanced[open]) {
+  z-index: 10;
+}
+
 .analysis-col {
   min-width: 0;
 }
@@ -2642,6 +2646,12 @@ body.has-poem-theme .workspace {
   cursor: help;
 }
 
+.triphthong-warning {
+  flex: 0 0 14px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
 .info-click {
   cursor: pointer;
 }
@@ -2824,6 +2834,10 @@ body.has-poem-theme .workspace {
 .line-advanced[open] summary {
   background: rgba(49, 92, 102, 0.12);
   color: var(--accent-2);
+}
+
+.line-advanced[open] {
+  z-index: 10;
 }
 
 .app-footer {

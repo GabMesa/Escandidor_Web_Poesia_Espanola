@@ -7,7 +7,10 @@ import {
   normalizeValidationWord,
   normalizeRhymeChunk,
   extractRhymeData,
-  extractVowelsForSinalefa
+  extractVowelsForSinalefa,
+  findSinalefaTriphthongs,
+  findAutomaticTriphthongBreaks,
+  isTriphthongVowelSequence
 } from './analyzer.js';
 import { applicationState, replaceLibraryState } from './application-state.js';
 import {
@@ -5681,69 +5684,17 @@ function resolveVersalStatus(entries, targetPosition, conflictPositions = new Se
   return 'yellow';
 }
 
-function normalizeVowelForChain(ch) {
-  const lower = String(ch ?? '').toLowerCase();
-  if (lower === 'y') {
-    return 'y';
-  }
-  return lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-function isWeakVowelForChain(ch) {
-  const normalized = normalizeVowelForChain(ch);
-  return normalized === 'i' || normalized === 'u' || normalized === 'y';
-}
-
-function isStrongVowelForChain(ch) {
-  const normalized = normalizeVowelForChain(ch);
-  return normalized === 'a' || normalized === 'e' || normalized === 'o';
-}
-
-function isAccentedWeakForChain(ch) {
-  const lower = String(ch ?? '').toLowerCase();
-  return lower === 'í' || lower === 'ú';
-}
-
 function extractVowelsForChain(text) {
   return extractVowelsForSinalefa(text, { rioplatenseY: state.rioplatenseY });
 }
 
-function getSinalefaVowelWarning(lineAnalysis, boundary) {
-  if (!boundary?.active) {
-    return null;
-  }
-
-  const leftWord = lineAnalysis?.analyses?.[boundary.index];
-  const rightWord = lineAnalysis?.analyses?.[boundary.index + 1];
-  const leftSyllable = leftWord?.syllables?.at(-1) ?? '';
-  const rightSyllable = rightWord?.syllables?.[0] ?? '';
-  const vowelCount = extractVowelsForChain(leftSyllable).length + extractVowelsForChain(rightSyllable).length;
-
-  if (vowelCount < 3) {
-    return null;
-  }
-
-  return {
-    vowelCount,
-    location: `${leftWord.original} + ${rightWord.original}`
-  };
-}
-
 function canMergeBoundariesAsTriphthong(lineAnalysis, leftBoundaryIndex) {
-  const leftWord = lineAnalysis?.analyses?.[leftBoundaryIndex];
-  const middleWord = lineAnalysis?.analyses?.[leftBoundaryIndex + 1];
-  const rightWord = lineAnalysis?.analyses?.[leftBoundaryIndex + 2];
-  const vowels = [
-    ...extractVowelsForChain(leftWord?.syllables?.at(-1)),
-    ...extractVowelsForChain(middleWord?.original),
-    ...extractVowelsForChain(rightWord?.syllables?.[0])
-  ];
-
-  return vowels.length === 3 &&
-    isStrongVowelForChain(vowels[0]) &&
-    isWeakVowelForChain(vowels[1]) &&
-    isStrongVowelForChain(vowels[2]) &&
-    !isAccentedWeakForChain(vowels[1]);
+  const boundaries = lineAnalysis.boundaries.map((boundary, index) => ({
+    ...boundary,
+    active: index === leftBoundaryIndex || index === leftBoundaryIndex + 1
+  }));
+  return findSinalefaTriphthongs(lineAnalysis, boundaries, { rioplatenseY: state.rioplatenseY })
+    .some((item) => item.start === leftBoundaryIndex);
 }
 
 function applySinalefaChains(lineAnalysis, activeBoundaries) {
@@ -5842,6 +5793,20 @@ function buildLineRuntime(lineAnalysis, lineIndex, verseIndex = 0, forcedStressP
     };
   });
   let sinalefaChains = applySinalefaChains(lineAnalysis, activeBoundaries);
+
+  const automaticTriphthongBreaks = new Set(findAutomaticTriphthongBreaks(
+    lineAnalysis,
+    activeBoundaries,
+    { rioplatenseY: state.rioplatenseY }
+  ));
+  for (const boundary of activeBoundaries) {
+    if (automaticTriphthongBreaks.has(boundary.index) && !boundary.forcedOn) {
+      boundary.active = false;
+    }
+  }
+  if (automaticTriphthongBreaks.size) {
+    sinalefaChains = applySinalefaChains(lineAnalysis, activeBoundaries);
+  }
 
   function computeMetricState() {
     const entries = buildSyllableEntries(lineAnalysis, activeBoundaries);
@@ -6093,6 +6058,29 @@ function renderWordInlineWithBoundaryAwareness(wordAnalysis, wordIndex, runtime)
   return syllables;
 }
 
+function renderTriphthongWarning(runtime) {
+  const warnings = [];
+
+  const triphthongs = findSinalefaTriphthongs(
+    runtime.lineAnalysis,
+    runtime.activeBoundaries,
+    { rioplatenseY: state.rioplatenseY }
+  );
+  for (const triphthong of triphthongs) {
+    if (triphthong.valid) {
+      continue;
+    }
+    warnings.push(`${triphthong.words.map((word) => word.original).join(' + ')} (${triphthong.vowels.join('_')})`);
+  }
+
+  if (!warnings.length) {
+    return '';
+  }
+
+  const warning = `${warnings.length === 1 ? 'Grupo de tres vocales' : 'Grupos de tres vocales'} sin patrón de triptongo: ${warnings.join('; ')}. Clic en las sinalefas para separar.`;
+  return `<span class="hover-hint triphthong-warning info-click" role="button" tabindex="0" data-info="${escapeHtml(warning)}" title="${escapeHtml(warning)}" aria-label="${escapeHtml(warning)}">!</span>`;
+}
+
 function renderSinalefaMarker(boundary, lineIndex) {
   if (!boundary.candidate) {
     return '';
@@ -6108,7 +6096,6 @@ function renderSinalefaMarker(boundary, lineIndex) {
   const leftStress = leftWord && wordHasMainStress(leftWord) && leftWord.stressIndex === leftWord.syllables.length - 1;
   const rightStress = rightWord && wordHasMainStress(rightWord) && rightWord.stressIndex === 0;
   const mergedTonic = boundary.active && (leftStress || rightStress);
-  const vowelWarning = getSinalefaVowelWarning(runtime?.lineAnalysis, boundary);
   const chainWords = boundary.active && boundary.chainLength > 1
     ? runtime.lineAnalysis.analyses.slice(boundary.chainStart, boundary.chainEnd + 2)
     : [];
@@ -6120,7 +6107,15 @@ function renderSinalefaMarker(boundary, lineIndex) {
         : word.original;
     return total + extractVowelsForChain(syllable).length;
   }, 0);
-  const chainWarning = chainVowelCount >= 3
+  const chainVowels = chainWords.flatMap((word, index) => {
+    const syllable = index === 0
+      ? word.syllables.at(-1)
+      : index === chainWords.length - 1
+        ? word.syllables[0]
+        : word.original;
+    return extractVowelsForChain(syllable);
+  });
+  const chainWarning = chainVowelCount === 3 && !isTriphthongVowelSequence(chainVowels)
     ? { vowelCount: chainVowelCount, location: chainWords.map((word) => word.original).join(' + ') }
     : null;
   const inactiveLabel = `(${(leftStress ? `<strong>${escapeHtml(leftSyllable)}</strong>` : escapeHtml(leftSyllable))} ${(rightStress ? `<strong>${escapeHtml(rightSyllable)}</strong>` : escapeHtml(rightSyllable))})`;
@@ -6133,7 +6128,7 @@ function renderSinalefaMarker(boundary, lineIndex) {
   const classes = [
     'sinalefa-toggle',
     boundary.active ? 'is-active' : 'is-inactive',
-    boundary.active && (chainWarning || vowelWarning || runtime?.versalConflictBoundaryIndices?.has(boundary.index)) ? 'is-warning' : '',
+    boundary.active && (chainWarning || runtime?.versalConflictBoundaryIndices?.has(boundary.index)) ? 'is-warning' : '',
     boundary.blockedByHemistich ? 'is-locked' : ''
   ]
     .filter(Boolean)
@@ -6142,9 +6137,7 @@ function renderSinalefaMarker(boundary, lineIndex) {
   const title = boundary.blockedByHemistich
     ? 'Bloqueada por hemistiquio'
     : chainWarning
-      ? `Triptongo en sinalefa ${boundary.uiIndex}: ${chainWarning.location} (${chainWarning.vowelCount} vocales). Clic para separar.`
-    : vowelWarning
-      ? `Triptongo en sinalefa ${boundary.uiIndex}: ${vowelWarning.location} (${vowelWarning.vowelCount} vocales). Clic para separar.`
+      ? `Tres vocales sin patrón de triptongo en sinalefa ${boundary.uiIndex}: ${chainWarning.location}. Clic para separar.`
     : boundary.active && boundary.chainLength > 1
       ? `Triptongo: ${boundary.chainLength} sinalefas enlazadas. Clic para separar.`
       : boundary.active && runtime?.versalConflictBoundaryIndices?.has(boundary.index)
@@ -6384,7 +6377,7 @@ function renderAnalysis(result) {
                   <div class="analysis-col rhyme-col">${renderRhyme(runtime)}</div>
                   <div class="analysis-col scheme-col">${renderRhymeSchemeStatus(runtime, rhymeSchemeValidation)}</div>
                   <div class="analysis-col advanced-col">${renderLineAdvanced(runtime)}</div>
-                  <div class="analysis-col count-col">${renderMetricCount(runtime)}${runtime.hemistichWarning ? ` <span class="hover-hint info-click jump-to-verse" role="button" tabindex="0" data-info="${escapeHtml(runtime.hemistichWarning)}" data-jump-line="${runtime.lineIndex}" title="${escapeHtml(runtime.hemistichWarning)}">!</span>` : ''}</div>
+                  <div class="analysis-col count-col">${renderMetricCount(runtime)}${runtime.hemistichWarning ? ` <span class="hover-hint info-click jump-to-verse" role="button" tabindex="0" data-info="${escapeHtml(runtime.hemistichWarning)}" data-jump-line="${runtime.lineIndex}" title="${escapeHtml(runtime.hemistichWarning)}">!</span>` : ''}${renderTriphthongWarning(runtime)}</div>
                 </div>
               </div>
             `;
@@ -6844,6 +6837,7 @@ async function recognizePoemImage(file) {
 }
 
 poemInput.value = SAMPLE_POEM;
+state.sinalefaOverrides['5:1'] = false;
 poemInput.addEventListener('input', () => {
   const remappedSettings = remapPoemLineSettings(previousPoemText, poemInput.value, state);
   state.sinalefaOverrides = remappedSettings.sinalefaOverrides;

@@ -52,7 +52,11 @@ Este documento define las reglas linguisticas usadas por el escandador basico de
 - La h intercalada no rompe la posible union vocalica.
 
 ### 5) Triptongo
-- Patron debil + fuerte + debil (sin tilde en las debiles), en un mismo nucleo.
+- Tres vocales pronunciadas en una misma silaba.
+- Patron obligatorio: vocal cerrada atona (`i`, `u`) + vocal abierta (`a`, `e`, `o`) + vocal cerrada atona (`i`, `u`).
+- La `y` funciona como vocal cerrada cuando suena como `i`.
+- Una tilde en cualquiera de las vocales cerradas rompe el triptongo.
+- La `h` intercalada es transparente y no cuenta como vocal; por ejemplo, `mundo hay` aporta `o_a_y`, que no es triptongo por su orden vocalico.
 
 ### 6) Hiato
 - Se separan en silabas distintas cuando:

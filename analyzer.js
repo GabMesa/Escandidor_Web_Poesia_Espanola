@@ -130,6 +130,58 @@ export function extractVowelsForSinalefa(text, options = {}) {
   });
 }
 
+function isUnstressedClosedVowel(ch) {
+  const lower = String(ch ?? '').toLowerCase();
+  return lower === 'i' || lower === 'u' || lower === 'y';
+}
+
+function isOpenVowel(ch) {
+  const normalized = normalizeBasicVowel(ch);
+  return normalized === 'a' || normalized === 'e' || normalized === 'o';
+}
+
+export function isTriphthongVowelSequence(vowels) {
+  return vowels.length === 3 &&
+    isUnstressedClosedVowel(vowels[0]) &&
+    isOpenVowel(vowels[1]) &&
+    isUnstressedClosedVowel(vowels[2]);
+}
+
+export function findSinalefaTriphthongs(lineAnalysis, activeBoundaries, options = {}) {
+  const triphthongs = [];
+
+  for (let index = 0; index < activeBoundaries.length - 1; index += 1) {
+    if (!activeBoundaries[index]?.active || !activeBoundaries[index + 1]?.active) {
+      continue;
+    }
+
+    const words = lineAnalysis.analyses.slice(index, index + 3);
+    const vowels = [
+      ...extractVowelsForSinalefa(words[0]?.syllables?.at(-1), options),
+      ...extractVowelsForSinalefa(words[1]?.original, options),
+      ...extractVowelsForSinalefa(words[2]?.syllables?.[0], options)
+    ];
+
+    if (vowels.length === 3) {
+      triphthongs.push({
+        start: index,
+        end: index + 1,
+        words,
+        vowels,
+        valid: isTriphthongVowelSequence(vowels)
+      });
+    }
+  }
+
+  return triphthongs;
+}
+
+export function findAutomaticTriphthongBreaks(lineAnalysis, activeBoundaries, options = {}) {
+  return findSinalefaTriphthongs(lineAnalysis, activeBoundaries, options)
+    .filter((triphthong) => !triphthong.valid)
+    .map((triphthong) => triphthong.end);
+}
+
 function sanitizeWordPreserveCase(word) {
   return String(word ?? '')
     .normalize('NFC')

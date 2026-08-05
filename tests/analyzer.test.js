@@ -11,7 +11,10 @@ import {
   adjustPoeticCount,
   analyzeLine,
   analyzePoem,
-  extractVowelsForSinalefa
+  extractVowelsForSinalefa,
+  findSinalefaTriphthongs,
+  findAutomaticTriphthongBreaks,
+  isTriphthongVowelSequence
 } from '../analyzer.js';
 
 function rhymeOf(word, options = {}) {
@@ -83,4 +86,50 @@ test('applies Rioplatense initial Y without changing conjunction y sinalefa', ()
   assert.equal(analyzeLine('claro yo', { rioplatenseY: true }).boundaries[0].candidate, false);
   assert.deepEqual(extractVowelsForSinalefa('yo', { rioplatenseY: true }), ['o']);
   assert.deepEqual(extractVowelsForSinalefa('y', { rioplatenseY: true }), ['y']);
+});
+
+test('requires unstressed closed + open + unstressed closed for sinalefa triphthongs', () => {
+  const validLine = analyzeLine('mi a y');
+  const validBoundaries = validLine.boundaries.map((boundary) => ({ ...boundary, active: boundary.candidate }));
+  const triphthongs = findSinalefaTriphthongs(validLine, validBoundaries);
+
+  assert.deepEqual(triphthongs.map(({ start, end, vowels, valid }) => ({ start, end, vowels, valid })), [
+    { start: 0, end: 1, vowels: ['i', 'a', 'y'], valid: true }
+  ]);
+  assert.deepEqual(findAutomaticTriphthongBreaks(validLine, validBoundaries), []);
+
+  const invalidOrder = analyzeLine('ahora y ola');
+  const invalidOrderBoundaries = invalidOrder.boundaries.map((boundary) => ({ ...boundary, active: boundary.candidate }));
+  assert.deepEqual(
+    findSinalefaTriphthongs(invalidOrder, invalidOrderBoundaries).map(({ vowels, valid }) => ({ vowels, valid })),
+    [{ vowels: ['a', 'y', 'o'], valid: false }]
+  );
+  assert.deepEqual(findAutomaticTriphthongBreaks(invalidOrder, invalidOrderBoundaries), [1]);
+
+  const stressedClosed = analyzeLine('mí a y');
+  const stressedClosedBoundaries = stressedClosed.boundaries.map((boundary) => ({ ...boundary, active: boundary.candidate }));
+  assert.deepEqual(
+    findSinalefaTriphthongs(stressedClosed, stressedClosedBoundaries).map(({ vowels, valid }) => ({ vowels, valid })),
+    [{ vowels: ['í', 'a', 'y'], valid: false }]
+  );
+  assert.deepEqual(findAutomaticTriphthongBreaks(stressedClosed, stressedClosedBoundaries), [1]);
+
+  const mundoHayVowels = [
+    ...extractVowelsForSinalefa(analyzeWord('mundo').syllables.at(-1)),
+    ...extractVowelsForSinalefa(analyzeWord('hay').syllables[0])
+  ];
+  assert.deepEqual(mundoHayVowels, ['o', 'a', 'y']);
+  assert.equal(isTriphthongVowelSequence(mundoHayVowels), false);
+
+  const niEuforico = analyzeLine('ni eufórico');
+  const niEuforicoBoundaries = niEuforico.boundaries.map((boundary) => ({ ...boundary, active: boundary.candidate }));
+  assert.deepEqual(findSinalefaTriphthongs(niEuforico, niEuforicoBoundaries), []);
+
+  const comaYHaga = analyzeLine('coma y haga fuego');
+  const comaYHagaBoundaries = comaYHaga.boundaries.map((boundary) => ({ ...boundary, active: boundary.candidate }));
+  assert.deepEqual(
+    findSinalefaTriphthongs(comaYHaga, comaYHagaBoundaries).map(({ vowels, valid }) => ({ vowels, valid })),
+    [{ vowels: ['a', 'y', 'a'], valid: false }]
+  );
+  assert.deepEqual(findAutomaticTriphthongBreaks(comaYHaga, comaYHagaBoundaries), [1]);
 });

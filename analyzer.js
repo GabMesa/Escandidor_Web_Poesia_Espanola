@@ -96,7 +96,7 @@ function isSilentU(word, index) {
 }
 
 function hasWrittenAccent(ch) {
-  return ACCENTED_VOWELS.has(ch.toLowerCase());
+  return ACCENTED_VOWELS.has(String(ch ?? '').normalize('NFC').toLowerCase());
 }
 
 function isStrong(ch) {
@@ -130,21 +130,35 @@ export function extractVowelsForSinalefa(text, options = {}) {
   });
 }
 
-function isUnstressedClosedVowel(ch) {
-  const lower = String(ch ?? '').toLowerCase();
-  return lower === 'i' || lower === 'u' || lower === 'y';
+function getVowelOpenness(ch) {
+  const normalized = normalizeBasicVowel(ch);
+  if (normalized === 'a') {
+    return 3;
+  }
+  if (normalized === 'e' || normalized === 'o') {
+    return 2;
+  }
+  if (normalized === 'i' || normalized === 'u' || normalized === 'y') {
+    return 1;
+  }
+  return 0;
 }
 
-function isOpenVowel(ch) {
-  const normalized = normalizeBasicVowel(ch);
-  return normalized === 'a' || normalized === 'e' || normalized === 'o';
+function isUnstressedVowel(ch) {
+  return getVowelOpenness(ch) > 0 && !hasWrittenAccent(ch);
 }
 
 export function isTriphthongVowelSequence(vowels) {
-  return vowels.length === 3 &&
-    isUnstressedClosedVowel(vowels[0]) &&
-    isOpenVowel(vowels[1]) &&
-    isUnstressedClosedVowel(vowels[2]);
+  if (vowels.length !== 3) {
+    return false;
+  }
+
+  const [first, middle, third] = vowels;
+  const middleOpenness = getVowelOpenness(middle);
+  return isUnstressedVowel(first) &&
+    isUnstressedVowel(third) &&
+    middleOpenness > getVowelOpenness(first) &&
+    middleOpenness > getVowelOpenness(third);
 }
 
 export function findSinalefaTriphthongs(lineAnalysis, activeBoundaries, options = {}) {
@@ -301,7 +315,7 @@ function canFormTriphthong(word, firstIndex, secondIndex, thirdIndex) {
     }
   }
 
-  return isWeak(first) && isStrong(second) && isWeak(third) && !isAccentedWeak(first) && !isAccentedWeak(third);
+  return isTriphthongVowelSequence([first, second, third]);
 }
 
 function buildVowelGroups(word) {

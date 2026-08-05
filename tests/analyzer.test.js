@@ -88,7 +88,13 @@ test('applies Rioplatense initial Y without changing conjunction y sinalefa', ()
   assert.deepEqual(extractVowelsForSinalefa('y', { rioplatenseY: true }), ['y']);
 });
 
-test('requires unstressed closed + open + unstressed closed for sinalefa triphthongs', () => {
+test('requires a more open middle vowel and unstressed lateral vowels for triphthongs', () => {
+  assert.equal(isTriphthongVowelSequence(['e', 'a', 'o']), true);
+  assert.equal(isTriphthongVowelSequence(['i', 'e', 'u']), true);
+  assert.equal(isTriphthongVowelSequence(['a', 'e', 'i']), false);
+  assert.equal(isTriphthongVowelSequence(['e', 'a', 'ó']), false);
+  assert.equal(isTriphthongVowelSequence(['e', 'o', 'i']), false);
+
   const validLine = analyzeLine('mi a y');
   const validBoundaries = validLine.boundaries.map((boundary) => ({ ...boundary, active: boundary.candidate }));
   const triphthongs = findSinalefaTriphthongs(validLine, validBoundaries);
@@ -119,7 +125,7 @@ test('requires unstressed closed + open + unstressed closed for sinalefa triphth
     ...extractVowelsForSinalefa(analyzeWord('hay').syllables[0])
   ];
   assert.deepEqual(mundoHayVowels, ['o', 'a', 'y']);
-  assert.equal(isTriphthongVowelSequence(mundoHayVowels), false);
+  assert.equal(isTriphthongVowelSequence(mundoHayVowels), true);
 
   const niEuforico = analyzeLine('ni eufórico');
   const niEuforicoBoundaries = niEuforico.boundaries.map((boundary) => ({ ...boundary, active: boundary.candidate }));

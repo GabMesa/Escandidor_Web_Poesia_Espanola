@@ -53,10 +53,10 @@ Este documento define las reglas linguisticas usadas por el escandador basico de
 
 ### 5) Triptongo
 - Tres vocales pronunciadas en una misma silaba.
-- Patron obligatorio: vocal cerrada atona (`i`, `u`) + vocal abierta (`a`, `e`, `o`) + vocal cerrada atona (`i`, `u`).
+- Patron obligatorio: la vocal central debe ser mas abierta que cada una de las vocales laterales, y ambas vocales laterales deben ser atonas.
 - La `y` funciona como vocal cerrada cuando suena como `i`.
-- Una tilde en cualquiera de las vocales cerradas rompe el triptongo.
-- La `h` intercalada es transparente y no cuenta como vocal; por ejemplo, `mundo hay` aporta `o_a_y`, que no es triptongo por su orden vocalico.
+- Una tilde en cualquiera de las vocales laterales rompe el triptongo.
+- La `h` intercalada es transparente y no cuenta como vocal; por ejemplo, `mundo hay` aporta `o_a_y`, que cumple el patron de apertura relativa.
 
 ### 6) Hiato
 - Se separan en silabas distintas cuando:

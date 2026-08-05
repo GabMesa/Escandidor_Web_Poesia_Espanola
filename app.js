@@ -5759,12 +5759,9 @@ function buildLineRuntime(lineAnalysis, lineIndex, verseIndex = 0, forcedStressP
     const key = `${lineIndex}:${boundary.index}`;
     const boundaryUiIndex = boundary.index + 1;
     const blockedByPause = state.conservativeSinalefa && boundary.strongPause;
-    const blockedByStress =
-      effectivePattern.includes(boundary.boundaryPosition) ||
-      effectivePattern.includes(boundary.boundaryPosition + 1);
     const blockedByHemistich = hemistichBoundaries.includes(boundary.index);
 
-    let active = state.sinalefaEnabled && boundary.candidate && !blockedByPause && !blockedByStress && !blockedByHemistich;
+    let active = state.sinalefaEnabled && boundary.candidate && !blockedByPause && !blockedByHemistich;
 
     const hasManualOverride = !blockedByHemistich && Object.prototype.hasOwnProperty.call(state.sinalefaOverrides, key);
     const manualOverrideOn = hasManualOverride && Boolean(state.sinalefaOverrides[key]) && boundary.candidate;
@@ -5786,7 +5783,7 @@ function buildLineRuntime(lineAnalysis, lineIndex, verseIndex = 0, forcedStressP
       ...boundary,
       uiIndex: boundaryUiIndex,
       blockedByPause,
-      blockedByStress,
+      blockedByStress: false,
       blockedByHemistich,
       active,
       forcedOn: manualOverrideOn || forceOnByLine

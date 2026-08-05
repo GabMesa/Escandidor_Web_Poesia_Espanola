@@ -5684,10 +5684,6 @@ function resolveVersalStatus(entries, targetPosition, conflictPositions = new Se
   return 'yellow';
 }
 
-function extractVowelsForChain(text) {
-  return extractVowelsForSinalefa(text, { rioplatenseY: state.rioplatenseY });
-}
-
 function canMergeBoundariesAsTriphthong(lineAnalysis, leftBoundaryIndex) {
   const boundaries = lineAnalysis.boundaries.map((boundary, index) => ({
     ...boundary,
@@ -6055,26 +6051,24 @@ function renderWordInlineWithBoundaryAwareness(wordAnalysis, wordIndex, runtime)
   return syllables;
 }
 
-function renderTriphthongWarning(runtime) {
-  const warnings = [];
-
-  const triphthongs = findSinalefaTriphthongs(
+function getInvalidSinalefaTriphthongs(runtime) {
+  return findSinalefaTriphthongs(
     runtime.lineAnalysis,
     runtime.activeBoundaries,
     { rioplatenseY: state.rioplatenseY }
+  ).filter((triphthong) => !triphthong.valid);
+}
+
+function renderTriphthongWarning(runtime, invalidTriphthongs = getInvalidSinalefaTriphthongs(runtime)) {
+  const warnings = invalidTriphthongs.map((triphthong) =>
+    `${triphthong.words.map((word) => word.original).join(' + ')} (${triphthong.vowels.join('_')})`
   );
-  for (const triphthong of triphthongs) {
-    if (triphthong.valid) {
-      continue;
-    }
-    warnings.push(`${triphthong.words.map((word) => word.original).join(' + ')} (${triphthong.vowels.join('_')})`);
-  }
 
   if (!warnings.length) {
     return '';
   }
 
-  const warning = `${warnings.length === 1 ? 'Grupo de tres vocales' : 'Grupos de tres vocales'} sin patrón de triptongo: ${warnings.join('; ')}. Clic en las sinalefas para separar.`;
+  const warning = `${warnings.length === 1 ? 'Este grupo no forma triptongo' : 'Estos grupos no forman triptongo'}: ${warnings.join('; ')}. La vocal central debe ser más abierta que la primera y la tercera, y las vocales primera y tercera no deben estar acentuadas. Clic en las sinalefas para separar.`;
   return `<span class="hover-hint triphthong-warning info-click" role="button" tabindex="0" data-info="${escapeHtml(warning)}" title="${escapeHtml(warning)}" aria-label="${escapeHtml(warning)}">!</span>`;
 }
 
@@ -6096,25 +6090,8 @@ function renderSinalefaMarker(boundary, lineIndex) {
   const chainWords = boundary.active && boundary.chainLength > 1
     ? runtime.lineAnalysis.analyses.slice(boundary.chainStart, boundary.chainEnd + 2)
     : [];
-  const chainVowelCount = chainWords.reduce((total, word, index) => {
-    const syllable = index === 0
-      ? word.syllables.at(-1)
-      : index === chainWords.length - 1
-        ? word.syllables[0]
-        : word.original;
-    return total + extractVowelsForChain(syllable).length;
-  }, 0);
-  const chainVowels = chainWords.flatMap((word, index) => {
-    const syllable = index === 0
-      ? word.syllables.at(-1)
-      : index === chainWords.length - 1
-        ? word.syllables[0]
-        : word.original;
-    return extractVowelsForChain(syllable);
-  });
-  const chainWarning = chainVowelCount === 3 && !isTriphthongVowelSequence(chainVowels)
-    ? { vowelCount: chainVowelCount, location: chainWords.map((word) => word.original).join(' + ') }
-    : null;
+  const hasInvalidTriphthong = boundary.active && getInvalidSinalefaTriphthongs(runtime)
+    .some((triphthong) => triphthong.start >= boundary.chainStart && triphthong.end <= boundary.chainEnd);
   const inactiveLabel = `(${(leftStress ? `<strong>${escapeHtml(leftSyllable)}</strong>` : escapeHtml(leftSyllable))} ${(rightStress ? `<strong>${escapeHtml(rightSyllable)}</strong>` : escapeHtml(rightSyllable))})`;
   const label = boundary.active && boundary.chainLength > 1
     ? renderSinalefaChainLabel(runtime, boundary.chainStart, boundary.chainEnd)
@@ -6125,7 +6102,7 @@ function renderSinalefaMarker(boundary, lineIndex) {
   const classes = [
     'sinalefa-toggle',
     boundary.active ? 'is-active' : 'is-inactive',
-    boundary.active && (chainWarning || runtime?.versalConflictBoundaryIndices?.has(boundary.index)) ? 'is-warning' : '',
+    boundary.active && (hasInvalidTriphthong || runtime?.versalConflictBoundaryIndices?.has(boundary.index)) ? 'is-warning' : '',
     boundary.blockedByHemistich ? 'is-locked' : ''
   ]
     .filter(Boolean)
@@ -6133,8 +6110,6 @@ function renderSinalefaMarker(boundary, lineIndex) {
 
   const title = boundary.blockedByHemistich
     ? 'Bloqueada por hemistiquio'
-    : chainWarning
-      ? `Tres vocales sin patrón de triptongo en sinalefa ${boundary.uiIndex}: ${chainWarning.location}. Clic para separar.`
     : boundary.active && boundary.chainLength > 1
       ? `Triptongo: ${boundary.chainLength} sinalefas enlazadas. Clic para separar.`
       : boundary.active && runtime?.versalConflictBoundaryIndices?.has(boundary.index)
@@ -6365,16 +6340,19 @@ function renderAnalysis(result) {
               return '<div class="stanza-gap" aria-hidden="true"></div>';
             }
 
+            const invalidTriphthongs = getInvalidSinalefaTriphthongs(runtime);
+            const sinalefaNotice = invalidTriphthongs.length ? '' : runtime.sinalefaNotice;
+
             return `
               <div class="analysis-line-wrap">
                 <div class="analysis-row">
                   <div class="analysis-col verse-index-col">${runtime.verseNumber}</div>
                   <div class="analysis-col visual-col">${renderAnnotatedLine(runtime)}</div>
-                  <div class="analysis-col stress-col">${renderPositionTrack(runtime)} ${renderInvalidHemistich(runtime)}${runtime.sinalefaNotice ? `<span class="hover-hint info-click jump-to-verse" role="button" tabindex="0" data-info="${escapeHtml(runtime.sinalefaNotice)}" data-jump-line="${runtime.lineIndex}" title="${escapeHtml(runtime.sinalefaNotice)}">!</span>` : ''}</div>
+                  <div class="analysis-col stress-col">${renderPositionTrack(runtime)} ${renderInvalidHemistich(runtime)}${sinalefaNotice ? `<span class="hover-hint info-click jump-to-verse" role="button" tabindex="0" data-info="${escapeHtml(sinalefaNotice)}" data-jump-line="${runtime.lineIndex}" title="${escapeHtml(sinalefaNotice)}">!</span>` : ''}</div>
                   <div class="analysis-col rhyme-col">${renderRhyme(runtime)}</div>
                   <div class="analysis-col scheme-col">${renderRhymeSchemeStatus(runtime, rhymeSchemeValidation)}</div>
                   <div class="analysis-col advanced-col">${renderLineAdvanced(runtime)}</div>
-                  <div class="analysis-col count-col">${renderMetricCount(runtime)}${runtime.hemistichWarning ? ` <span class="hover-hint info-click jump-to-verse" role="button" tabindex="0" data-info="${escapeHtml(runtime.hemistichWarning)}" data-jump-line="${runtime.lineIndex}" title="${escapeHtml(runtime.hemistichWarning)}">!</span>` : ''}${renderTriphthongWarning(runtime)}</div>
+                  <div class="analysis-col count-col">${renderMetricCount(runtime)}${runtime.hemistichWarning ? ` <span class="hover-hint info-click jump-to-verse" role="button" tabindex="0" data-info="${escapeHtml(runtime.hemistichWarning)}" data-jump-line="${runtime.lineIndex}" title="${escapeHtml(runtime.hemistichWarning)}">!</span>` : ''}${renderTriphthongWarning(runtime, invalidTriphthongs)}</div>
                 </div>
               </div>
             `;

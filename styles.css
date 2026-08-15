@@ -3649,3 +3649,21 @@ body.has-poem-theme .workspace {
     gap: 10px;
   }
 }
+
+.hero-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 1rem;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  list-style: none;
+}
+
+.hero-features li::before {
+  content: "✓";
+  margin-right: 0.35rem;
+  color: var(--accent);
+  font-weight: 700;
+}

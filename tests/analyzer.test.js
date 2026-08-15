@@ -88,7 +88,7 @@ test('applies Rioplatense initial Y without changing conjunction y sinalefa', ()
   assert.deepEqual(extractVowelsForSinalefa('y', { rioplatenseY: true }), ['y']);
 });
 
-test('requires a more open middle vowel and unstressed lateral vowels for triphthongs', () => {
+test('requires a more open middle vowel in joined three-vowel groups', () => {
   assert.equal(isTriphthongVowelSequence(['e', 'a', 'o']), true);
   assert.equal(isTriphthongVowelSequence(['i', 'e', 'u']), true);
   assert.equal(isTriphthongVowelSequence(['a', 'e', 'i']), false);
@@ -127,9 +127,28 @@ test('requires a more open middle vowel and unstressed lateral vowels for tripht
   assert.deepEqual(mundoHayVowels, ['o', 'a', 'y']);
   assert.equal(isTriphthongVowelSequence(mundoHayVowels), true);
 
+  const hayAmigos = analyzeLine('hay amigos');
+  const hayAmigosBoundaries = hayAmigos.boundaries.map((boundary) => ({ ...boundary, active: boundary.candidate }));
+  assert.deepEqual(
+    findSinalefaTriphthongs(hayAmigos, hayAmigosBoundaries).map(({ start, end, vowels, valid }) => ({ start, end, vowels, valid })),
+    [{ start: 0, end: 0, vowels: ['a', 'y', 'a'], valid: false }]
+  );
+  assert.deepEqual(findAutomaticTriphthongBreaks(hayAmigos, hayAmigosBoundaries), [0]);
+
+  const puenteAerodinamico = analyzeLine('puente aerodinámico');
+  const puenteAerodinamicoBoundaries = puenteAerodinamico.boundaries.map((boundary) => ({ ...boundary, active: boundary.candidate }));
+  assert.deepEqual(
+    findSinalefaTriphthongs(puenteAerodinamico, puenteAerodinamicoBoundaries).map(({ start, end, vowels, valid }) => ({ start, end, vowels, valid })),
+    [{ start: 0, end: 0, vowels: ['e', 'a', 'e'], valid: true }]
+  );
+  assert.deepEqual(findAutomaticTriphthongBreaks(puenteAerodinamico, puenteAerodinamicoBoundaries), []);
+
   const niEuforico = analyzeLine('ni eufórico');
   const niEuforicoBoundaries = niEuforico.boundaries.map((boundary) => ({ ...boundary, active: boundary.candidate }));
-  assert.deepEqual(findSinalefaTriphthongs(niEuforico, niEuforicoBoundaries), []);
+  assert.deepEqual(
+    findSinalefaTriphthongs(niEuforico, niEuforicoBoundaries).map(({ vowels, valid }) => ({ vowels, valid })),
+    [{ vowels: ['i', 'e', 'u'], valid: true }]
+  );
 
   const comaYHaga = analyzeLine('coma y haga fuego');
   const comaYHagaBoundaries = comaYHaga.boundaries.map((boundary) => ({ ...boundary, active: boundary.candidate }));

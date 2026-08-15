@@ -52,8 +52,9 @@ Este documento define las reglas linguisticas usadas por el escandador basico de
 - La h intercalada no rompe la posible union vocalica.
 
 ### 5) Triptongo
-- Tres vocales pronunciadas en una misma silaba.
-- Patron obligatorio: la vocal central debe ser mas abierta que cada una de las vocales laterales, y ambas vocales laterales deben ser atonas.
+- Tres vocales o semivocales reunidas en una misma silaba, incluso cuando proceden de solo dos palabras unidas por sinalefa.
+- La vocal central debe ser mas abierta que cada una de las vocales laterales, y ambas laterales deben ser atonas.
+- `hay amigos` (`a_y_a`) rompe la sinalefa; `puente aerodinamico` (`e_a_e`) la mantiene porque `a` es mas abierta que `e`.
 - La `y` funciona como vocal cerrada cuando suena como `i`.
 - Una tilde en cualquiera de las vocales laterales rompe el triptongo.
 - La `h` intercalada es transparente y no cuenta como vocal; por ejemplo, `mundo hay` aporta `o_a_y`, que cumple el patron de apertura relativa.

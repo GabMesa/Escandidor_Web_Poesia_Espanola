@@ -6087,6 +6087,11 @@ function renderSinalefaMarker(boundary, lineIndex) {
   const leftStress = leftWord && wordHasMainStress(leftWord) && leftWord.stressIndex === leftWord.syllables.length - 1;
   const rightStress = rightWord && wordHasMainStress(rightWord) && rightWord.stressIndex === 0;
   const mergedTonic = boundary.active && (leftStress || rightStress);
+  const isTriphthong = boundary.active && findSinalefaTriphthongs(
+    runtime.lineAnalysis,
+    runtime.activeBoundaries,
+    { rioplatenseY: state.rioplatenseY }
+  ).some((triphthong) => boundary.index >= triphthong.start && boundary.index <= triphthong.end);
   const chainWords = boundary.active && boundary.chainLength > 1
     ? runtime.lineAnalysis.analyses.slice(boundary.chainStart, boundary.chainEnd + 2)
     : [];
@@ -6110,8 +6115,8 @@ function renderSinalefaMarker(boundary, lineIndex) {
 
   const title = boundary.blockedByHemistich
     ? 'Bloqueada por hemistiquio'
-    : boundary.active && boundary.chainLength > 1
-      ? `Triptongo: ${boundary.chainLength} sinalefas enlazadas. Clic para separar.`
+    : isTriphthong
+      ? `Triptongo: tres vocales o semivocales unidas${boundary.chainLength > 1 ? ` por ${boundary.chainLength} sinalefas enlazadas` : ' por sinalefa'}. Clic para separar.`
       : boundary.active && runtime?.versalConflictBoundaryIndices?.has(boundary.index)
         ? 'Sinalefa forzada sobre acento versal: se marca en amarillo.'
       : boundary.blockedByStress

@@ -130,6 +130,18 @@ export function extractVowelsForSinalefa(text, options = {}) {
   });
 }
 
+function extractLeadingVowelsForSinalefa(text, options = {}) {
+  const normalized = sanitizeWord(String(text ?? ''));
+  const vowels = [];
+  for (let index = 0; index < normalized.length; index += 1) {
+    const ch = normalized[index];
+    if (ch === 'h') continue;
+    if (!isVowelLike(ch, index, normalized)) break;
+    if (!(ch === 'y' && options.rioplatenseY && index === 0 && normalized.length > 1)) vowels.push(ch);
+  }
+  return vowels;
+}
+
 function getVowelOpenness(ch) {
   const normalized = normalizeBasicVowel(ch);
   if (normalized === 'a') {
@@ -149,20 +161,37 @@ function isUnstressedVowel(ch) {
 }
 
 export function isTriphthongVowelSequence(vowels) {
-  if (vowels.length !== 3) {
-    return false;
-  }
-
+  if (vowels.length !== 3) return false;
   const [first, middle, third] = vowels;
   const middleOpenness = getVowelOpenness(middle);
-  return isUnstressedVowel(first) &&
-    isUnstressedVowel(third) &&
-    middleOpenness > getVowelOpenness(first) &&
-    middleOpenness > getVowelOpenness(third);
+  return isUnstressedVowel(first) && isUnstressedVowel(third) &&
+    middleOpenness > getVowelOpenness(first) && middleOpenness > getVowelOpenness(third);
 }
 
 export function findSinalefaTriphthongs(lineAnalysis, activeBoundaries, options = {}) {
   const triphthongs = [];
+
+  for (let index = 0; index < activeBoundaries.length; index += 1) {
+    if (!activeBoundaries[index]?.active) {
+      continue;
+    }
+
+    const words = lineAnalysis.analyses.slice(index, index + 2);
+    const vowels = [
+      ...extractVowelsForSinalefa(words[0]?.syllables?.at(-1), options),
+      ...extractLeadingVowelsForSinalefa(words[1]?.original, options)
+    ];
+
+    if (vowels.length === 3) {
+      triphthongs.push({
+        start: index,
+        end: index,
+        words,
+        vowels,
+        valid: isTriphthongVowelSequence(vowels)
+      });
+    }
+  }
 
   for (let index = 0; index < activeBoundaries.length - 1; index += 1) {
     if (!activeBoundaries[index]?.active || !activeBoundaries[index + 1]?.active) {

@@ -12,6 +12,7 @@ import {
   analyzeLine,
   analyzePoem,
   extractVowelsForSinalefa,
+  getAssonantVowelFromSyllable,
   findSinalefaTriphthongs,
   findAutomaticTriphthongBreaks,
   isTriphthongVowelSequence
@@ -45,21 +46,43 @@ test('keeps celestiales and mortales together in consonant rhyme', () => {
 
   assert.equal(celestiales.consonantKey, 'ales');
   assert.equal(mortales.consonantKey, 'ales');
-  assert.equal(celestiales.assonantKey, 'ae');
-  assert.equal(mortales.assonantKey, 'ae');
+  assert.equal(celestiales.assonantKey, 'a.e');
+  assert.equal(mortales.assonantKey, 'a.e');
   assert.equal(celestiales.finalWordKey, 'celestiales');
   assert.equal(mortales.finalWordKey, 'mortales');
 });
 
-test('keeps sabia and llamaba apart in consonant rhyme but together in assonant rhyme', () => {
+test('keeps sabia and llamaba apart in consonant but together in assonant rhyme', () => {
   const sabia = rhymeOf('sabia');
   const llamaba = rhymeOf('llamaba');
 
   assert.equal(sabia.consonantKey, 'abia');
   assert.equal(llamaba.consonantKey, 'aba');
-  assert.equal(sabia.assonantKey, 'aa');
-  assert.equal(llamaba.assonantKey, 'aa');
+  assert.equal(sabia.assonantKey, 'a.a');
+  assert.equal(llamaba.assonantKey, 'a.a');
   assert.notEqual(sabia.consonantKey, llamaba.consonantKey);
+});
+
+test('starts consonant rhyme at the stressed nucleus of a diphthong', () => {
+  const pasion = rhymeOf('pasión');
+  const corazon = rhymeOf('corazón');
+
+  assert.equal(pasion.consonantKey, 'on');
+  assert.equal(corazon.consonantKey, 'on');
+  assert.equal(pasion.assonantKey, 'o');
+  assert.equal(corazon.assonantKey, 'o');
+});
+
+test('can ignore an unaccented weak vowel on either side of a diphthong', () => {
+  assert.equal(rhymeOf('cielo').consonantKey, 'elo');
+  assert.equal(rhymeOf('causa').consonantKey, 'asa');
+  assert.equal(rhymeOf('casa').consonantKey, 'asa');
+  assert.equal(rhymeOf('país').consonantKey, 'is');
+});
+
+test('gives an accented vowel priority over other vowels in its syllable', () => {
+  assert.equal(getAssonantVowelFromSyllable('aí'), 'i');
+  assert.equal(getAssonantVowelFromSyllable('guáis'), 'a');
 });
 
 test('respects distinguishSZInRhyme when normalizing rhyme chunks', () => {

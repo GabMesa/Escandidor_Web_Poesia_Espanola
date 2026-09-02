@@ -13,8 +13,7 @@ const ALLOWED_ONSET_CLUSTERS = new Set([
   'gr',
   'pl',
   'pr',
-  'tr',
-  'tl'
+  'tr'
 ]);
 
 const UNSTRESSED_MONOSYLLABLES = new Set([
@@ -416,6 +415,10 @@ export function syllabifyWord(inputWord) {
     return [];
   }
 
+  if (word.startsWith('trans') && word.length > 5 && isVowelLike(word[5], 5, word)) {
+    return ['trans', ...syllabifyWord(word.slice(5))];
+  }
+
   const vowelGroups = buildVowelGroups(word);
   if (vowelGroups.length === 0) {
     return [word];
@@ -473,6 +476,15 @@ export function detectStressSyllable(word, syllables) {
     }
   }
 
+  if (normalized.endsWith('mente') && normalized.length > 5) {
+    const baseWord = normalized.slice(0, -5);
+    const baseSyllables = syllabifyWord(baseWord);
+    if (baseSyllables.length > 0) {
+      const baseStressIndex = detectStressSyllable(baseWord, baseSyllables);
+      return Math.min(baseStressIndex, Math.max(0, syllables.length - 3));
+    }
+  }
+
   if (syllables.length === 1) {
     return 0;
   }
@@ -512,7 +524,7 @@ function getSecondaryStressIndicesForMenteAdverb(originalWord, syllables, primar
     return [];
   }
 
-  const secondaryStressIndex = syllables.length - 3;
+  const secondaryStressIndex = syllables.length - 2;
   if (!Number.isInteger(secondaryStressIndex) || secondaryStressIndex < 0 || secondaryStressIndex >= syllables.length) {
     return [];
   }
@@ -679,14 +691,33 @@ export function normalizeValidationWord(value) {
 export function normalizeRhymeChunk(value, options = {}) {
   const distinguishSZInRhyme = Boolean(options?.distinguishSZInRhyme);
 
+  const protectedCh = '\uE000';
+  const protectedLl = '\uE001';
+  const protectedDiaeresisU = '\uE002';
+  const protectedConsonantalY = '\uE003';
+
   return String(value ?? '')
     .toLowerCase()
     .normalize('NFD')
+    .replace(/ch/g, protectedCh)
+    .replace(/ll/g, protectedLl)
+    .replace(/u\u0308/g, protectedDiaeresisU)
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/y/g, 'i')
+    .replace(/c(?=[ei])/g, 'z')
+    .replace(/g(?=[ei])/g, 'j')
+    .replace(/qu(?=[ei])/g, 'k')
+    .replace(/gu(?=[ei])/g, 'g')
+    .replace(/c(?!h)/g, 'k')
+    .replace(/h/g, '')
     .replace(/v/g, 'b')
+    .replace(/y(?=[aeiou])/g, protectedConsonantalY)
+    .replace(/y/g, 'i')
+    .replace(new RegExp(protectedConsonantalY, 'g'), 'y')
+    .replace(new RegExp(protectedLl, 'g'), 'y')
+    .replace(new RegExp(protectedCh, 'g'), 'ch')
+    .replace(new RegExp(protectedDiaeresisU, 'g'), 'u')
     .replace(/z/g, distinguishSZInRhyme ? 'z' : 's')
-    .replace(/[^a-zñü]/g, '');
+    .replace(/[^a-zñ]/g, '');
 }
 
 export function findFirstSoundingVowelIndex(text) {
@@ -712,12 +743,86 @@ export function findFirstSoundingVowelIndex(text) {
   return -1;
 }
 
+// La rima empieza en el núcleo de la sílaba tónica, no necesariamente en su
+// primera vocal escrita. Por ejemplo, en "sión" la i es semivocal y la ó es
+// el núcleo; por eso "pasión" debe compartir la clave "on" con "corazón".
+export function findStressedRhymeVowelIndex(text) {
+  const chars = String(text ?? '');
+  let firstVowelIndex = -1;
+  let firstStrongVowelIndex = -1;
+
+  for (let index = 0; index < chars.length; index += 1) {
+    const ch = chars[index];
+    if (!/[aeiouáéíóúü]/i.test(ch)) {
+      continue;
+    }
+
+    const lower = ch.toLowerCase();
+    if (lower === 'u') {
+      const previous = chars[index - 1]?.toLowerCase();
+      const next = chars[index + 1]?.toLowerCase();
+      const nextIsEorI = next === 'e' || next === 'i' || next === 'é' || next === 'í';
+      if ((previous === 'g' || previous === 'q') && nextIsEorI) {
+        continue;
+      }
+    }
+
+    if (firstVowelIndex === -1) {
+      firstVowelIndex = index;
+    }
+    if (hasWrittenAccent(ch)) {
+      return index;
+    }
+    if (firstStrongVowelIndex === -1 && isStrong(lower)) {
+      firstStrongVowelIndex = index;
+    }
+  }
+
+  return firstStrongVowelIndex >= 0 ? firstStrongVowelIndex : firstVowelIndex;
+}
+
+function removeUnaccentedWeakDiphthongVowels(text) {
+  const source = String(text ?? '');
+  const vowelPositions = getVowelPositions(source);
+  const ignoredPositions = new Set();
+
+  for (const position of vowelPositions) {
+    const vowel = source[position];
+    if (!isWeak(vowel) || hasWrittenAccent(vowel)) {
+      continue;
+    }
+
+    const positionIndex = vowelPositions.indexOf(position);
+    const neighbors = [vowelPositions[positionIndex - 1], vowelPositions[positionIndex + 1]];
+    if (neighbors.some((neighbor) => {
+      if (!Number.isInteger(neighbor) || !isStrong(source[neighbor])) {
+        return false;
+      }
+      return canFormDiphthong(
+        source,
+        Math.min(position, neighbor),
+        Math.max(position, neighbor)
+      );
+    })) {
+      ignoredPositions.add(position);
+    }
+  }
+
+  return [...source].filter((_, index) => !ignoredPositions.has(index)).join('');
+}
+
 function extractNormalizedVowels(value, options = {}) {
   return normalizeRhymeChunk(value, options).replace(/[^aeiou]/g, '');
 }
 
 export function getAssonantVowelFromSyllable(syllable, options = {}) {
-  const vowels = extractNormalizedVowels(String(syllable ?? ''), options);
+  const source = String(syllable ?? '');
+  const accentedVowel = [...source].find((ch) => hasWrittenAccent(ch));
+  if (accentedVowel) {
+    return normalizeRhymeChunk(accentedVowel, options);
+  }
+
+  const vowels = extractNormalizedVowels(source, options);
   if (!vowels) {
     return '';
   }
@@ -742,10 +847,10 @@ export function buildConsonantRhymeCandidates(rawTail, lastWord, options = {}) {
   const remainingSyllables = Array.isArray(lastWord?.syllables)
     ? lastWord.syllables.slice((lastWord?.stressIndex ?? 0) + 1).join('')
     : '';
-  if (stressSyllable && !/[áéíóú]/i.test(stressSyllable)) {
-    const contractedStressSyllable = stressSyllable.replace(/([iuü])([aeo])/i, '$2');
+  if (stressSyllable) {
+    const contractedStressSyllable = removeUnaccentedWeakDiphthongVowels(stressSyllable);
     if (contractedStressSyllable !== stressSyllable) {
-      const contractedStart = findFirstSoundingVowelIndex(contractedStressSyllable);
+      const contractedStart = findStressedRhymeVowelIndex(contractedStressSyllable);
       const contractedTail = `${contractedStressSyllable.slice(contractedStart >= 0 ? contractedStart : 0)}${remainingSyllables}`;
       const contractedKey = normalizeRhymeChunk(contractedTail, options);
       if (contractedKey && contractedKey !== strictKey) {
@@ -759,7 +864,9 @@ export function buildConsonantRhymeCandidates(rawTail, lastWord, options = {}) {
     ? lastWord.syllables.slice(lastWord.stressIndex)
     : [];
   if ((accentType === 'esdrújula' || accentType === 'sobreesdrújula') && stressedTailSyllables.length >= 3) {
-    const contractedTail = `${stressedTailSyllables[0]}${stressedTailSyllables.slice(2).join('')}`;
+    const contractedStressSyllable = removeUnaccentedWeakDiphthongVowels(stressedTailSyllables[0]);
+    const contractedStart = findStressedRhymeVowelIndex(contractedStressSyllable);
+    const contractedTail = `${contractedStressSyllable.slice(contractedStart >= 0 ? contractedStart : 0)}${stressedTailSyllables.slice(2).join('')}`;
     const contractedKey = normalizeRhymeChunk(contractedTail, options);
     if (contractedKey) {
       candidates.add(contractedKey);
@@ -808,14 +915,14 @@ export function extractRhymeData(lineAnalysis, options = {}) {
     .slice(0, lastWord.stressIndex)
     .reduce((total, syllable) => total + String(syllable).length, 0);
   const stressSyllable = String(lastWord.syllables[lastWord.stressIndex] ?? '');
-  const vowelOffset = findFirstSoundingVowelIndex(stressSyllable);
+  const vowelOffset = findStressedRhymeVowelIndex(stressSyllable);
   const start = stressStart + (vowelOffset >= 0 ? vowelOffset : 0);
   const rawTail = normalizedWord.slice(start);
   const consonantKey = getCanonicalConsonantRhymeKey(rawTail, lastWord, options);
   const stressedTailSyllables = lastWord.syllables.slice(lastWord.stressIndex);
   const assonantKey = stressedTailSyllables
     .map((syllable) => getAssonantVowelFromSyllable(syllable, options))
-    .join('') || '-';
+    .join('.') || '-';
   const finalWordKey = normalizeValidationWord(lastWord.original || normalizedWord) || '-';
 
   return {

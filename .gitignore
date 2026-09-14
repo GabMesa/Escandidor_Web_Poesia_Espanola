@@ -5,3 +5,5 @@ functions/keys
 *.zip
 __MACOSX/
 ._*
+
+.edge-capture-profile

@@ -67,7 +67,7 @@ Este documento define las reglas linguisticas usadas por el escandador basico de
 
 ### 7) Sineresis manual
 - Las separaciones internas de una palabra son pulsables en el analisis visual.
-- Al pulsar un guion se unen las dos silabas para el computo metrico; el signo `‿` permite deshacer esa sineresis.
+- Al pulsar un guion se unen las dos silabas para el computo metrico; el grupo resultante se convierte en un boton verde que permite deshacer la sineresis.
 
 ## Reglas de acentuacion (silaba tonica)
 

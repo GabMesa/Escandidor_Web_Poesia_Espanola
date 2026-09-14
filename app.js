@@ -6044,13 +6044,12 @@ function renderWordInlineWithBoundaryAwareness(wordAnalysis, wordIndex, runtime)
         return '';
       }
 
-      const renderedParts = parts.map((part, partIndex) => {
-        const clean = escapeHtml(part);
-        if (partIndex === parts.length - 1) return clean;
-        naturalBoundary += 1;
-        return `${clean}<button type="button" class="syneresis-toggle is-active" data-line="${runtime.lineIndex}" data-word="${wordIndex}" data-syllable-boundary="${naturalBoundary}" title="Sinéresis activa: clic para volver a separar" aria-label="Deshacer sinéresis">‿</button>`;
-      }).join('');
-      naturalBoundary += 1;
+      const firstNaturalBoundary = naturalBoundary + 1;
+      naturalBoundary += parts.length;
+      const joined = escapeHtml(parts.join(''));
+      const renderedParts = parts.length > 1
+        ? `<button type="button" class="syneresis-toggle is-active" data-line="${runtime.lineIndex}" data-word="${wordIndex}" data-syllable-boundaries="${parts.slice(0, -1).map((_, partIndex) => firstNaturalBoundary + partIndex).join(',')}" title="Sinéresis activa: clic para volver a separar" aria-label="Deshacer sinéresis en ${joined}">${joined}</button>`
+        : joined;
       return displayStressIndices.has(index) ? `<strong>${renderedParts}</strong>` : renderedParts;
     })
     .filter(Boolean);
@@ -7591,12 +7590,14 @@ analysisOutput.addEventListener('click', (event) => {
   if (syneresisTarget) {
     const line = Number(syneresisTarget.dataset.line);
     const word = Number(syneresisTarget.dataset.word);
-    const boundary = Number(syneresisTarget.dataset.syllableBoundary);
-    if (Number.isInteger(line) && Number.isInteger(word) && Number.isInteger(boundary)) {
+    const boundaries = syneresisTarget.dataset.syllableBoundaries
+      ? syneresisTarget.dataset.syllableBoundaries.split(',').map(Number).filter(Number.isInteger)
+      : [Number(syneresisTarget.dataset.syllableBoundary)].filter(Number.isInteger);
+    if (Number.isInteger(line) && Number.isInteger(word) && boundaries.length) {
       const current = new Set(state.lineOverrides[line]?.syneresis ?? []);
-      const key = `${word}:${boundary}`;
-      if (current.has(key)) current.delete(key);
-      else current.add(key);
+      const keys = boundaries.map((boundary) => `${word}:${boundary}`);
+      if (keys.every((key) => current.has(key))) keys.forEach((key) => current.delete(key));
+      else keys.forEach((key) => current.add(key));
       setLineOverride(line, 'syneresis', [...current]);
       updateAnalysis();
     }

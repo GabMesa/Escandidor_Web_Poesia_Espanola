@@ -2712,6 +2712,38 @@ body.has-poem-theme .workspace {
   font-weight: 700;
 }
 
+.syneresis-toggle {
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--accent, #4b7f8f) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent, #4b7f8f) 12%, transparent);
+  color: var(--accent, #4b7f8f);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82em;
+  font-weight: 700;
+  line-height: 1;
+  margin: 0 0.12em;
+  min-width: 1.25em;
+  padding: 0.08em 0.2em 0.14em;
+  text-decoration: none;
+  vertical-align: 0.08em;
+}
+
+.syneresis-toggle:hover,
+.syneresis-toggle:focus-visible {
+  color: var(--accent, #4b7f8f);
+  outline: 1px solid currentColor;
+  border-radius: 3px;
+}
+
+.syneresis-toggle.is-active {
+  background: var(--accent, #4b7f8f);
+  border-color: var(--accent, #4b7f8f);
+  color: #fff;
+  font-weight: 700;
+}
+
 .sinalefa-toggle {
   min-width: 42px;
   min-height: 24px;

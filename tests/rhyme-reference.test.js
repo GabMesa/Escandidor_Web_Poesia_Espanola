@@ -27,9 +27,21 @@ test('article rule: silent h is removed from consonant rhyme keys', () => {
 });
 
 test('article rule: consonant spellings are normalized by pronunciation', () => {
+  const table = [
+    ['gue', 'ge'], ['gué', 'ge'], ['gui', 'gi'], ['guí', 'gi'],
+    ['güe', 'gue'], ['güé', 'gue'], ['güi', 'gui'], ['güí', 'gui'],
+    ['que', 'ke'], ['qué', 'ke'], ['qui', 'ki'], ['quí', 'ki'],
+    ['ce', 'ze'], ['cé', 'ze'], ['ci', 'zi'], ['cí', 'zi'],
+    ['ge', 'je'], ['gé', 'je'], ['gi', 'ji'], ['gí', 'ji'],
+    ['ch', 'ch'], ['ll', 'y'],
+    ['ya', 'ya'], ['ye', 'ye'], ['yi', 'yi'], ['yo', 'yo'], ['yu', 'yu'],
+    ['yá', 'ya'], ['yé', 'ye'], ['yí', 'yi'], ['yó', 'yo'], ['yú', 'yu'],
+    ['y', 'i'], ['h', ''], ['v', 'b'], ['c', 'k']
+  ];
+
   assert.deepEqual(
-    ['gue', 'que', 'ce', 'ge', 'lla'].map((chunk) => normalizeRhymeChunk(chunk, { distinguishSZInRhyme: true })),
-    ['ge', 'ke', 'ze', 'je', 'ya']
+    table.map(([chunk]) => normalizeRhymeChunk(chunk, { distinguishSZInRhyme: true })),
+    table.map(([, expected]) => expected)
   );
 });
 

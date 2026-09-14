@@ -1,5 +1,5 @@
-const STRONG_VOWELS = new Set(['a', 'e', 'o', 'á', 'é', 'ó']);
-const WEAK_VOWELS = new Set(['i', 'u', 'ü', 'í', 'ú']);
+const STRONG_VOWELS = new Set(['a', 'e', 'o']);
+const WEAK_VOWELS = new Set(['i', 'u']);
 const ACCENTED_VOWELS = new Set(['á', 'é', 'í', 'ó', 'ú']);
 const ALLOWED_ONSET_CLUSTERS = new Set([
   'bl',
@@ -51,7 +51,7 @@ const UNSTRESSED_MONOSYLLABLES = new Set([
 ]);
 
 function isLetter(ch) {
-  return /[a-záéíóúüñ]/i.test(ch);
+  return /[a-záéíóúüäëïöñ]/i.test(ch);
 }
 
 function normalizeBasicVowel(ch) {
@@ -69,7 +69,7 @@ function isEorI(ch) {
 function isVowelLike(ch, index, word) {
   const lower = ch.toLowerCase();
 
-  if ('aeiouáéíóúü'.includes(lower)) {
+  if ('aeiouáéíóúüäëïö'.includes(lower)) {
     if (lower === 'u' && isSilentU(word, index)) {
       return false;
     }
@@ -99,11 +99,11 @@ function hasWrittenAccent(ch) {
 }
 
 function isStrong(ch) {
-  return STRONG_VOWELS.has(ch.toLowerCase());
+  return STRONG_VOWELS.has(normalizeBasicVowel(ch));
 }
 
 function isWeak(ch) {
-  return WEAK_VOWELS.has(ch.toLowerCase()) || ch.toLowerCase() === 'y';
+  return WEAK_VOWELS.has(normalizeBasicVowel(ch)) || ch.toLowerCase() === 'y';
 }
 
 function isAccentedWeak(ch) {
@@ -308,6 +308,14 @@ function getVowelPositions(word) {
 function canFormDiphthong(word, firstIndex, secondIndex) {
   const first = word[firstIndex];
   const second = word[secondIndex];
+
+  const hasPoeticDiaeresis = (index) => {
+    const vowel = word[index]?.toLowerCase();
+    if (!['ä', 'ë', 'ï', 'ö', 'ü'].includes(vowel)) return false;
+    return !(vowel === 'ü' && word[index - 1]?.toLowerCase() === 'g' && isEorI(word[index + 1]));
+  };
+
+  if (hasPoeticDiaeresis(firstIndex) || hasPoeticDiaeresis(secondIndex)) return false;
 
   for (let index = firstIndex + 1; index < secondIndex; index += 1) {
     if (word[index].toLowerCase() !== 'h') {
@@ -536,10 +544,25 @@ function getSecondaryStressIndicesForMenteAdverb(originalWord, syllables, primar
   return [secondaryStressIndex];
 }
 
-export function analyzeWord(inputWord) {
+export function analyzeWord(inputWord, options = {}) {
   const original = String(inputWord ?? '').trim();
   const normalized = sanitizeWord(original);
-  const syllables = mapSyllablesToOriginalCase(original, syllabifyWord(original));
+  const naturalSyllables = mapSyllablesToOriginalCase(original, syllabifyWord(original));
+  const syneresisCandidates = naturalSyllables.slice(0, -1).flatMap((syllable, index) => (
+    /[aeiouáéíóúüäëïö]$/i.test(syllable) && /^(?:h)?[aeiouáéíóúüäëïö]/i.test(naturalSyllables[index + 1])
+      ? [index]
+      : []
+  ));
+  const forcedBoundaries = new Set((options.syneresis ?? []).filter((index) => syneresisCandidates.includes(index)));
+  const syllableParts = [];
+  for (let index = 0; index < naturalSyllables.length; index += 1) {
+    if (index > 0 && forcedBoundaries.has(index - 1)) {
+      syllableParts.at(-1).push(naturalSyllables[index]);
+    } else {
+      syllableParts.push([naturalSyllables[index]]);
+    }
+  }
+  const syllables = syllableParts.map((parts) => parts.join(''));
   const stressIndex = detectStressSyllable(original, syllables);
   const secondaryStressIndices = getSecondaryStressIndicesForMenteAdverb(original, syllables, stressIndex);
   const accentType = classifyWordAccentType(syllables, stressIndex);
@@ -547,6 +570,10 @@ export function analyzeWord(inputWord) {
   return {
     original,
     normalized,
+    naturalSyllables,
+    syllableParts,
+    syneresisCandidates,
+    syneresisBoundaries: [...forcedBoundaries],
     syllables,
     stressIndex,
     secondaryStressIndices,
@@ -571,7 +598,9 @@ export function adjustPoeticCount(syllableCount, accentType) {
 export function analyzeLine(line, options = {}) {
   const wordMatches = getLineWordMatches(line);
   const words = wordMatches.map((item) => item.word);
-  const analyses = words.map(analyzeWord);
+  const analyses = words.map((word, wordIndex) => analyzeWord(word, {
+    syneresis: options.syneresis?.[wordIndex] ?? []
+  }));
   const rawCount = analyses.reduce((total, word) => total + word.syllableCount, 0);
   const lastWord = analyses.at(-1) ?? null;
   const accentType = lastWord?.accentType ?? 'llana';
@@ -620,7 +649,10 @@ export function analyzeLine(line, options = {}) {
 
 export function analyzePoem(text, options = {}) {
   const lines = splitIntoLines(text);
-  const analyzedLines = lines.map((line) => analyzeLine(line, options));
+  const analyzedLines = lines.map((line, lineIndex) => analyzeLine(line, {
+    ...options,
+    syneresis: options.syneresisOverrides?.[lineIndex] ?? {}
+  }));
 
   return {
     lines: analyzedLines,

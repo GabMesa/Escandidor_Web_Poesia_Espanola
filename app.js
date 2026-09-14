@@ -6034,21 +6034,35 @@ function renderWordInlineWithBoundaryAwareness(wordAnalysis, wordIndex, runtime)
   const hideLast = Boolean(nextBoundary?.candidate && !nextBoundary?.blockedByHemistich);
   const displayStressIndices = getDisplayStressIndices(wordAnalysis);
 
-  const syllables = wordAnalysis.syllables
-    .map((syllable, index) => {
+  let naturalBoundary = -1;
+  const syllables = wordAnalysis.syllableParts
+    .map((parts, index) => {
       const isFirst = index === 0;
       const isLast = index === wordAnalysis.syllables.length - 1;
       if ((isFirst && hideFirst) || (isLast && hideLast)) {
+        naturalBoundary += parts.length;
         return '';
       }
 
-      const clean = escapeHtml(syllable);
-      return displayStressIndices.has(index) ? `<strong>${clean}</strong>` : clean;
+      const renderedParts = parts.map((part, partIndex) => {
+        const clean = escapeHtml(part);
+        if (partIndex === parts.length - 1) return clean;
+        naturalBoundary += 1;
+        return `${clean}<button type="button" class="syneresis-toggle is-active" data-line="${runtime.lineIndex}" data-word="${wordIndex}" data-syllable-boundary="${naturalBoundary}" title="Sinéresis activa: clic para volver a separar" aria-label="Deshacer sinéresis">‿</button>`;
+      }).join('');
+      naturalBoundary += 1;
+      return displayStressIndices.has(index) ? `<strong>${renderedParts}</strong>` : renderedParts;
     })
-    .filter(Boolean)
-    .join('-');
+    .filter(Boolean);
 
-  return syllables;
+  return syllables.map((syllable, index) => {
+    if (index === syllables.length - 1) return syllable;
+    const boundary = wordAnalysis.syllableParts.slice(0, index + 1).reduce((total, parts) => total + parts.length, 0) - 1;
+    const separator = wordAnalysis.syneresisCandidates.includes(boundary)
+      ? `<button type="button" class="syneresis-toggle" data-line="${runtime.lineIndex}" data-word="${wordIndex}" data-syllable-boundary="${boundary}" title="Unir estas sílabas por sinéresis" aria-label="Unir estas sílabas por sinéresis">−</button>`
+      : '-';
+    return `${syllable}${separator}`;
+  }).join('');
 }
 
 function getInvalidSinalefaTriphthongs(runtime) {
@@ -6468,7 +6482,19 @@ function updateAnalysis() {
   syncStateFromControls();
   const text = normalizeInput(poemInput.value);
   previousPoemText = poemInput.value;
-  const result = analyzePoem(text, { rioplatenseY: state.rioplatenseY });
+  const syneresisOverrides = Object.fromEntries(Object.entries(state.lineOverrides).map(([line, override]) => [
+    line,
+    Object.fromEntries((override?.syneresis ?? []).map((key) => {
+      const [word, boundary] = String(key).split(':').map(Number);
+      return [word, [boundary]];
+    }).reduce((entries, [word, boundaries]) => {
+      const existing = entries.find(([entryWord]) => entryWord === word);
+      if (existing) existing[1].push(...boundaries);
+      else entries.push([word, boundaries]);
+      return entries;
+    }, []))
+  ]));
+  const result = analyzePoem(text, { rioplatenseY: state.rioplatenseY, syneresisOverrides });
   const stanzaSummary = buildStanzaSummary(text);
   if (stanzaSummaryBadge) {
     stanzaSummaryBadge.textContent = stanzaSummary;
@@ -7558,6 +7584,22 @@ analysisOutput.addEventListener('click', (event) => {
   const actionButton = event.target?.closest?.('button[data-action]');
   if (actionButton?.dataset.action === 'edit-rhyme-color') {
     openRhymeColorSelector(actionButton);
+    return;
+  }
+
+  const syneresisTarget = event.target.closest('.syneresis-toggle');
+  if (syneresisTarget) {
+    const line = Number(syneresisTarget.dataset.line);
+    const word = Number(syneresisTarget.dataset.word);
+    const boundary = Number(syneresisTarget.dataset.syllableBoundary);
+    if (Number.isInteger(line) && Number.isInteger(word) && Number.isInteger(boundary)) {
+      const current = new Set(state.lineOverrides[line]?.syneresis ?? []);
+      const key = `${word}:${boundary}`;
+      if (current.has(key)) current.delete(key);
+      else current.add(key);
+      setLineOverride(line, 'syneresis', [...current]);
+      updateAnalysis();
+    }
     return;
   }
 

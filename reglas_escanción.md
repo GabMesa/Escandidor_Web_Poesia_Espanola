@@ -28,7 +28,8 @@ Este documento define las reglas linguisticas usadas por el escandador basico de
 
 ### 1) Nucleo silabico
 - Cada silaba contiene un nucleo vocalico.
-- Se consideran vocales: a, e, i, o, u, con tildes y u con dieresis.
+- Se consideran vocales: a, e, i, o, u, con tildes y con dieresis (`ä`, `ë`, `ï`, `ö`, `ü`).
+- La dieresis poetica fuerza la separacion de la vocal respecto de la contigua; la `ü` ortografica de `güe/güi` solo hace sonar la `u`.
 
 ### 2) Consonantes entre vocales
 - Una consonante entre vocales pasa al ataque de la silaba siguiente.
@@ -63,6 +64,10 @@ Este documento define las reglas linguisticas usadas por el escandador basico de
 - Se separan en silabas distintas cuando:
   - hay dos fuertes contiguas,
   - o una debil tildada rompe diptongo/triptongo.
+
+### 7) Sineresis manual
+- Las separaciones internas de una palabra son pulsables en el analisis visual.
+- Al pulsar un guion se unen las dos silabas para el computo metrico; el signo `‿` permite deshacer esa sineresis.
 
 ## Reglas de acentuacion (silaba tonica)
 

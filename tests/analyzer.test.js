@@ -63,6 +63,18 @@ test('keeps sabia and llamaba apart in consonant but together in assonant rhyme'
   assert.notEqual(sabia.consonantKey, llamaba.consonantKey);
 });
 
+test('supports poetic diaeresis and manual synaeresis', () => {
+  assert.deepEqual(analyzeWord('süave').syllables, ['sü', 'a', 've']);
+  assert.deepEqual(analyzeWord('poëta').syllables, ['po', 'ë', 'ta']);
+  assert.deepEqual(analyzeWord('pingüino').syllables, ['pin', 'güi', 'no']);
+
+  const poeta = analyzeWord('poeta', { syneresis: [0] });
+  assert.deepEqual(poeta.naturalSyllables, ['po', 'e', 'ta']);
+  assert.deepEqual(poeta.syllables, ['poe', 'ta']);
+  assert.equal(poeta.syllableCount, 2);
+  assert.deepEqual(analyzeWord('casa', { syneresis: [0] }).syllables, ['ca', 'sa']);
+});
+
 test('starts consonant rhyme at the stressed nucleus of a diphthong', () => {
   const pasion = rhymeOf('pasión');
   const corazon = rhymeOf('corazón');

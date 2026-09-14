@@ -2714,23 +2714,36 @@ body.has-poem-theme .workspace {
 
 .syneresis-toggle {
   appearance: none;
-  min-width: 24px;
-  min-height: 20px;
-  border: 1px solid rgba(53, 35, 18, 0.25);
+  border: 1px solid color-mix(in srgb, var(--accent, #4b7f8f) 55%, transparent);
   border-radius: 999px;
-  background: rgba(var(--surface-rgb), 0.92);
-  color: var(--text);
+  background: color-mix(in srgb, var(--accent, #4b7f8f) 12%, transparent);
+  color: var(--accent, #4b7f8f);
   cursor: pointer;
   font: inherit;
-  font-size: 0.72rem;
-  font-weight: 800;
+  font-size: 0.82em;
+  font-weight: 700;
   line-height: 1;
-  margin: 0 2px;
-  padding: 0 5px;
+  margin: 0 0.12em;
+  min-width: 1.25em;
+  padding: 0.08em 0.2em 0.14em;
   text-decoration: none;
-  vertical-align: middle;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  vertical-align: 0.08em;
 }
+
+.syneresis-toggle:hover,
+.syneresis-toggle:focus-visible {
+  color: var(--accent, #4b7f8f);
+  outline: 1px solid currentColor;
+  border-radius: 3px;
+}
+
+.syneresis-toggle.is-active {
+  background: var(--accent, #4b7f8f);
+  border-color: var(--accent, #4b7f8f);
+  color: #fff;
+  font-weight: 700;
+}
+
 
 .syneresis-toggle:hover,
 .syneresis-toggle:focus-visible {

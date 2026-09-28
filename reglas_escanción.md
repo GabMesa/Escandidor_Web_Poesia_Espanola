@@ -144,30 +144,25 @@ Este documento define las reglas linguisticas usadas por el escandador basico de
 ## Rima y esquema
 
 ### 1) Modos de rima
-- Asonante: se compara la vocal tonica final y la ultima vocal de la palabra final.
+- Asonante: se comparan las vocales de la zona rimica desde la silaba tonica de la palabra final.
 - Consonante: se compara la cola desde la vocal tonica de la palabra final.
-  - Se admiten dos licencias poeticas opcionales para equivalencia consonante:
-    - Diptongos en zona de rima: puede omitirse la vocal debil del diptongo cuando la tradicion metrico-rimica lo admite.
-      - Ejemplo: celestiales ~ mortales (i+a -> a).
-      - Ejemplo: aceite ~ vete (ei -> e).
-    - Finales esdrujulos/sobreesdrujulos: puede omitirse la silaba postonica inmediata.
-      - Ejemplo: cantico ~ zanco (can-ti-co -> can-co).
+  - Los diptongos no se contraen: deben coincidir todos sus fonemas desde la vocal tonica.
+- Asonante: en diptongos de la zona rimica puede omitirse la vocal debil y en finales esdrujulos/sobreesdrujulos puede omitirse la silaba postonica inmediata.
+  - Ejemplo: cantico ~ zanco (can-ti-co -> can-co).
 - Repeticion de palabra final: se compara la palabra final completa normalizada, no solo la terminacion rimica. Puede usarse en cualquier forma o verso.
 
 ### 2) Palabra final usada para rima
 - La rima se calcula sobre la ultima palabra analizada de cada verso.
 - La palabra se normaliza quitando puntuacion periferica y diferencias graficas no relevantes para la comparacion interna.
 
-### 2.1) Excepcion de los diptongos
-- Si la ultima palabra del verso contiene un diptongo dentro de la zona rimica (desde la ultima silaba tonica), la vocal debil puede omitirse a efectos de rima.
-- Esta licencia no es obligatoria: se usa solo cuando la disposicion rimica del poema lo requiere.
-- Es mas comun y mas aceptada en diptongos crecientes de la penultima silaba, aunque puede aparecer en otras posiciones.
+### 2.1) Excepcion asonante de los diptongos
+- Si la ultima palabra del verso contiene un diptongo dentro de la zona rimica (desde la ultima silaba tonica), la vocal debil puede omitirse a efectos de rima asonante.
+- Esta licencia no se aplica a la rima consonante.
 
 ### 2.2) Excepcion de las esdrujulas
 - En palabras esdrujulas (y, por extension, sobreesdrujulas), puede ignorarse la silaba postonica inmediata para comparar la rima.
-- Ejemplo consonante: cantico ~ zanco (suprimiendo -ti- en can-ti-co).
+- Esta licencia solo se aplica a la rima asonante.
 - Ejemplo asonante: cantico puede aproximarse a terminaciones en -a-o.
-- Esta licencia suele verse mas en rima asonante que en consonante.
 
 ### 3) Esquema de rima configurable
 - El usuario puede escribir un esquema por letras, por ejemplo: ABBAACCDDC o ABBA ABBA CDE CDE.

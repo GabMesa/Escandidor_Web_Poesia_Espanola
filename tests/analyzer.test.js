@@ -85,10 +85,10 @@ test('starts consonant rhyme at the stressed nucleus of a diphthong', () => {
   assert.equal(corazon.assonantKey, 'o');
 });
 
-test('can ignore an unaccented weak vowel on either side of a diphthong', () => {
+test('keeps every phoneme after the stressed vowel in consonant rhyme', () => {
   assert.equal(rhymeOf('cielo').consonantKey, 'elo');
-  assert.equal(rhymeOf('causa').consonantKey, 'asa');
-  assert.equal(rhymeOf('casa').consonantKey, 'asa');
+  assert.equal(rhymeOf('causa').consonantKey, 'ausa');
+  assert.notEqual(rhymeOf('causa').consonantKey, rhymeOf('casa').consonantKey);
   assert.equal(rhymeOf('país').consonantKey, 'is');
 });
 

@@ -873,39 +873,7 @@ export function buildConsonantRhymeCandidates(rawTail, lastWord, options = {}) {
     return ['-'];
   }
 
-  const candidates = new Set([strictKey]);
-
-  const stressSyllable = String(lastWord?.syllables?.[lastWord?.stressIndex] ?? '');
-  const remainingSyllables = Array.isArray(lastWord?.syllables)
-    ? lastWord.syllables.slice((lastWord?.stressIndex ?? 0) + 1).join('')
-    : '';
-  if (stressSyllable) {
-    const contractedStressSyllable = removeUnaccentedWeakDiphthongVowels(stressSyllable);
-    if (contractedStressSyllable !== stressSyllable) {
-      const contractedStart = findStressedRhymeVowelIndex(contractedStressSyllable);
-      const contractedTail = `${contractedStressSyllable.slice(contractedStart >= 0 ? contractedStart : 0)}${remainingSyllables}`;
-      const contractedKey = normalizeRhymeChunk(contractedTail, options);
-      if (contractedKey && contractedKey !== strictKey) {
-        candidates.add(contractedKey);
-      }
-    }
-  }
-
-  const accentType = String(lastWord?.accentType ?? '');
-  const stressedTailSyllables = Array.isArray(lastWord?.syllables)
-    ? lastWord.syllables.slice(lastWord.stressIndex)
-    : [];
-  if ((accentType === 'esdrújula' || accentType === 'sobreesdrújula') && stressedTailSyllables.length >= 3) {
-    const contractedStressSyllable = removeUnaccentedWeakDiphthongVowels(stressedTailSyllables[0]);
-    const contractedStart = findStressedRhymeVowelIndex(contractedStressSyllable);
-    const contractedTail = `${contractedStressSyllable.slice(contractedStart >= 0 ? contractedStart : 0)}${stressedTailSyllables.slice(2).join('')}`;
-    const contractedKey = normalizeRhymeChunk(contractedTail, options);
-    if (contractedKey) {
-      candidates.add(contractedKey);
-    }
-  }
-
-  return [...candidates].filter(Boolean);
+  return [strictKey];
 }
 
 export function getCanonicalConsonantRhymeKey(rawTail, lastWord, options = {}) {
@@ -951,7 +919,11 @@ export function extractRhymeData(lineAnalysis, options = {}) {
   const start = stressStart + (vowelOffset >= 0 ? vowelOffset : 0);
   const rawTail = normalizedWord.slice(start);
   const consonantKey = getCanonicalConsonantRhymeKey(rawTail, lastWord, options);
-  const stressedTailSyllables = lastWord.syllables.slice(lastWord.stressIndex);
+  let stressedTailSyllables = lastWord.syllables.slice(lastWord.stressIndex);
+  const accentType = String(lastWord.accentType ?? '');
+  if ((accentType === 'esdrújula' || accentType === 'sobreesdrújula') && stressedTailSyllables.length >= 3) {
+    stressedTailSyllables = [stressedTailSyllables[0], ...stressedTailSyllables.slice(2)];
+  }
   const assonantKey = stressedTailSyllables
     .map((syllable) => getAssonantVowelFromSyllable(syllable, options))
     .join('.') || '-';

@@ -54,6 +54,7 @@ test('article rule: -mente keeps lexical stress and adds secondary stress on men
   assert.deepEqual(analyzeWord('velozmente').secondaryStressIndices, [2]);
 });
 
-test('article exception: the syllable after an esdrújula stress may be ignored', () => {
-  assert.equal(rhymeOf('pájaro').consonantKey, rhymeOf('paro').consonantKey);
+test('article exception: the post-tonic syllable is ignored only in assonance', () => {
+  assert.notEqual(rhymeOf('pájaro').consonantKey, rhymeOf('paro').consonantKey);
+  assert.equal(rhymeOf('pájaro').assonantKey, rhymeOf('paro').assonantKey);
 });

@@ -65,13 +65,13 @@ async function apiRequest(path, options = {}) {
 }
 
 function renderUser(user) {
+  cloudSync.setUser(user);
   applicationState.auth.user = user || null;
   guestActions.classList.toggle('hidden', Boolean(user));
   userActions.classList.toggle('hidden', !user);
   accountIdentity.textContent = user ? user.username : '';
   adminLink?.classList.toggle('hidden', user?.role !== 'admin');
   if (loadDataFromServer) loadDataFromServer.disabled = !user;
-  cloudSync.setUser(user);
 }
 
 function showSessionConflict(otherSessions) {
@@ -265,7 +265,10 @@ async function checkCurrentSession() {
 
 apiRequest('/api/auth/me')
   .then(handleAuthState)
-  .catch(() => renderUser(null));
+  .catch((error) => {
+    cloudSaveStatus.textContent = error.message || 'No se pudo cargar la biblioteca local.';
+    cloudSaveStatus.classList.add('is-error');
+  });
 
 window.setInterval(checkCurrentSession, 10_000);
 

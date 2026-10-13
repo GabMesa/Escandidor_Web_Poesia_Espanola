@@ -1,3 +1,4 @@
+import { writePersistentStorage, writeDisposableStorage, loadWordCorpusCache, saveWordCorpusCache } from './browser-storage.js';
 import { sortPoemVersions, selectMarkdownEntries, buildHistoryMarkdown, buildVideoTimeline } from './poem-exports.js';
 import { createPoemVideoExporter } from './poem-video.js';
 import {
@@ -188,7 +189,6 @@ const state = applicationState.editor;
 
 const LOOKUP_RHYME_PAGE_SIZE = 24;
 const LOOKUP_WORD_TYPE_CACHE_KEY = 'escandador.lookupWordTypeCache.v1';
-const WORDFREQ_WORDS_CACHE_KEY = 'escandador.wordfreqWords.v1';
 const WORDFREQ_QUERY_CACHE_KEY = 'escandador.wordfreqQueries.v1';
 const LOOKUP_WORD_TYPE_BATCH_CONCURRENCY = 4;
 const LOOKUP_WORD_TYPE_SCAN_BATCH_SIZE = 24;
@@ -225,7 +225,7 @@ function loadLookupWordTypeCache() {
 
 function saveLookupWordTypeCache() {
   try {
-    localStorage.setItem(LOOKUP_WORD_TYPE_CACHE_KEY, JSON.stringify(lookupWordTypeCache));
+    writeDisposableStorage(localStorage, LOOKUP_WORD_TYPE_CACHE_KEY, JSON.stringify(lookupWordTypeCache));
   } catch {
     // Ignore storage failures; classification can still run without persistence.
   }
@@ -260,7 +260,7 @@ const wordfreqQueryCache = loadWordfreqQueryCache();
 
 function saveWordfreqQueryCache() {
   try {
-    localStorage.setItem(WORDFREQ_QUERY_CACHE_KEY, JSON.stringify(wordfreqQueryCache));
+    writeDisposableStorage(localStorage, WORDFREQ_QUERY_CACHE_KEY, JSON.stringify(wordfreqQueryCache));
   } catch {
     // Queries still work when storage is unavailable.
   }
@@ -1294,21 +1294,12 @@ function setWordCorpusLoadingMessage(message) {
   }
 }
 
-function loadCachedWordfreqBuckets() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(WORDFREQ_WORDS_CACHE_KEY) ?? 'null');
-    return parsed?.version === 1 && Array.isArray(parsed.buckets) ? parsed.buckets : null;
-  } catch {
-    return null;
-  }
+async function loadCachedWordfreqBuckets() {
+  return loadWordCorpusCache();
 }
 
-function saveCachedWordfreqBuckets(buckets) {
-  try {
-    localStorage.setItem(WORDFREQ_WORDS_CACHE_KEY, JSON.stringify({ version: 1, buckets }));
-  } catch {
-    // The corpus still works when the browser storage quota is unavailable.
-  }
+async function saveCachedWordfreqBuckets(buckets) {
+  return saveWordCorpusCache(buckets);
 }
 
 function buildOpenRhymeWordlistResources(words) {
@@ -1347,7 +1338,7 @@ function buildOpenRhymeWordlistResources(words) {
 async function loadWordfreqWords() {
   if (!wordfreqWordsPromise) {
     wordfreqWordsPromise = (async () => {
-      const cachedBuckets = loadCachedWordfreqBuckets();
+      const cachedBuckets = await loadCachedWordfreqBuckets();
       if (cachedBuckets) {
         setWordCorpusLoadingMessage('Procesando palabras guardadas...');
         return cachedBuckets;
@@ -2634,7 +2625,7 @@ function loadPoemMemoryStore() {
 
     if (changed) {
       try {
-        localStorage.setItem(LOCAL_POEM_MEMORY_KEY, JSON.stringify({ schemaVersion: 2, poems, trash }));
+        writePersistentStorage(localStorage, LOCAL_POEM_MEMORY_KEY, JSON.stringify({ schemaVersion: 2, poems, trash }));
       } catch {
         // Ignore storage write errors on cleanup.
       }
@@ -2648,7 +2639,7 @@ function loadPoemMemoryStore() {
 
 function savePoemMemoryStore(store) {
   try {
-    localStorage.setItem(LOCAL_POEM_MEMORY_KEY, JSON.stringify({ ...store, schemaVersion: 2 }));
+    writePersistentStorage(localStorage, LOCAL_POEM_MEMORY_KEY, JSON.stringify({ ...store, schemaVersion: 2 }));
     return true;
   } catch {
     return false;

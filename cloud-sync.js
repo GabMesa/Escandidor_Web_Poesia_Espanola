@@ -1,3 +1,5 @@
+import { writePersistentStorage } from './browser-storage.js';
+
 const POEM_MEMORY_KEY = 'escandador.poemMemory.v1';
 const ANONYMOUS_MEMORY_KEY = 'escandador.poemMemory.anonymous.v1';
 const ACTIVE_OWNER_KEY = 'escandador.poemMemory.activeOwner.v1';
@@ -109,7 +111,7 @@ export function createCloudSync({
   }
 
   function saveOutbox(pending, userId = user?.id) {
-    storage.setItem(outboxKey(userId), JSON.stringify(pending));
+    writePersistentStorage(storage, outboxKey(userId), JSON.stringify(pending));
   }
 
   function addPending(type, detail) {
@@ -137,7 +139,7 @@ export function createCloudSync({
   }
 
   function saveMap(map) {
-    storage.setItem(mapKey(), JSON.stringify(map));
+    writePersistentStorage(storage, mapKey(), JSON.stringify(map));
   }
 
   function userMemoryKey(userId) {
@@ -159,15 +161,22 @@ export function createCloudSync({
       poems: memory?.poems && typeof memory.poems === 'object' ? memory.poems : {},
       trash: memory?.trash && typeof memory.trash === 'object' ? memory.trash : {},
     };
-    storage.setItem(POEM_MEMORY_KEY, JSON.stringify(normalized));
-    storage.setItem(ACTIVE_OWNER_KEY, owner);
+    const previousOwner = storage.getItem(ACTIVE_OWNER_KEY);
+    writePersistentStorage(storage, ACTIVE_OWNER_KEY, owner);
+    try {
+      writePersistentStorage(storage, POEM_MEMORY_KEY, JSON.stringify(normalized));
+    } catch (error) {
+      if (previousOwner === null) storage.removeItem?.(ACTIVE_OWNER_KEY);
+      else storage.setItem(ACTIVE_OWNER_KEY, previousOwner);
+      throw error;
+    }
     onLibrary(normalized);
   }
 
   function preserveActiveMemory() {
     const owner = storage.getItem(ACTIVE_OWNER_KEY) || 'anonymous';
     const targetKey = owner === 'anonymous' ? ANONYMOUS_MEMORY_KEY : userMemoryKey(owner);
-    storage.setItem(targetKey, JSON.stringify(readMemory(POEM_MEMORY_KEY)));
+    writePersistentStorage(storage, targetKey, JSON.stringify(readMemory(POEM_MEMORY_KEY)));
   }
 
   function localVersion(poem, version) {
@@ -313,15 +322,19 @@ export function createCloudSync({
   return {
     setUser(nextUser) {
       const previousUser = user;
-      preserveActiveMemory();
-      user = nextUser || null;
-      state.user = user;
-      if (!user) {
-        activateMemory(readMemory(ANONYMOUS_MEMORY_KEY), 'anonymous');
-        onStatus('ready', 'Nube desconectada');
-      } else if (!previousUser || previousUser.id !== user.id) {
-        activateMemory(readMemory(userMemoryKey(user.id)), String(user.id));
+      const next = nextUser || null;
+      if (next && previousUser?.id === next.id) {
+        user = next;
+        state.user = user;
+        return;
       }
+      preserveActiveMemory();
+      const nextOwner = next ? String(next.id) : 'anonymous';
+      const nextKey = next ? userMemoryKey(next.id) : ANONYMOUS_MEMORY_KEY;
+      activateMemory(readMemory(nextKey), nextOwner);
+      user = next;
+      state.user = user;
+      if (!user) onStatus('ready', 'Nube desconectada');
     },
 
     syncSavedVersion(detail) {
@@ -432,7 +445,7 @@ export function createCloudSync({
           });
         }
         saveMap(map);
-        storage.setItem(userMemoryKey(user.id), JSON.stringify(memory));
+        writePersistentStorage(storage, userMemoryKey(user.id), JSON.stringify(memory));
         activateMemory(memory, String(user.id));
         onTrash(remoteTrash.trash || []);
       });
@@ -491,8 +504,8 @@ export function createCloudSync({
         importRecords[sourceKey] = { targetKey, fingerprint };
         imported += 1;
       }
-      storage.setItem(userMemoryKey(user.id), JSON.stringify(accountMemory));
-      storage.setItem(anonymousImportKey(user.id), JSON.stringify(importRecords));
+      writePersistentStorage(storage, userMemoryKey(user.id), JSON.stringify(accountMemory));
+      writePersistentStorage(storage, anonymousImportKey(user.id), JSON.stringify(importRecords));
       activateMemory(accountMemory, String(user.id));
       return imported;
     },
@@ -502,14 +515,14 @@ export function createCloudSync({
       preserveActiveMemory();
       const anonymousMemory = readMemory(ANONYMOUS_MEMORY_KEY);
       const discarded = Object.keys(anonymousMemory.poems || {}).length;
-      storage.setItem(ANONYMOUS_MEMORY_KEY, JSON.stringify({
+      writePersistentStorage(storage, ANONYMOUS_MEMORY_KEY, JSON.stringify({
         schemaVersion: 2,
         poems: {},
         trash: anonymousMemory.trash && typeof anonymousMemory.trash === 'object'
           ? anonymousMemory.trash
           : {},
       }));
-      storage.setItem(anonymousImportKey(user.id), '{}');
+      writePersistentStorage(storage, anonymousImportKey(user.id), '{}');
       return discarded;
     },
 

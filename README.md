@@ -316,3 +316,11 @@ El botón Video permite ver y descargar una animación de las versiones guardada
 ## Paleta visual
 
 La identidad utiliza Flexoki, de Steph Ango (MIT): https://stephango.com/flexoki. Los fondos claros usan base-100 y base-50 para conservar el aspecto crema; la edici?n oscura usa black, base-950 y base-900. Los botones usan red-600 con texto paper en ambos modos. Los colores de texto y los indicadores se adaptan con tonos de la paleta extendida.
+
+## Almacenamiento del navegador
+
+Los poemas, sus versiones y las operaciones pendientes de sincronización se conservan en `localStorage`. El corpus de palabras se guarda por separado en Cache Storage; la caché antigua se migra al utilizar el diccionario. Las cachés pequeñas de consultas y clasificación tienen un límite y dejan espacio para la biblioteca.
+
+Si una escritura de la biblioteca supera la cuota, `browser-storage.js` elimina únicamente las tres cachés léxicas regenerables y reintenta. No elimina poemas, papelera, bibliotecas de cuentas ni operaciones pendientes. Si aún falta espacio, informa del problema y conserva los datos existentes. Un cambio de cuenta fallido conserva la biblioteca activa y su propietario. La comprobación periódica de una sesión ya activa no duplica la biblioteca.
+
+Pruebas de regresión: `tests/browser-storage.test.js`. Comprobación en navegador con una cuota real llena: `node verify-storage.mjs`.

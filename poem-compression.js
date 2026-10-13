@@ -1,3 +1,5 @@
+import { samePoemContent } from './poem-policy.js';
+
 function compareAge(left, right) {
   const a = Date.parse(left.savedAt);
   const b = Date.parse(right.savedAt);
@@ -15,7 +17,8 @@ export function compressPoemVersions(versions) {
     const current = ordered[index];
     const previous = ordered[index - 1];
     // Compare adjacent ORIGINAL versions, never scan earlier surviving versions.
-    if (previous && String(current.poemText ?? '').includes(String(previous.poemText ?? ''))) {
+    if (previous && (samePoemContent(current.poemText, previous.poemText)
+      || String(current.poemText ?? '').includes(String(previous.poemText ?? '')))) {
       retained.pop();
       removed.push(previous);
     }

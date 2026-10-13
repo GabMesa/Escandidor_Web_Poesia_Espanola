@@ -40,3 +40,19 @@ test('containment is literal and includes line breaks and capitalization', () =>
   assert.equal(compressPoemVersions(history(['La luna', 'la luna brilla'])).removed.length, 0);
   assert.equal(compressPoemVersions(history(['La\nluna', 'La\nluna\nbrilla'])).removed.length, 1);
 });
+
+test('keeps the newest of consecutive equal versions with its metadata', () => {
+  const versions = history(['La luna', 'La luna', 'La luna', 'El mar', 'La luna']);
+  versions[2].settings = { rhymeMode: 'asonante' };
+  const result = compressPoemVersions(versions);
+  assert.deepEqual(result.retained, [versions[2], versions[3], versions[4]]);
+  assert.equal(result.retained[0], versions[2]);
+  assert.deepEqual(result.removed, [versions[0], versions[1]]);
+});
+
+test('treats line ending and trailing whitespace differences as equal and keeps the newest', () => {
+  const versions = history(['La luna\r\nEl mar\r\n', 'La luna\nEl mar', 'La luna\nEl mar\n \t']);
+  const result = compressPoemVersions(versions);
+  assert.deepEqual(result.retained, [versions[2]]);
+  assert.deepEqual(result.removed, [versions[0], versions[1]]);
+});

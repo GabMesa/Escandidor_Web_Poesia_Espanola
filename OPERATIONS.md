@@ -121,7 +121,11 @@ Auditoría: `scripts/audit-empty-poem-versions.sql`. Verificación local de la l
 
 ## Publicar la política de papelera
 
-La migración `0013_user_trash_settings.sql` crea la preferencia de limpieza por cuenta; está preparada localmente y no se ha aplicado a producción. Tras verificar la cuenta y crear una copia de seguridad, aplicar únicamente esta migración idempotente antes de publicar el código nuevo:
+La migración `0013_user_trash_settings.sql` crea la preferencia de limpieza por cuenta. Se aplicó a producción el 2026-10-13 para reparar los errores 500 de `GET /api/trash` y `DELETE /api/poems/:id?version=...`: el código publicado consultaba `user_trash_settings`, pero la tabla no existía. Se verificó la cuenta y se exportó una copia completa antes de crear la tabla. Los totales antes y después permanecieron en 36 poemas, 1.252 versiones y 64 entradas de papelera; la versión 376 del poema 64 sigue presente.
+
+La copia previa está en `%TEMP%/escandidor-db-backups/escandidor-db-before-trash-settings-20261013-152740.sql` (831.970 bytes), fuera del repositorio. La operación utilizó Node 22 y Wrangler 4.150.0 temporales; Wrangler 4.86.0 rechazó la consulta remota con el código 7403. Como se ejecutó con `d1 execute`, no se registró automáticamente en `d1_migrations`; la migración es idempotente.
+
+Para instalaciones que todavía no tengan la tabla, aplicar esta migración antes de publicar el código:
 
 ```powershell
 npx wrangler d1 execute escandidor-db --remote --file=./migrations/0013_user_trash_settings.sql

@@ -1,3 +1,5 @@
+import { maintainUserTrash } from '../../_lib/trash-storage.js';
+import { hasPoemContent, isValidPoemTitle, samePoemContent } from '../../../poem-policy.js';
 import { jsonResponse, safeJson, requireUser } from '../../_lib/helpers.js';
 
 function serializeTrashEntry(row) {
@@ -18,6 +20,7 @@ export async function onRequestGet(context) {
   const { request, env } = context;
   const { user, error } = await requireUser(request, env);
   if (error) return error;
+  const policy = await maintainUserTrash(env, user.id);
 
   const { results } = await env.escandidor_db
     .prepare(
@@ -35,6 +38,7 @@ export async function onRequestGet(context) {
 
   return jsonResponse({
     ok: true,
+    policy,
     trash: results.map(serializeTrashEntry),
     deletedPoemIds: deletions.map((row) => row.poem_id),
   });
@@ -45,6 +49,7 @@ export async function onRequestPost(context) {
   const { user, error } = await requireUser(request, env);
   if (error) return error;
 
+  await maintainUserTrash(env, user.id);
   const body = await safeJson(request);
   const trashId = Number(body.trashId);
   if (Number.isInteger(trashId) && trashId > 0) {
@@ -56,7 +61,9 @@ export async function onRequestPost(context) {
 
     let versions = [];
     try { versions = JSON.parse(entry.versions_json || '[]'); } catch {}
-    if (!Array.isArray(versions) || !versions.length) {
+    versions = Array.isArray(versions) ? versions.filter(version => hasPoemContent(version?.content)) : [];
+    if (!isValidPoemTitle(entry.title)) return jsonResponse({ error: 'La copia necesita un título válido antes de restaurarse.' }, { status: 400 });
+    if (!versions.length) {
       return jsonResponse({ error: 'Esta copia ya no se puede restaurar.' }, { status: 409 });
     }
 
@@ -82,11 +89,14 @@ export async function onRequestPost(context) {
     }
 
     const latest = await env.escandidor_db
-      .prepare('SELECT COALESCE(MAX(version), 0) AS version FROM poem_versions WHERE poem_id = ?')
+      .prepare('SELECT version, content FROM poem_versions WHERE poem_id = ? ORDER BY version DESC LIMIT 1')
       .bind(poemId)
       .first();
     let nextVersion = Number(latest?.version) || 0;
+    let previousContent = latest?.content;
     for (const version of versions) {
+      if (previousContent !== undefined && samePoemContent(previousContent, version.content)) continue;
+      previousContent = version.content;
       nextVersion += 1;
       await env.escandidor_db
         .prepare(
@@ -136,4 +146,15 @@ export async function onRequestDelete(context) {
   ]);
 
   return jsonResponse({ ok: true });
+}
+
+export async function onRequestPatch(context) {
+  const { request, env } = context;
+  const { user, error } = await requireUser(request, env);
+  if (error) return error;
+  const body = await safeJson(request);
+  if (typeof body.autoCleanup !== 'boolean') return jsonResponse({ error: 'Indica si quieres activar la limpieza automática.' }, { status: 400 });
+  await env.escandidor_db.prepare('INSERT INTO user_trash_settings (user_id, auto_cleanup) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET auto_cleanup = excluded.auto_cleanup')
+    .bind(user.id, body.autoCleanup ? 1 : 0).run();
+  return jsonResponse({ ok: true, policy: await maintainUserTrash(env, user.id) });
 }

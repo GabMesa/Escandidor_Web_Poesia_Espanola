@@ -1,3 +1,4 @@
+import { poemValidationError } from '../../../poem-policy.js';
 import {
   jsonResponse, errorResponse, safeJson, requireUser, serializePoem, normalizeFontFamily,
 } from '../../_lib/helpers.js';
@@ -50,9 +51,11 @@ export async function onRequestPost(context) {
   if (error) return error;
 
   const body = await safeJson(request);
-  const title = (body.title || 'Sin titulo').trim().slice(0, 200);
+  const title = typeof body.title === 'string' ? body.title.trim().slice(0, 200) : '';
   const versionName = (body.versionName || 'v1').trim().slice(0, 60);
   const content = typeof body.content === 'string' ? body.content : '';
+  const validationError = poemValidationError(title, content);
+  if (validationError) return errorResponse(validationError, 400);
   const settings = body.settings && typeof body.settings === 'object' ? body.settings : {};
   const fontFamily = normalizeFontFamily(body.fontFamily ?? settings.poemFont);
   settings.poemFont = fontFamily;

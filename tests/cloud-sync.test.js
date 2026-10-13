@@ -562,3 +562,81 @@ test('keeps failed saves in a persistent outbox until retry succeeds', async () 
   await sync.retryPending();
   assert.equal(sync.pendingCount(), 0);
 });
+
+test('compression saves a replacement autosave before deleting its old cloud version', async () => {
+  const calls = [];
+  const storage = new MemoryStorage();
+  const request = async (path, options = {}) => {
+    calls.push({ path, method: options.method });
+    return jsonResponse({ ok: true, poem: { id: 55, version: options.method === 'PUT' ? 2 : 1 } });
+  };
+  const sync = createCloudSync({ storage, request });
+  sync.setUser({ id: 8 });
+  await sync.syncSavedVersion({ poemKey: 'local:poem', title: 'Luna', version: version('v1', 1, 'la') });
+  const replacement = { ...version('v2', 2, 'la luna'), kind: 'autosave' };
+  await sync.compressVersions({ poemKey: 'local:poem', title: 'Luna', versionIds: ['v1'], retainedVersions: [replacement] });
+  assert.deepEqual(calls.map(call => `${call.method} ${call.path}`), ['POST /api/poems', 'PUT /api/poems/55', 'DELETE /api/poems/55?version=1']);
+  assert.equal(replacement.kind, 'autosave');
+  assert.equal(sync.pendingCount(), 0);
+});
+
+test('a failed replacement upload keeps the old cloud copy and compression pending', async () => {
+  let offline = false;
+  const calls = [];
+  const storage = new MemoryStorage();
+  const request = async (path, options = {}) => {
+    calls.push(options.method);
+    return offline ? jsonResponse({ error: 'Sin conexión' }, 503) : jsonResponse({ ok: true, poem: { id: 55, version: options.method === 'PUT' ? 2 : 1 } });
+  };
+  const sync = createCloudSync({ storage, request });
+  sync.setUser({ id: 8 });
+  await sync.syncSavedVersion({ poemKey: 'local:poem', title: 'Luna', version: version('v1', 1, 'la') });
+  offline = true;
+  await sync.compressVersions({ poemKey: 'local:poem', title: 'Luna', versionIds: ['v1'], retainedVersions: [version('v2', 2, 'la luna')] });
+  assert.equal(calls.includes('DELETE'), false);
+  assert.equal(sync.pendingCount(), 1);
+  offline = false;
+  await sync.retryPending();
+  assert.equal(calls.at(-1), 'DELETE');
+  assert.equal(sync.pendingCount(), 0);
+});
+
+test('compression without cloud versions stays local', async () => {
+  const sync = createCloudSync({ storage: new MemoryStorage(), request: () => { throw Error('No se esperaba una petición'); } });
+  sync.setUser({ id: 8 });
+  await sync.compressVersions({ poemKey: 'local:poem', title: 'Luna', versionIds: ['local-v1'], retainedVersions: [version('local-v2', 2, 'la luna')] });
+  assert.equal(sync.pendingCount(), 0);
+});
+
+test('compression protects a retained alias of the same cloud version', async () => {
+  const calls = [];
+  const sync = createCloudSync({ storage: new MemoryStorage(), request: async (path, options) => {
+    calls.push(options.method);
+    return jsonResponse({ ok: true, poem: { id: 55, version: 1 } });
+  } });
+  sync.setUser({ id: 8 });
+  const first = version('v1', 1, 'la luna');
+  const second = { ...first, id: 'v2' };
+  await sync.syncSavedVersion({ poemKey: 'local:poem', title: 'Luna', version: first });
+  await sync.syncSavedVersion({ poemKey: 'local:poem', title: 'Luna', version: second });
+  await sync.compressVersions({ poemKey: 'local:poem', title: 'Luna', versionIds: ['v1'], retainedVersions: [second] });
+  assert.equal(calls.includes('DELETE'), false);
+  assert.equal(sync.pendingCount(), 0);
+});
+
+test('compression supersedes an unsent old save without resurrecting it on retry', async () => {
+  let offline = true;
+  const calls = [];
+  const sync = createCloudSync({ storage: new MemoryStorage(), request: async (path, options) => {
+    if (offline) return jsonResponse({ error: 'Sin conexión' }, 503);
+    calls.push({ method: options.method, content: JSON.parse(options.body || '{}').content });
+    return jsonResponse({ ok: true, poem: { id: 55, version: 1 } });
+  } });
+  sync.setUser({ id: 8 });
+  await sync.syncSavedVersion({ poemKey: 'local:poem', title: 'Luna', version: version('v1', 1, 'la') });
+  offline = false;
+  await sync.compressVersions({ poemKey: 'local:poem', title: 'Luna', versionIds: ['v1'], retainedVersions: [version('v2', 2, 'la luna')] });
+  assert.equal(sync.pendingCount(), 0);
+  await sync.retryPending();
+  assert.deepEqual(calls, [{ method: 'POST', content: 'la luna' }]);
+});

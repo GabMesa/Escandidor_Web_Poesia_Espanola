@@ -41,7 +41,7 @@ npx wrangler d1 migrations list escandidor-db --remote
 npx wrangler d1 migrations apply escandidor-db --remote
 ```
 
-Las migraciones comienzan en `0002`; `schema.sql` representa el resultado acumulado hasta `0011`. La ausencia de `0001` es historica. No renumeres ni reescribas migraciones aplicadas.
+Las migraciones comienzan en `0002`; `schema.sql` representa el resultado acumulado hasta `0013`. La ausencia de `0001` es historica. No renumeres ni reescribas migraciones aplicadas.
 
 Antes de cambios remotos, exporta D1 con el comando vigente de Wrangler y guarda la copia fuera del repositorio. Comprueba despues `users`, `poems`, `poem_versions`, `deleted_poems`, `supporters` y `kofi_payments`.
 
@@ -107,3 +107,28 @@ Los archivos de `functions/api/` son la fuente de verdad para metodos y cuerpos 
 5. Prueba primero con las versiones fijadas por `package-lock.json` y actualiza por etapas.
 6. Despliega una vista previa de Pages y prueba autenticacion, D1 y webhook.
 7. Documenta nuevos nombres, IDs, propietarios y decisiones aqui.
+
+## Limpieza de versiones vacías (2026-10-13)
+
+Se aplicó `migrations/0012_remove_empty_poem_versions.sql` directamente a `escandidor-db`, tras exportar y verificar una copia completa fuera del repositorio. Se eliminaron 236 versiones vacías, 8 poemas sin contenido y 4 versiones vacías de la papelera. Se conservaron las 1.252 versiones con texto, sus IDs y su numeración; se conservaron marcadores de eliminación para impedir que las copias antiguas recrearan poemas vacíos.
+
+La copia previa está en `%TEMP%/escandidor-db-backups/escandidor-db-before-empty-cleanup-20261013-141519.sql`. No debe publicarse con el sitio. La exportación requirió Node 22 y Wrangler 4.150.0 temporales porque Wrangler 4.86.0 no obtenía la URL de descarga. Las dependencias del proyecto no se actualizaron.
+
+La migración también instala cinco protecciones de base de datos contra títulos vacíos o «Sin título», contenido vacío y versiones consecutivas con el mismo texto. Es idempotente. Como se ejecutó con `d1 execute`, no se registró automáticamente en `d1_migrations`: revisar esta nota al aplicar migraciones pendientes.
+
+Auditoría: `scripts/audit-empty-poem-versions.sql`. Verificación local de la limpieza y las protecciones: `python scripts/verify-empty-cleanup.py`. Las validaciones del editor y los mensajes de la API requieren publicar el código actualizado; las protecciones de D1 ya están activas.
+
+
+## Publicar la política de papelera
+
+La migración `0013_user_trash_settings.sql` crea la preferencia de limpieza por cuenta; está preparada localmente y no se ha aplicado a producción. Tras verificar la cuenta y crear una copia de seguridad, aplicar únicamente esta migración idempotente antes de publicar el código nuevo:
+
+```powershell
+npx wrangler d1 execute escandidor-db --remote --file=./migrations/0013_user_trash_settings.sql
+npm run deploy
+npm run deploy:trash-cleanup
+```
+
+El último comando publica `escandidor-trash-cleanup` con la configuración `wrangler.trash-cleanup.jsonc`, conectado a la misma D1 que Pages. Se ejecuta una vez por hora y aplica las preferencias de cada usuario; desactivar la caducidad conserva las copias antiguas mientras respeten el límite de espacio y cantidad. El empaquetado se ha verificado con `wrangler deploy --dry-run`, sin publicar el Worker.
+
+Comprobar `GET /api/trash` (campo `policy`) y `PATCH /api/trash` (`{autoCleanup: true|false}`), la persistencia entre dispositivos y el historial de ejecuciones programadas del Worker. No borrar los marcadores `deleted_poems` cuyo `poem_id` no sea nulo al liberar las copias recuperables.

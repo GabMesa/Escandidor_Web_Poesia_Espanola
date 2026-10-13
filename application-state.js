@@ -13,6 +13,7 @@ export const applicationState = {
     analysisMode: 'visual',
     panelViewMode: 'both',
     fontScale: 100,
+    autoCompressVersions: true,
     poemFont: 'atkinson',
     sinalefaEnabled: true,
     conservativeSinalefa: true,

@@ -34,6 +34,7 @@ try{
  await navigate('/escandidor.html');
  await evaluate(`(()=>{window.__downloads=[];HTMLAnchorElement.prototype.click=function(){if(this.download){window.__downloads.push({name:this.download,blob:fetch(this.href).then(r=>r.blob())});}};})()`);
  const input=async(id,value)=>evaluate(`(()=>{const e=document.getElementById(${JSON.stringify(id)});e.value=${JSON.stringify(value)};e.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+ await evaluate('document.getElementById("autoCompressVersions").checked=false;document.getElementById("autoCompressVersions").dispatchEvent(new Event("change"))');
  await input('poemTitle','Poema de prueba');await input('poemInput','La luna');await evaluate('document.getElementById("savePoem").click()');await sleep(30);
  await input('poemInput','La luna brilla');await evaluate('document.getElementById("savePoem").click()');await sleep(30);
  await input('poemInput','La luna brilla sobre el mar');

@@ -1,3 +1,4 @@
+import { maintainUserTrash } from '../../_lib/trash-storage.js';
 import { jsonResponse, requireUser, serializePoem } from '../../_lib/helpers.js';
 
 function serializeTrashEntry(row) {
@@ -17,6 +18,7 @@ function serializeTrashEntry(row) {
 export async function onRequestGet({ request, env }) {
   const { user, error } = await requireUser(request, env);
   if (error) return error;
+  await maintainUserTrash(env, user.id);
 
   const [{ results: poemRows }, { results: trashRows }, { results: deletionRows }] = await Promise.all([
     env.escandidor_db.prepare(

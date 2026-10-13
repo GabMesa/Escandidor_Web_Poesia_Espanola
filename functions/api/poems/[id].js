@@ -1,3 +1,5 @@
+import { maintainUserTrash } from '../../_lib/trash-storage.js';
+import { poemValidationError, samePoemContent } from '../../../poem-policy.js';
 import {
   jsonResponse,
   errorResponse,
@@ -27,28 +29,7 @@ async function archiveDeletedVersions(env, userId, poem, versions, poemId = null
       colorIndex: poem.color_index,
     }))))
     .run();
-  await env.escandidor_db
-    .prepare(
-      `UPDATE deleted_poems SET versions_json = '[]'
-       WHERE user_id = ? AND poem_id IS NOT NULL AND id NOT IN (
-         SELECT id FROM deleted_poems
-         WHERE user_id = ? AND versions_json <> '[]'
-         ORDER BY deleted_at DESC, id DESC LIMIT 10
-       )`
-    )
-    .bind(userId, userId)
-    .run();
-  await env.escandidor_db
-    .prepare(
-      `DELETE FROM deleted_poems
-       WHERE user_id = ? AND poem_id IS NULL AND id NOT IN (
-         SELECT id FROM deleted_poems
-         WHERE user_id = ? AND versions_json <> '[]'
-         ORDER BY deleted_at DESC, id DESC LIMIT 10
-       )`
-    )
-    .bind(userId, userId)
-    .run();
+  await maintainUserTrash(env, userId);
 }
 
 export async function onRequestPut(context) {
@@ -64,10 +45,12 @@ export async function onRequestPut(context) {
   if (!existing) return errorResponse('Poema no encontrado.', 404);
 
   const body = await safeJson(request);
-  const title = body.title !== undefined ? String(body.title).trim().slice(0, 200) : existing.title;
+  const title = body.title !== undefined ? (typeof body.title === 'string' ? body.title.trim().slice(0, 200) : '') : existing.title;
   const versionName =
     body.versionName !== undefined ? String(body.versionName).trim().slice(0, 60) : existing.version_name;
-  const content = body.content !== undefined ? String(body.content) : existing.content;
+  const content = body.content !== undefined ? (typeof body.content === 'string' ? body.content : '') : existing.content;
+  const validationError = poemValidationError(title, content);
+  if (validationError) return errorResponse(validationError, 400);
   const settingsObject = body.settings !== undefined
     ? body.settings
     : JSON.parse(existing.settings_json || '{}');
@@ -84,7 +67,7 @@ export async function onRequestPut(context) {
     .bind(title, settings, fontFamily, colorIndex, poemId, user.id)
     .run();
 
-  if (body.versionName !== undefined || body.content !== undefined) {
+  if ((body.versionName !== undefined || body.content !== undefined) && !samePoemContent(content, existing.content)) {
     await env.escandidor_db
       .prepare(
         `INSERT INTO poem_versions (poem_id, name, content, version)
@@ -92,6 +75,11 @@ export async function onRequestPut(context) {
       )
       .bind(poemId, versionName, content, existing.version + 1)
       .run();
+  }
+
+  if (body.versionName !== undefined && samePoemContent(content, existing.content)) {
+    await env.escandidor_db.prepare('UPDATE poem_versions SET name = ? WHERE poem_id = ? AND version = ?')
+      .bind(versionName, poemId, existing.version).run();
   }
 
   const row = await env.escandidor_db

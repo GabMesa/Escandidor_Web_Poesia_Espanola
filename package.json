@@ -6,9 +6,10 @@
   "description": "Escandador básico de poesía en español para hosting estático.",
   "scripts": {
     "test": "node --test",
-    "check": "node --check app.js && node --check analyzer.js && node --check auth.js && node --check cloud-sync.js && node --check browser-storage.js && node --check theme-init.js && node --check theme.js && node --check poem-exports.js && node --check poem-video.js",
+    "check": "node --check app.js && node --check analyzer.js && node --check auth.js && node --check cloud-sync.js && node --check browser-storage.js && node --check poem-policy.js && node --check poem-compression.js && node --check trash-policy.js && node --check functions/_lib/trash-storage.js && node --check workers/trash-cleanup.js && node --check theme-init.js && node --check theme.js && node --check poem-exports.js && node --check poem-video.js",
     "dev": "wrangler pages dev .",
-    "deploy": "wrangler pages deploy . --project-name mesa-de-poesia"
+    "deploy": "wrangler pages deploy . --project-name mesa-de-poesia",
+    "deploy:trash-cleanup": "wrangler deploy --config wrangler.trash-cleanup.jsonc"
   },
   "devDependencies": {
     "wrangler": "^4.86.0"

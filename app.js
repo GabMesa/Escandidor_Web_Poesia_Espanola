@@ -1,3 +1,6 @@
+import { applyTrashPolicy, TRASH_MAX_BYTES } from './trash-policy.js';
+import { compressPoemVersions } from './poem-compression.js';
+import { isValidPoemTitle, poemValidationError, samePoemContent, cleanEmptyPoemVersions } from './poem-policy.js';
 import { writePersistentStorage, writeDisposableStorage, loadWordCorpusCache, saveWordCorpusCache } from './browser-storage.js';
 import { sortPoemVersions, selectMarkdownEntries, buildHistoryMarkdown, buildVideoTimeline } from './poem-exports.js';
 import { createPoemVideoExporter } from './poem-video.js';
@@ -172,7 +175,8 @@ function applyColorIntensity(value) {
 }
 
 const AUTO_SAVE_DELAY_MS = 10_000;
-const TRASH_LIMIT = 10;
+const TRASH_POLICY_KEY = 'escandador.trashAutoCleanup.v1:';
+const trashCleanupPreferences = new Map();
 const LOOKUP_AUTO_FETCH_DELAY_MS = 420;
 const LOOKUP_WIKTIONARY_BASE_URL = 'https://es.wiktionary.org/wiki/';
 const LOOKUP_WIKTIONARY_API_BASE_URL = 'https://es.wiktionary.org/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&origin=*&titles=';
@@ -2380,7 +2384,8 @@ function saveUiPreferences() {
       LOCAL_UI_PREFERENCES_KEY,
       JSON.stringify({
         fontScale: state.fontScale,
-        panelViewMode: state.panelViewMode
+        panelViewMode: state.panelViewMode,
+        autoCompressVersions: state.autoCompressVersions
       })
     );
   } catch {
@@ -2493,6 +2498,8 @@ function adjustFontScale(step) {
 function initializeUiPreferences() {
   const preferences = loadUiPreferences();
   state.fontScale = clampFontScale(preferences.fontScale ?? state.fontScale);
+  state.autoCompressVersions = preferences.autoCompressVersions !== false;
+  document.getElementById('autoCompressVersions').checked = state.autoCompressVersions;
 
   const preferredPanelMode = String(preferences.panelViewMode ?? '').trim();
   if (preferredPanelMode === 'writing' || preferredPanelMode === 'analysis' || preferredPanelMode === 'both') {
@@ -2572,9 +2579,10 @@ function loadPoemMemoryStore() {
       return replaceLibraryState(emptyStore);
     }
 
-    let poems = parsed.poems && typeof parsed.poems === 'object' ? parsed.poems : {};
-    const trash = parsed.trash && typeof parsed.trash === 'object' ? parsed.trash : {};
-    let changed = false;
+    const cleaned = cleanEmptyPoemVersions(parsed);
+    let poems = cleaned.memory.poems;
+    const trash = cleaned.memory.trash;
+    let changed = cleaned.removed > 0;
 
     if (parsed.schemaVersion !== 2) {
       const migratedPoems = {};
@@ -2609,19 +2617,10 @@ function loadPoemMemoryStore() {
       }
     }
 
-    const newestTrashEntries = Object.entries(trash)
-      .flatMap(([title, entries]) => entries.map((entry) => ({ title, entry })))
-      .sort((left, right) => new Date(right.entry.deletedAt) - new Date(left.entry.deletedAt))
-      .slice(0, TRASH_LIMIT);
-    const trimmedTrash = {};
-    for (const { title, entry } of newestTrashEntries) {
-      (trimmedTrash[title] ||= []).push(entry);
-    }
-    if (newestTrashEntries.length !== Object.values(trash).reduce((total, entries) => total + entries.length, 0)) {
-      changed = true;
-      for (const title of Object.keys(trash)) delete trash[title];
-      Object.assign(trash, trimmedTrash);
-    }
+    const boundedTrash = boundedLocalTrash(trash);
+    if (boundedTrash.removed.length) changed = true;
+    for (const title of Object.keys(trash)) delete trash[title];
+    Object.assign(trash, boundedTrash.trash);
 
     if (changed) {
       try {
@@ -2765,20 +2764,71 @@ function movePoemToTrash(store, title, versionsToTrash = null) {
     versions: versions.map((entry) => ({ ...entry }))
   });
 
-  const entries = Object.entries(store.trash)
-    .flatMap(([trashTitle, groups]) => groups.map((group) => ({ trashTitle, group })))
-    .sort((left, right) => new Date(right.group.deletedAt) - new Date(left.group.deletedAt))
-    .slice(0, TRASH_LIMIT);
-  store.trash = {};
-  for (const { trashTitle, group } of entries) {
-    (store.trash[trashTitle] ||= []).push(group);
-  }
+  store.trash = boundedLocalTrash(store.trash).trash;
 
   return true;
 }
 
+function trashPreferenceOwner() {
+  return localStorage.getItem('escandador.poemMemory.activeOwner.v1') || 'anonymous';
+}
+
+function trashAutoCleanupEnabled() {
+  const owner = trashPreferenceOwner();
+  if (trashCleanupPreferences.has(owner)) return trashCleanupPreferences.get(owner);
+  if (owner !== 'anonymous') return false;
+  try {
+    const value = localStorage.getItem(TRASH_POLICY_KEY + owner);
+    // Wait for account settings before expiring cached account copies.
+    return value === null ? owner === 'anonymous' : value !== 'false';
+  } catch { return owner === 'anonymous'; }
+}
+
+function boundedLocalTrash(trash) {
+  const entries = Object.entries(trash || {}).flatMap(([title, groups]) => groups.map(group => ({ ...group, title })));
+  const result = applyTrashPolicy(entries, { autoCleanup: trashAutoCleanupEnabled() });
+  const kept = {};
+  for (const { title, ...group } of result.retained) (kept[title] ||= []).push(group);
+  return { ...result, trash: kept };
+}
+
+function cacheTrashPreference(value) {
+  const owner = trashPreferenceOwner();
+  trashCleanupPreferences.set(owner, value);
+  try { writePersistentStorage(localStorage, TRASH_POLICY_KEY + owner, String(value)); } catch { /* Keep the account preference in memory. */ }
+}
+
+window.addEventListener('escandidor:trash-policy', (event) => {
+  if (typeof event.detail?.policy?.autoCleanup !== 'boolean') return;
+  cacheTrashPreference(event.detail.policy.autoCleanup);
+  document.getElementById('autoCleanupTrash').disabled = false;
+  renderPoemTrash();
+});
+
+window.addEventListener('escandidor:trash-policy-loading', event => {
+  trashCleanupPreferences.delete(String(event.detail.userId));
+});
+
+document.getElementById('autoCleanupTrash')?.addEventListener('change', (event) => {
+  const autoCleanup = event.target.checked;
+  if (applicationState.auth.user) {
+    // Apply destructive expiration only after the account preference is accepted.
+    event.target.checked = trashAutoCleanupEnabled();
+    window.dispatchEvent(new CustomEvent('escandidor:trash-auto-cleanup', { detail: { autoCleanup } }));
+  } else {
+    cacheTrashPreference(autoCleanup);
+    renderPoemTrash();
+  }
+});
+
 function renderPoemTrash() {
   if (!poemTrashList) return;
+  const checkbox = document.getElementById('autoCleanupTrash');
+  checkbox.checked = trashAutoCleanupEnabled();
+  checkbox.disabled = trashPreferenceOwner() !== 'anonymous' && !trashCleanupPreferences.has(trashPreferenceOwner());
+  const usage = boundedLocalTrash(loadPoemMemoryStore().trash).usedBytes;
+  document.getElementById('trashSpaceUsage').textContent = `${Math.ceil(usage / 1024)} / ${TRASH_MAX_BYTES / 1024} KB`;
+  document.getElementById('trashSpaceMeter').value = usage;
   const entries = Object.entries(loadPoemMemoryStore().trash)
     .flatMap(([title, groups]) => groups.map((group, groupIndex) => ({ title, groupIndex, ...group })))
     .sort((left, right) => new Date(right.deletedAt) - new Date(left.deletedAt));
@@ -3160,6 +3210,11 @@ function updateSelectAllButtonLabel(totalItems) {
 }
 
 function updateVersionManagerStatus() {
+  const compressionButton = document.getElementById('compressPoemVersions');
+  if (compressionButton) {
+    const poemKey = savedPoemName?.value || state.loadedVersionTitle;
+    compressionButton.disabled = (loadPoemMemoryStore().poems[poemKey]?.length || 0) < 2;
+  }
   if (!versionManagerStatus) {
     return;
   }
@@ -3197,6 +3252,7 @@ function closeVersionManagerModal() {
 }
 
 function renderSavedVersionList(selectedPoemKey, preferredVersionId = '') {
+  updateVersionManagerStatus();
   if (!savedVersionsList) {
     return;
   }
@@ -3406,9 +3462,22 @@ function renderSavedVersionList(selectedPoemKey, preferredVersionId = '') {
       label.value = getVersionLabel(entry, rankedIndex, ranked.length);
       label.placeholder = getDefaultVersionLabel(entry, rankedIndex, ranked.length);
       label.title = 'Edita y presiona Enter para guardar el título de esta versión';
+      label.setAttribute('aria-label', `Nombre de ${label.value}`);
       label.dataset.action = 'edit-version-label';
       label.dataset.versionId = String(entry.id ?? '');
       label.dataset.title = poemKey;
+
+      const renameButton = document.createElement('button');
+      renameButton.type = 'button';
+      renameButton.className = 'secondary saved-version-action version-rename-button';
+      renameButton.title = 'Cambiar nombre de la versión';
+      renameButton.setAttribute('aria-label', `Cambiar nombre de ${label.value}`);
+      renameButton.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="m16 3 5 5-12 12-6 1 1-6Z M14 5l5 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      renameButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        label.focus();
+        label.select();
+      });
 
       const kind = document.createElement('span');
       kind.className = 'saved-version-kind';
@@ -3464,7 +3533,7 @@ function renderSavedVersionList(selectedPoemKey, preferredVersionId = '') {
 
       actions.append(previewButton, openButton, mdButton, pdfButton, deleteButton);
 
-      main.append(label, kind);
+      main.append(label, renameButton, kind);
       text.append(main, meta, actions);
       item.append(checkbox, text);
       poemVersionList.appendChild(item);
@@ -3739,6 +3808,48 @@ function createNewPoem() {
   showToast('Nuevo poema creado.', 'success');
 }
 
+function dispatchVersionsCompressed(poemKey, title, result) {
+  if (!result.removed.length) return;
+  window.dispatchEvent(new CustomEvent('escandidor:versions-compressed', {
+    detail: { poemKey, title, versionIds: result.removed.map(version => String(version.id)), retainedVersions: structuredClone(result.retained) }
+  }));
+}
+
+function compressSelectedPoemVersions({ notify = true } = {}) {
+  const poemKey = savedPoemName?.value || state.loadedVersionTitle;
+  const store = loadPoemMemoryStore();
+  const versions = store.poems[poemKey] || [];
+  const result = compressPoemVersions(versions);
+  if (!result.removed.length) {
+    if (notify) showToast('No hay versiones consecutivas contenidas para comprimir.', 'info');
+    return;
+  }
+  const dirty = isCurrentDraftDirtyAgainstLoadedVersion();
+  const title = getStoredPoemTitle(poemKey, versions);
+  store.poems[poemKey] = result.retained;
+  movePoemToTrash(store, title, result.removed);
+  if (!savePoemMemoryStore(store)) {
+    showToast('No se pudieron comprimir las versiones.', 'error');
+    return;
+  }
+  const removedIds = new Set(result.removed.map(version => String(version.id)));
+  for (const id of removedIds) selectedVersionIds.delete(makeVersionSelectionKey(poemKey, id));
+  if (state.loadedVersionTitle === poemKey && removedIds.has(String(state.loadedVersionId))) {
+    const newest = result.retained.at(-1);
+    if (!dirty) loadVersionById(poemKey, String(newest.id));
+    else {
+      state.loadedVersionId = String(newest.id);
+      saveLastWorkedPoemReference(poemKey, state.loadedVersionId);
+    }
+  }
+  refreshSavedPoemNameOptions(poemKey);
+  refreshSavedPoemVersionOptions(poemKey, state.loadedVersionTitle === poemKey ? state.loadedVersionId : String(result.retained.at(-1).id));
+  renderSavedVersionList(poemKey, savedPoemVersion?.value || '');
+  renderPoemTrash();
+  dispatchVersionsCompressed(poemKey, title, result);
+  if (notify) showToast(`${result.removed.length} versión${result.removed.length === 1 ? '' : 'es'} comprimida${result.removed.length === 1 ? '' : 's'}.`, 'success');
+}
+
 function saveCurrentPoemVersion(options = {}) {
   cancelPendingAutoSave();
   const {
@@ -3748,7 +3859,15 @@ function saveCurrentPoemVersion(options = {}) {
   } = options;
   const saveKind = kind === 'autosave' ? 'autosave' : 'manual';
 
-  const title = normalizePoemTitle(poemTitle?.value ?? '');
+  const title = String(poemTitle?.value ?? '').trim();
+  const validationError = poemValidationError(title, poemInput.value);
+  if (validationError) {
+    if (notify) {
+      showToast(validationError, 'warning');
+      if (!isValidPoemTitle(title)) poemTitle?.focus();
+    }
+    return false;
+  }
   if (poemTitle) {
     poemTitle.value = title;
   }
@@ -3791,8 +3910,12 @@ function saveCurrentPoemVersion(options = {}) {
       lineOverrides: latest.lineOverrides
     });
     const latestKind = String(latest.kind ?? 'manual');
-    if (latestSignature === nextSignature && previousTitle === title) {
-      if (saveKind === 'manual' && latestKind === 'autosave') {
+    if (samePoemContent(latest.poemText, snapshot.poemText)) {
+      if (latestSignature !== nextSignature || previousTitle !== title) {
+        // Metadata changes update this checkpoint without duplicating the poem text.
+        Object.assign(nextVersion, { id: latest.id, savedAt: latest.savedAt, versionNumber: latest.versionNumber, label: latest.label, kind: saveKind === 'manual' ? 'manual' : latestKind });
+        versions[versions.length - 1] = nextVersion;
+      } else if (saveKind === 'manual' && latestKind === 'autosave') {
         // Explicit saving marks this existing checkpoint for cloud sync; keep its identity and date.
         Object.assign(nextVersion, latest, { kind: 'manual', poemTitle: title });
         versions[versions.length - 1] = nextVersion;
@@ -3804,6 +3927,7 @@ function saveCurrentPoemVersion(options = {}) {
         saveLastWorkedPoemReference(poemKey, state.loadedVersionId);
         if (notify && notifyWhenUnchanged) showToast('Sin cambios para guardar.', 'warning');
         if (saveKind === 'manual') dispatchPoemSaved(poemKey, title, latest, previousTitle !== title ? previousTitle : '');
+        if (state.autoCompressVersions) compressSelectedPoemVersions({ notify: false });
         return false;
       }
     } else {
@@ -3814,6 +3938,13 @@ function saveCurrentPoemVersion(options = {}) {
     versions.push(nextVersion);
   }
 
+  const compression = state.autoCompressVersions
+    ? compressPoemVersions(versions)
+    : { retained: versions, removed: [] };
+  if (compression.removed.length) {
+    store.poems[poemKey] = compression.retained;
+    movePoemToTrash(store, title, compression.removed);
+  }
   const ok = savePoemMemoryStore(store);
   if (!ok) {
     if (notify) {
@@ -3839,6 +3970,8 @@ function saveCurrentPoemVersion(options = {}) {
   if (saveKind === 'manual') {
     dispatchPoemSaved(poemKey, title, nextVersion, previousTitle !== title ? previousTitle : '');
   }
+  for (const removed of compression.removed) selectedVersionIds.delete(makeVersionSelectionKey(poemKey, String(removed.id)));
+  dispatchVersionsCompressed(poemKey, title, compression);
   return true;
 }
 
@@ -4063,6 +4196,10 @@ async function downloadSelectedVersionsAsPdf() {
 
 function renamePoemTitleInline(poemKey, nextTitleRaw) {
   const selectedPoemKey = String(poemKey ?? '').trim();
+  if (!isValidPoemTitle(nextTitleRaw)) {
+    showToast('Escribe un título válido. «Sin título» no es válido.', 'warning');
+    return false;
+  }
   const targetTitle = normalizePoemTitle(nextTitleRaw);
   if (!selectedPoemKey || !targetTitle) {
     return false;
@@ -4359,7 +4496,7 @@ function parsePoemsFromMarkdown(markdown) {
   }
 
   flush();
-  return poems.filter((item) => item.title && item.text.trim());
+  return poems.filter((item) => isValidPoemTitle(item.title) && item.text.trim());
 }
 
 function importPoemsFromMarkdown(markdown) {
@@ -7432,6 +7569,11 @@ editPoemNameInput?.addEventListener('keydown', (event) => {
 });
 deletePoemVersion?.addEventListener('click', deleteSelectedPoemVersion);
 deleteSelectedVersions?.addEventListener('click', deleteSelectedPoemVersions);
+document.getElementById('compressPoemVersions')?.addEventListener('click', () => compressSelectedPoemVersions());
+document.getElementById('autoCompressVersions')?.addEventListener('change', (event) => {
+  state.autoCompressVersions = event.target.checked;
+  saveUiPreferences();
+});
 emptyPoemTrash?.addEventListener('click', () => {
   const store = loadPoemMemoryStore();
   store.trash = {};
@@ -7908,3 +8050,7 @@ window.PoetryAnalyzer = {
   parseStressPattern,
   parseHemistichPositions
 };
+
+// Keep an open tab's local trash fresh; remote cleanup runs on authenticated trash operations.
+setInterval(() => renderPoemTrash(), 60 * 60 * 1000);
+window.addEventListener('visibilitychange', () => { if (!document.hidden) renderPoemTrash(); });

@@ -140,6 +140,38 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
       '--command', "UPDATE users SET role = 'admin' WHERE username = 'primera';",
     ]);
 
+    for (const body of [
+      { title: '', content: 'Un verso' },
+      { title: ' SIN TÍTULO ', content: 'Un verso' },
+      { title: 'Sin titulo', content: 'Un verso' },
+      { title: 'Poema válido', content: ' \n\t\u00a0' },
+      { title: 'Poema válido' },
+    ]) {
+      const rejected = await jsonRequest(baseUrl, '/api/poems', { method: 'POST', cookie: firstCookie, body });
+      assert.equal(rejected.response.status, 400);
+    }
+
+    const initialTrash = await jsonRequest(baseUrl, '/api/trash', { cookie: firstCookie });
+    assert.equal(initialTrash.payload.policy.autoCleanup, true);
+    assert.equal(initialTrash.payload.policy.maxBytes, 524288);
+    const disableCleanup = await jsonRequest(baseUrl, '/api/trash', { method: 'PATCH', cookie: firstCookie, body: { autoCleanup: false } });
+    assert.equal(disableCleanup.response.status, 200);
+    assert.equal(disableCleanup.payload.policy.autoCleanup, false);
+    assert.equal((await jsonRequest(baseUrl, '/api/trash', { cookie: secondCookie })).payload.policy.autoCleanup, true);
+    // Seed old and oversized trash copies without touching active poem histories.
+    runWrangler(['d1', 'execute', 'escandidor-db', '--local', '--persist-to', persistence, '--command', `
+      INSERT INTO deleted_poems(user_id,poem_id,title,versions_json,deleted_at) VALUES
+      (${firstRegistration.payload.user.id},90001,'Vieja','[{"content":"Conservar si está desactivado"}]',datetime('now','-31 days'));
+    `]);
+    assert.ok((await jsonRequest(baseUrl, '/api/trash', { cookie: firstCookie })).payload.trash.some(entry => entry.poemId === 90001));
+    const enableCleanup = await jsonRequest(baseUrl, '/api/trash', { method: 'PATCH', cookie: firstCookie, body: { autoCleanup: true } });
+    assert.equal(enableCleanup.response.status, 200);
+    const expiredTrash = await jsonRequest(baseUrl, '/api/trash', { cookie: firstCookie });
+    assert.equal(expiredTrash.payload.trash.some(entry => entry.poemId === 90001), false);
+    assert.ok(expiredTrash.payload.deletedPoemIds.includes(90001));
+    // Remove this synthetic tombstone to keep the original fixture assertions unchanged.
+    runWrangler(['d1', 'execute', 'escandidor-db', '--local', '--persist-to', persistence, '--command', `DELETE FROM deleted_poems WHERE user_id=${firstRegistration.payload.user.id} AND poem_id=90001`]);
+
     const firstPoem = await jsonRequest(baseUrl, '/api/poems', {
       method: 'POST', cookie: firstCookie,
       body: {
@@ -150,6 +182,17 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     });
     assert.equal(firstPoem.response.status, 201);
     const poemId = firstPoem.payload.poem.id;
+
+    const repeated = await jsonRequest(baseUrl, `/api/poems/${poemId}`, {
+      method: 'PUT', cookie: firstCookie,
+      body: { versionName: 'borrador', content: 'Primer texto' },
+    });
+    assert.equal(repeated.response.status, 200);
+    assert.equal(repeated.payload.poem.version, 1);
+    for (const body of [{ title: 'Sin título' }, { title: '' }, { content: ' \n\t\u00a0' }]) {
+      const rejected = await jsonRequest(baseUrl, `/api/poems/${poemId}`, { method: 'PUT', cookie: firstCookie, body });
+      assert.equal(rejected.response.status, 400);
+    }
 
     const revisionUpdate = await jsonRequest(baseUrl, `/api/poems/${poemId}`, {
       method: 'PUT', cookie: firstCookie,

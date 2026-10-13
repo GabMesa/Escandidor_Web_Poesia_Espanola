@@ -37,6 +37,9 @@ const cloudSync = createCloudSync({
     cloudSaveStatus.classList.toggle('is-error', status === 'error');
     retryCloudSync.classList.toggle('hidden', status !== 'error' || cloudSync.pendingCount() === 0);
   },
+  onTrashPolicy(policy) {
+    window.dispatchEvent(new CustomEvent('escandidor:trash-policy', { detail: { policy } }));
+  },
   onTrash(trash) {
     window.dispatchEvent(new CustomEvent('escandidor:trash-synced', {
       detail: { trash },
@@ -65,6 +68,8 @@ async function apiRequest(path, options = {}) {
 }
 
 function renderUser(user) {
+  const previousId = applicationState.auth.user?.id;
+  if (user && user.id !== previousId) window.dispatchEvent(new CustomEvent('escandidor:trash-policy-loading', { detail: { userId: user.id } }));
   cloudSync.setUser(user);
   applicationState.auth.user = user || null;
   guestActions.classList.toggle('hidden', Boolean(user));
@@ -72,6 +77,7 @@ function renderUser(user) {
   accountIdentity.textContent = user ? user.username : '';
   adminLink?.classList.toggle('hidden', user?.role !== 'admin');
   if (loadDataFromServer) loadDataFromServer.disabled = !user;
+  if (user && user.id !== previousId) cloudSync.loadTrashPolicy();
 }
 
 function showSessionConflict(otherSessions) {
@@ -175,9 +181,20 @@ window.addEventListener('escandidor:poem-saved', (event) => {
   cloudSync.syncSavedVersion(event.detail);
 });
 
+window.addEventListener('escandidor:versions-compressed', (event) => {
+  try {
+    cloudSync.compressVersions(event.detail);
+  } catch (error) {
+    cloudSaveStatus.textContent = error.message;
+    cloudSaveStatus.classList.add('is-error');
+  }
+});
+
 window.addEventListener('escandidor:poem-deleted', (event) => {
   cloudSync.deleteSavedVersions(event.detail);
 });
+
+window.addEventListener('escandidor:trash-auto-cleanup', event => cloudSync.setTrashAutoCleanup(event.detail.autoCleanup));
 
 window.addEventListener('escandidor:trash-emptied', () => {
   cloudSync.emptyTrash();

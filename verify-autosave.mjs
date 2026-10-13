@@ -30,6 +30,7 @@ try{
  await setWidth(1440);await navigate('/escandidor.html');await evaluate('localStorage.clear()');await send('Page.reload');await sleep(300);await ready();await sleep(400);
  const input=async(id,value)=>evaluate(`(()=>{const e=document.getElementById(${JSON.stringify(id)});e.value=${JSON.stringify(value)};e.dispatchEvent(new Event('input',{bubbles:true}));})()`);
  const versions=()=>evaluate(`import('/application-state.js').then(m=>Object.values(m.applicationState.library.poems).flat().map(v=>({id:v.id,text:v.poemText,number:v.versionNumber,kind:v.kind,savedAt:v.savedAt})))`);
+ await evaluate('document.getElementById("autoCompressVersions").checked=false;document.getElementById("autoCompressVersions").dispatchEvent(new Event("change"))');
  await input('poemTitle','Pausas de escritura');await input('poemInput','Primer verso');await evaluate('document.getElementById("savePoem").click()');assert.equal((await versions()).length,1);
  await input('poemInput','Primer verso, empezando');await sleep(5500);assert.equal((await versions()).length,1);
  await input('poemInput','Primer verso, terminado');await sleep(5500);assert.equal((await versions()).length,1,'each input restarts the full ten-second delay');
@@ -39,6 +40,6 @@ try{
  await input('poemInput','Primer verso, terminado\nSegundo verso');await sleep(10400);assert.equal((await versions()).length,3,'unchanged input does not create duplicate checkpoints');
  await evaluate('document.getElementById("exportPoemVideo").click()');assert.match(await evaluate('document.getElementById("poemVideoSummary").textContent'),/3 ediciones/);await evaluate('document.querySelector("[data-close-video]").click()');
  await send('Page.reload');await sleep(300);await ready();await sleep(350);assert.equal((await versions()).length,3,'checkpoints persist on reload');
- await input('poemTitle','Nuevo t?tulo');await sleep(10400);assert.equal((await versions()).length,4,'title edits also persist');
+ await input('poemTitle','Nuevo título');await sleep(10400);assert.equal((await versions()).length,3,'title edits persist without a duplicate text revision');assert.equal(await evaluate(`import('/application-state.js').then(m=>Object.values(m.applicationState.library.poems).flat().at(-1).poemTitle)`),'Nuevo título');
  assert.deepEqual(errors,[]);console.log('Autosave QA passed: real ten-second debounce, appended history, no overwritten autosaves, no duplicate saves, manual promotion, video timeline and reload persistence.');
 }finally{try{await Promise.race([browserClose?.(),sleep(2000)]);}catch{}ws?.close();proc.kill();server.close();}

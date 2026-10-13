@@ -453,6 +453,16 @@
                       Comparar y sincronizar
                     </button>
                   </div>
+                  <div class="version-modal-actions-row compression-controls">
+                    <button id="compressPoemVersions" type="button" class="secondary compact-action" disabled>
+                      Comprimir versiones
+                    </button>
+                    <label class="compression-toggle" for="autoCompressVersions">
+                      <input id="autoCompressVersions" type="checkbox" role="switch" checked aria-describedby="compressionHint" />
+                      Comprimir automáticamente al guardar
+                    </label>
+                    <p id="compressionHint">Comprime el poema seleccionado, de la versión más vieja a la más nueva. Si una contiene la anterior, conserva la nueva. Las eliminadas van a la papelera.</p>
+                  </div>
                   <div class="version-modal-actions-row">
                     <label class="manager-font-control" for="defaultPoemFont">
                       Fuente por defecto
@@ -580,6 +590,12 @@
                     <button id="emptyPoemTrash" type="button" class="secondary compact-action">
                       Vaciar
                     </button>
+                  </div>
+                  <div class="trash-policy-controls">
+                    <label for="autoCleanupTrash"><input id="autoCleanupTrash" type="checkbox" role="switch" checked /> Eliminar automáticamente después de 30 días</label>
+                    <span id="trashSpaceUsage" aria-live="polite"></span>
+                    <meter id="trashSpaceMeter" min="0" max="524288" value="0" aria-label="Espacio usado en la papelera"></meter>
+                    <p>Máximo 512 KB y 10 copias. Al superar el límite, se eliminan las más antiguas. La limpieza por fecha se comprueba al abrir la papelera y periódicamente en las cuentas.</p>
                   </div>
                   <div id="poemTrashList" class="poem-trash-list"></div>
                 </section>

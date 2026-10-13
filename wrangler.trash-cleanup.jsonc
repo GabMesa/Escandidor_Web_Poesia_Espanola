@@ -1,0 +1,11 @@
+{
+  "name": "escandidor-trash-cleanup",
+  "main": "workers/trash-cleanup.js",
+  "compatibility_date": "2026-05-03",
+  "triggers": { "crons": ["17 * * * *"] },
+  "d1_databases": [{
+    "binding": "escandidor_db",
+    "database_name": "escandidor-db",
+    "database_id": "1b728203-babd-44df-b32f-51a9a9b27bd5"
+  }]
+}

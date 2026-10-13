@@ -1,3 +1,4 @@
+import { poemValidationError, hasPoemContent, cleanEmptyPoemVersions } from './poem-policy.js';
 import { writePersistentStorage } from './browser-storage.js';
 
 const POEM_MEMORY_KEY = 'escandador.poemMemory.v1';
@@ -67,6 +68,7 @@ export function createCloudSync({
   state = { user: null, queue: Promise.resolve() },
   onStatus = () => {},
   onTrash = () => {},
+  onTrashPolicy = () => {},
   onLibrary = () => {},
 } = {}) {
   let user = state.user;
@@ -104,7 +106,7 @@ export function createCloudSync({
   function loadOutbox(userId = user?.id) {
     try {
       const pending = JSON.parse(storage.getItem(outboxKey(userId)) || '[]');
-      return Array.isArray(pending) ? pending : [];
+      return Array.isArray(pending) ? pending.filter(operation => operation.type !== 'save' || hasPoemContent(operation.detail?.version?.poemText)) : [];
     } catch {
       return [];
     }
@@ -149,7 +151,7 @@ export function createCloudSync({
   function readMemory(key) {
     try {
       const memory = JSON.parse(storage.getItem(key) || '{}');
-      return memory && typeof memory === 'object' ? memory : {};
+      return memory && typeof memory === 'object' ? cleanEmptyPoemVersions(memory).memory : {};
     } catch {
       return {};
     }
@@ -222,6 +224,8 @@ export function createCloudSync({
     record.versions ||= {};
     const versionId = String(version.id ?? '');
     const payload = buildPayload(title, version);
+    const validationError = poemValidationError(title, payload.content);
+    if (validationError) throw new Error(validationError);
     const sourcePoemId = Number(record.poemId) || cloudPoemId(versionId) || serverPoemId(stableKey);
     if (sourcePoemId) record.poemId = sourcePoemId;
     const requestPayload = sourcePoemId ? { ...payload, sourcePoemId } : payload;
@@ -255,10 +259,10 @@ export function createCloudSync({
     saveMap(map);
   }
 
-  async function deleteOne({ poemKey, title, versionIds = [], wholePoem = false }) {
+  async function deleteOne({ poemKey, title, versionIds = [], wholePoem = false, protectedVersionIds = [] }) {
     const map = loadMap();
     const stableKey = String(poemKey || title);
-    const record = map[stableKey];
+    const record = map[stableKey] || (wholePoem ? null : { poemId: serverPoemId(stableKey) || versionIds.map(cloudPoemId).find(Number.isInteger), versions: {} });
 
     if (wholePoem) {
       const poemId = Number(record?.poemId)
@@ -284,25 +288,55 @@ export function createCloudSync({
     }
 
     if (!record?.poemId) return;
+    const protectedCloudVersions = new Set(protectedVersionIds.map(id => Number(record.versions?.[id]?.cloudVersion) || Number(/^cloud-\d+-(\d+)$/.exec(id)?.[1])).filter(Boolean));
     for (const versionId of versionIds) {
       const mapped = record.versions?.[versionId];
-      const cloudVersion = Number(mapped?.cloudVersion);
+      const cloudVersion = Number(mapped?.cloudVersion) || Number(/^cloud-\d+-(\d+)$/.exec(versionId)?.[1]);
+      if (protectedCloudVersions.has(cloudVersion)) {
+        delete record.versions[versionId];
+        continue;
+      }
       let legacyPayload = null;
       if (!cloudVersion && typeof mapped === 'string') {
         try { legacyPayload = JSON.parse(mapped); } catch {}
       }
       if (!cloudVersion && !legacyPayload) continue;
-      await api(`/api/poems/${record.poemId}${cloudVersion ? `?version=${cloudVersion}` : ''}`, {
-        method: 'DELETE',
-        body: legacyPayload ? JSON.stringify({
-          versionName: legacyPayload.versionName,
-          content: legacyPayload.content,
-        }) : undefined,
-      });
+      try {
+        await api(`/api/poems/${record.poemId}${cloudVersion ? `?version=${cloudVersion}` : ''}`, {
+          method: 'DELETE',
+          body: legacyPayload ? JSON.stringify({ versionName: legacyPayload.versionName, content: legacyPayload.content }) : undefined,
+        });
+      } catch (error) {
+        if (error.status !== 404) throw error; // A partially completed retry may already have deleted it.
+      }
       delete record.versions[versionId];
     }
     if (!Object.keys(record.versions || {}).length) delete map[stableKey];
     saveMap(map);
+  }
+
+  async function syncCompression(detail) {
+    const { poemKey, title, versionIds, retainedVersions } = detail;
+    const record = loadMap()[String(poemKey || title)];
+    const supersededSaves = loadOutbox().filter(operation => operation.type === 'save'
+      && String(operation.detail?.poemKey || operation.detail?.title) === String(poemKey || title)
+      && versionIds.includes(String(operation.detail?.version?.id)));
+    const hasCloudVersions = supersededSaves.length > 0
+      || versionIds.some(id => cloudPoemId(id) || record?.versions?.[id]);
+    if (!hasCloudVersions) return;
+    // Never delete the last remote copy before the replacement has been saved.
+    // An autosave is uploaded here only when replacing an existing cloud version.
+    for (const version of retainedVersions) {
+      await syncOne({ poemKey, title, version: { ...version, kind: 'manual' } });
+    }
+    await deleteOne({ poemKey, title, versionIds, protectedVersionIds: detail.retainedVersionIds || retainedVersions.map(version => String(version.id)) });
+    for (const operation of supersededSaves) removePending(operation.id, user.id);
+  }
+
+  async function runPending(operation) {
+    if (operation.type === 'save') await syncOne(operation.detail);
+    else if (operation.type === 'delete') await deleteOne(operation.detail);
+    else if (operation.type === 'compress') await syncCompression(operation.detail);
   }
 
   function enqueue(work) {
@@ -358,12 +392,37 @@ export function createCloudSync({
       });
     },
 
+    compressVersions(detail) {
+      if (!user || !detail.versionIds?.length || !detail.retainedVersions?.length) return Promise.resolve();
+      const ownerId = user.id;
+      const record = loadMap()[String(detail.poemKey || detail.title)];
+      const compactDetail = {
+        ...detail,
+        retainedVersionIds: detail.retainedVersions.map(version => String(version.id)),
+        retainedVersions: detail.retainedVersions.filter(version => {
+          const mapped = record?.versions?.[version.id];
+          return (mapped?.signature || mapped) !== JSON.stringify(buildPayload(detail.title, version));
+        }),
+      };
+      const operation = addPending('compress', compactDetail);
+      return enqueue(async () => {
+        await syncCompression(compactDetail);
+        removePending(operation.id, ownerId);
+      });
+    },
+
     loadFromServer() {
       if (!user) return Promise.resolve();
       return enqueue(async () => {
+        // Replay in order before fetching so compressed versions are not reimported.
+        for (const operation of loadOutbox(user.id)) {
+          await runPending(operation);
+          removePending(operation.id, user.id);
+        }
         preserveActiveMemory();
         const remote = await api('/api/poems');
         const remoteTrash = await api('/api/trash');
+        if (remoteTrash.policy) onTrashPolicy(remoteTrash.policy);
         const memory = readMemory(userMemoryKey(user.id));
         memory.schemaVersion = 2;
         memory.poems = memory.poems && typeof memory.poems === 'object' ? memory.poems : {};
@@ -402,6 +461,7 @@ export function createCloudSync({
         for (const [poemKey, versions] of Object.entries(memory.poems)) {
           if (!Array.isArray(versions) || !versions.length) continue;
           const title = String(versions[0]?.poemTitle || 'Sin título');
+          if (poemValidationError(title, versions[0]?.poemText)) continue;
           const record = map[poemKey] || { poemId: null, versions: {} };
           record.versions ||= {};
           const knownSignatures = new Set(
@@ -536,15 +596,27 @@ export function createCloudSync({
       const pending = loadOutbox(ownerId);
       for (const operation of pending) {
         enqueue(async () => {
-          if (operation.type === 'save') {
-            await syncOne(operation.detail);
-          } else if (operation.type === 'delete') {
-            await deleteOne(operation.detail);
-          }
+          await runPending(operation);
           removePending(operation.id, ownerId);
         });
       }
       return queue;
+    },
+
+    loadTrashPolicy() {
+      if (!user) return Promise.resolve();
+      return enqueue(async () => {
+        const result = await api('/api/trash');
+        if (result.policy) onTrashPolicy(result.policy);
+      });
+    },
+
+    setTrashAutoCleanup(autoCleanup) {
+      if (!user) return Promise.resolve();
+      return enqueue(async () => {
+        const result = await api('/api/trash', { method: 'PATCH', body: JSON.stringify({ autoCleanup }) });
+        onTrashPolicy(result.policy);
+      });
     },
 
     emptyTrash() {

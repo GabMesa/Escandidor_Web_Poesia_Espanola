@@ -324,3 +324,31 @@ Los poemas, sus versiones y las operaciones pendientes de sincronización se con
 Si una escritura de la biblioteca supera la cuota, `browser-storage.js` elimina únicamente las tres cachés léxicas regenerables y reintenta. No elimina poemas, papelera, bibliotecas de cuentas ni operaciones pendientes. Si aún falta espacio, informa del problema y conserva los datos existentes. Un cambio de cuenta fallido conserva la biblioteca activa y su propietario. La comprobación periódica de una sesión ya activa no duplica la biblioteca.
 
 Pruebas de regresión: `tests/browser-storage.test.js`. Comprobación en navegador con una cuota real llena: `node verify-storage.mjs`.
+
+
+## Guardado de poemas
+
+Se exige un título no vacío y distinto de «Sin título», junto con al menos un verso con contenido. La misma regla se aplica al guardado manual, al automático y a la API. Los cambios de título o configuración no crean una nueva versión si el texto coincide con la última: actualizan sus datos y conservan ID, fecha y número. Volver a un texto anterior después de otro distinto sí conserva una nueva edición.
+
+Al cargar la biblioteca local se eliminan versiones vacías; los poemas antiguos sin título que sí tienen texto se conservan para poder renombrarlos. La sincronización no vuelve a subir las versiones vacías. La migración `0012` limpia D1 e instala protecciones para clientes antiguos.
+
+## Compresión de versiones
+
+El gestor de archivos incluye «Comprimir versiones» para el poema seleccionado y «Comprimir automáticamente al guardar», activado por defecto. La elección se guarda en las preferencias del navegador. Desactivarlo conserva las etapas intermedias de escritura para el historial y el video; el botón manual sigue disponible.
+
+`poem-compression.js` recorre las versiones de más vieja a más nueva y compara solamente cada pareja consecutiva original. Si el texto nuevo contiene literalmente el anterior, elimina la anterior. No busca coincidencias en versiones anteriores no consecutivas. Conserva fechas, IDs y números; mueve las eliminadas a la papelera. Los historiales ya ordenados requieren un único recorrido; los historiales antiguos desordenados se ordenan primero.
+
+Cuando se sustituyen versiones existentes en la nube, se guardan primero las conservadas y luego se eliminan las contenidas. Si la conservada es un autoguardado local, se sincroniza para reemplazar la copia remota antes de eliminarla. La operación queda en la cola persistente si falla la conexión y se reintenta antes de descargar la biblioteca, evitando recuperar versiones ya comprimidas. Las compresiones de versiones exclusivamente locales no producen subidas.
+
+Verificación del gestor, preferencias, guardado automático y móvil: `node verify-compression.mjs`. Pruebas del algoritmo: `tests/poem-compression.test.js`.
+
+
+## Espacio y caducidad de la papelera
+
+La papelera admite 512 KiB de copias recuperables y un máximo de 10 copias por usuario. El espacio se calcula en bytes UTF-8, incluyendo los datos de cada copia. Al alcanzar el límite se eliminan las copias más antiguas; un archivo individual que supera el máximo tampoco se conserva. Este límite siempre se aplica, aunque se desactive la caducidad.
+
+«Eliminar automáticamente después de 30 días» viene activado. En las cuentas se guarda en `user_trash_settings`, compartido entre dispositivos; los visitantes guardan su elección en el navegador. La biblioteca local de una cuenta espera la configuración confirmada por el servidor antes de eliminar copias por antigüedad. Los poemas activos no se modifican.
+
+La comprobación se realiza al usar las rutas de papelera, al archivar nuevas versiones, al consultar el estado y mediante el Worker horario `workers/trash-cleanup.js`, para cuentas sin sesión abierta. Las copias caducadas se liberan en la siguiente ejecución, hasta una hora después de cumplir 30 días. Se conservan los marcadores mínimos de eliminación para impedir la reaparición de copias antiguas durante la sincronización.
+
+Para activar la función en producción hace falta aplicar `0013_user_trash_settings.sql`, publicar Pages y publicar el Worker con `npm run deploy:trash-cleanup`. Ver [OPERATIONS.md](OPERATIONS.md). Pruebas: `tests/trash-policy.test.js`, la integración de D1 y `node verify-trash.mjs`.

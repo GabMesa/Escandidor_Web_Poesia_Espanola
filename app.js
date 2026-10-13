@@ -4897,9 +4897,14 @@ function formatRhymeSchemeDisplayToken(value) {
   return normalizeRhymeApostrophes(String(value ?? '').trim()).replace(/'/g, '´');
 }
 
+function hasAgudaRhymeEnding(runtime) {
+  const accentType = runtime?.lineAnalysis?.accentType;
+  return accentType === 'aguda' || accentType === 'monosílaba';
+}
+
 function formatRhymeChipLabel(runtime) {
   const label = String(runtime?.rhyme?.label ?? '').trim() || '-';
-  if (label === '-' || runtime?.lineAnalysis?.accentType !== 'aguda') {
+  if (label === '-' || !hasAgudaRhymeEnding(runtime)) {
     return label;
   }
 
@@ -5132,7 +5137,7 @@ function validateRhymeScheme(runtimes, schemeValue, mode = state.rhymeMode) {
           continue;
         }
 
-        if (tokenMeta.requiresAguda && runtime.lineAnalysis?.accentType !== 'aguda') {
+        if (tokenMeta.requiresAguda && !hasAgudaRhymeEnding(runtime)) {
           markRhymeSchemeFailure(lineStatus, runtime, `La letra ${tokenMeta.letter}' exige final aguda.`);
         }
 
@@ -5202,7 +5207,7 @@ function validateRhymeScheme(runtimes, schemeValue, mode = state.rhymeMode) {
       continue;
     }
 
-    if (tokenMeta.requiresAguda && runtime.lineAnalysis?.accentType !== 'aguda') {
+    if (tokenMeta.requiresAguda && !hasAgudaRhymeEnding(runtime)) {
       markRhymeSchemeFailure(lineStatus, runtime, `La letra ${tokenMeta.letter}' exige final aguda.`);
     }
 
@@ -6261,7 +6266,7 @@ function renderRhyme(runtime) {
   const contrastColor = getReadableTextColor(labelColor);
   const darkRhymeColor = getDarkRhymeColor(labelColor);
   const chipStyle = `${darkRhymeColor ? `--rhyme-dark-ink:${darkRhymeColor};` : ''}--rhyme-ink:${labelColor};background:color-mix(in srgb, ${labelColor} var(--color-highlight, 12%), var(--surface));border-color:color-mix(in srgb, ${labelColor} var(--color-border, 32%), var(--line));color:var(--rhyme-display, ${labelColor});`;
-  const agudaNote = runtime.lineAnalysis?.accentType === 'aguda'
+  const agudaNote = hasAgudaRhymeEnding(runtime)
     ? ' Final aguda.'
     : '';
   const info = `Rima ${escapeHtml(source)} activa. Clave usada: ${escapeHtml(runtime.rhyme.activeKey)}. Consonante: ${escapeHtml(runtime.rhyme.consonantKey)}. Asonante: ${escapeHtml(runtime.rhyme.assonantKey)}. Final completa: ${escapeHtml(runtime.rhyme.finalWordKey)}.${agudaNote}`;
@@ -6272,7 +6277,7 @@ function renderRhyme(runtime) {
   const colorAction = label && label !== '-'
     ? `<button type="button" class="rhyme-color-btn" data-action="edit-rhyme-color" data-rhyme-label="${escapeHtml(label)}" data-rhyme-poem="${escapeHtml(poemTitleScope)}" data-color="${escapeHtml(labelColor)}" title="Cambiar color de la rima ${escapeHtml(label)}" aria-label="Cambiar color de la rima ${escapeHtml(label)}" style="${swatchStyle}" onclick="window.openRhymeColorSelector(this)"></button>`
     : '';
-  return `<span class="rhyme-chip info-click ${runtime.lineAnalysis?.accentType === 'aguda' ? 'is-warning' : ''}" role="button" tabindex="0" data-info="${escapeHtml(info)}" title="${escapeHtml(info)}" style="${chipStyle}">${escapeHtml(formatRhymeChipLabel(runtime))}</span>${colorAction}${consonantHint}${assonantHint}${warningHint}`;
+  return `<span class="rhyme-chip info-click ${hasAgudaRhymeEnding(runtime) ? 'is-warning' : ''}" role="button" tabindex="0" data-info="${escapeHtml(info)}" title="${escapeHtml(info)}" style="${chipStyle}">${escapeHtml(formatRhymeChipLabel(runtime))}</span>${colorAction}${consonantHint}${assonantHint}${warningHint}`;
 }
 
 function formatWordInline(wordAnalysis) {

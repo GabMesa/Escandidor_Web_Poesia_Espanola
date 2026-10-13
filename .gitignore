@@ -7,3 +7,17 @@ __MACOSX/
 ._*
 
 .edge-capture-profile
+.site-qa-browser/
+qa/
+
+.propuestas-qa-browser/
+
+.identity-qa-browser/
+
+.exports-qa-browser/
+
+.autosave-qa-browser/
+
+.palette-qa-browser/
+
+.colors-qa-browser/

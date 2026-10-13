@@ -77,6 +77,22 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     ], { cwd: root, stdio: 'ignore', windowsHide: true });
     await waitForServer(baseUrl, server);
 
+    const landing = await fetch(baseUrl);
+    assert.equal(landing.status, 200);
+    const landingHtml = await landing.text();
+    assert.match(landingHtml, /id="intro-title"/);
+    assert.match(landingHtml, /href="escandidor.html"/);
+    assert.match(landingHtml, /href="apoyar.html"/);
+    assert.doesNotMatch(landingHtml, /src="app.js"/);
+    assert.equal((await fetch(`${baseUrl}/pagina-inexistente`)).status, 404);
+    const editor = await fetch(`${baseUrl}/escandidor`);
+    assert.equal(editor.status, 200);
+    assert.match(await editor.text(), /id="poemInput"/);
+    const legacyLanding = await fetch(`${baseUrl}/landing.html`, { redirect: 'manual' });
+    assert.equal(legacyLanding.status, 301);
+    assert.equal(new URL(legacyLanding.headers.get('location'), baseUrl).pathname, '/');
+
+
     const firstRegistration = await jsonRequest(baseUrl, '/api/auth/register', {
       method: 'POST',
       body: { username: 'primera', email: 'primera@example.test', password: 'Password123!' },
@@ -142,6 +158,7 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
         settings: {
           poemFont: 'lora', poeticForm: 'soneto', syllablePattern: '11',
           stressPatterns: { 11: '6-10' },
+          hemistichPatterns: { 11: ['5', '7'] },
           rhymeMode: 'asonante', stressPattern: [2, 6, 10],
           nested: { sinalefa: false },
         },
@@ -158,6 +175,7 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     assert.deepEqual(finalUpdate.payload.poem.settings, {
       poemFont: 'lora', poeticForm: 'soneto', syllablePattern: '11',
       stressPatterns: { 11: '6-10' },
+      hemistichPatterns: { 11: ['5', '7'] },
       rhymeMode: 'asonante', stressPattern: [2, 6, 10],
       nested: { sinalefa: false },
     });
@@ -374,6 +392,7 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     assert.deepEqual(JSON.parse(rows[0].configurations), {
       poemFont: 'lora', poeticForm: 'soneto', syllablePattern: '11',
       stressPatterns: { 11: '6-10' },
+      hemistichPatterns: { 11: ['5', '7'] },
       rhymeMode: 'asonante', stressPattern: [2, 6, 10],
       nested: { sinalefa: false },
     });

@@ -1,0 +1,1127 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <script src="theme-init.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Escandidor: separar en sílabas y medir poesía | Mesa de Poesía</title>
+    <meta
+      name="description"
+      content="Escandidor gratuito para escribir poesía medida: separa versos en sílabas, cuenta la métrica y analiza sinalefas, acentos y rimas en español."
+    />
+    <link rel="canonical" href="https://mesa-de-poesia.pages.dev/escandidor" />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="es_ES" />
+    <meta property="og:site_name" content="Mesa de Poesía" />
+    <meta property="og:title" content="Escandidor de poesía | Mesa de Poesía" />
+    <meta
+      property="og:description"
+      content="Escribe poesía medida y separa cada verso en sílabas. Analiza métrica, sinalefas, acentos y rimas gratis."
+    />
+    <meta property="og:url" content="https://mesa-de-poesia.pages.dev/escandidor" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Escandidor de poesía | Mesa de Poesía" />
+    <meta
+      name="twitter:description"
+      content="Escribe poesía medida y separa cada verso en sílabas. Analiza métrica, sinalefas, acentos y rimas gratis."
+    />
+    <meta name="theme-color" content="#E6E4D9" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "@id": "https://mesa-de-poesia.pages.dev/escandidor#escandidor",
+        "name": "Escandidor",
+        "alternateName": "Escandador",
+        "url": "https://mesa-de-poesia.pages.dev/escandidor",
+        "description": "Herramienta gratuita para separar versos en sílabas y analizar la métrica, los acentos, las sinalefas y la rima de poemas en español.",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Cualquier sistema con navegador web",
+        "inLanguage": "es",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "featureList": [
+          "Separación silábica de versos",
+          "Conteo de sílabas métricas",
+          "Detección y ajuste de sinalefas",
+          "Análisis de acentos y rimas",
+          "Formas poéticas en español"
+        ]
+      }
+    </script>
+    <link
+      rel="icon"
+      href="https://mesa-de-poesia.pages.dev/favicon.ico"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;700&amp;family=Atkinson+Hyperlegible:wght@400;700&amp;family=Bebas+Neue&amp;family=Bungee&amp;family=Caveat:wght@400;700&amp;family=Cinzel:wght@400;700&amp;family=Cormorant+Garamond:wght@400;600;700&amp;family=EB+Garamond:wght@400;600;700&amp;family=Josefin+Sans:wght@400;600;700&amp;family=Lexend:wght@400;600;700&amp;family=Libre+Baskerville:wght@400;700&amp;family=Lora:wght@400;600;700&amp;family=Merriweather:wght@400;700&amp;family=Montserrat:wght@400;600;700&amp;family=Nunito:wght@400;600;700&amp;family=Pacifico&amp;family=Permanent+Marker&amp;family=Playfair+Display:wght@400;600;700&amp;family=Source+Sans+3:wght@400;600;700&amp;family=UnifrakturCook:wght@700&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      .lookup-rhyme-list li {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+      }
+      .lookup-rhyme-use-btn {
+        flex-shrink: 0;
+        font-size: 0.75rem;
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+        border: 1px solid currentColor;
+        cursor: pointer;
+      }
+      .lookup-exclude-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.4rem;
+        margin-top: 0.5rem;
+      }
+      .lookup-exclude-row input {
+        flex: 1 1 12rem;
+      }
+      .lookup-excluded-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.35rem;
+        margin: 0.4rem 0 0.8rem;
+      }
+      .lookup-excluded-bar:empty {
+        margin: 0;
+      }
+      .lookup-excluded-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-top: 0.4rem;
+      }
+      .lookup-excluded-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.8rem;
+        padding: 0.15rem 0.5rem;
+        border-radius: 999px;
+        background: rgba(127, 127, 127, 0.15);
+      }
+      .lookup-excluded-chip-remove {
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-weight: 700;
+        line-height: 1;
+        padding: 0;
+      }
+      .lookup-excluded-empty {
+        font-size: 0.8rem;
+        opacity: 0.7;
+      }
+    </style>
+      <meta property="og:image" content="https://mesa-de-poesia.pages.dev/assets/social-preview.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Mesa de Poesía: encuentra el ritmo de tus versos con Escandidor." />
+    <meta name="twitter:image" content="https://mesa-de-poesia.pages.dev/assets/social-preview.png" />
+      <link rel="stylesheet" href="identity.css" />
+    <script src="theme.js" defer></script>
+  </head>
+  <body class="editor-page">
+    <a class="skip-link" href="#poemInput">Saltar al poema</a>
+    <header class="publication-header">
+  <nav class="publication-nav" aria-label="Navegación principal">
+    <a class="publication-brand" href="index.html">Mesa de Poesía<span aria-hidden="true">.</span></a>
+    <div class="publication-links"><a href="index.html" >Inicio</a><a href="escandidor.html" aria-current="page">Escandidor</a><a href="apoyar.html" class="nav-support" >Apoyar el proyecto ↗</a><button type="button" class="theme-toggle" data-theme-toggle aria-label="Cambiar a modo oscuro" aria-pressed="false">Modo oscuro</button></div>
+  </nav>
+
+  <div class="edition-line"><span>Un taller de poesía en español</span><span>Métrica · Ritmo · Rima</span></div>
+</header>
+    <main class="app-shell">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Poesía en español</p>
+          <h1>Escandidor de poesía en español</h1>
+          <p class="lede">
+            Escribe poesía medida: separa cada verso en sílabas y comprueba su
+            métrica, sílaba tónica, sinalefas, acentos y rima.
+          </p>
+          <ul class="hero-features" aria-label="Funciones principales">
+            <li>Separación silábica</li>
+            <li>Conteo métrico</li>
+            <li>Acentos y rima</li>
+          </ul>
+        </div>
+        <div class="account-bar" aria-live="polite">
+          <div id="accountGuestActions" class="account-actions">
+            <button id="openLogin" type="button" class="secondary">Iniciar sesión</button>
+            <button id="openRegister" type="button">Crear cuenta</button>
+          </div>
+          <div id="accountUserActions" class="account-actions hidden">
+            <span id="accountIdentity" class="account-identity"></span>
+            <span id="cloudSaveStatus" class="cloud-save-status">Nube lista</span>
+            <button id="retryCloudSync" type="button" class="secondary hidden">Reintentar</button>
+            <a id="adminLink" class="account-admin-link hidden" href="admin.html">Administración</a>
+            <button id="logoutAccount" type="button" class="secondary">Cerrar sesión</button>
+          </div>
+        </div>
+      </section>
+
+      <dialog id="markdownExportDialog" class="auth-dialog export-dialog" aria-labelledby="markdownExportTitle">
+        <div class="auth-form"><div class="auth-heading"><div><p class="eyebrow">Exportar Markdown</p><h2 id="markdownExportTitle">¿Qué quieres exportar?</h2></div><button type="button" class="secondary" data-close-markdown aria-label="Cerrar">×</button></div>
+          <p id="markdownExportSummary" class="hint"></p>
+          <button id="markdownExportLatest" type="button">Solo la última versión</button>
+          <button id="markdownExportAll" type="button" class="secondary">Todas las versiones</button>
+          <button type="button" class="secondary" data-close-markdown>Cancelar</button>
+        </div>
+      </dialog>
+      <dialog id="poemVideoDialog" class="auth-dialog export-dialog video-dialog" aria-labelledby="poemVideoTitle">
+        <div class="auth-form"><div class="auth-heading"><div><p class="eyebrow">El poema se construye</p><h2 id="poemVideoTitle">Exportar evolución en video</h2></div><button type="button" class="secondary" data-close-video aria-label="Cerrar">×</button></div>
+          <p id="poemVideoSummary" class="hint"></p>
+          <p class="hint">Se animan las versiones guardadas y el borrador actual. Cada pausa de 10 segundos al escribir crea una nueva versión. Los cambios dentro de una misma pausa se animan entre versiones.</p>
+          <canvas id="poemVideoCanvas" width="1280" height="720" aria-label="Vista previa de la evolución del poema"></canvas>
+          <label class="video-speed">Segundos por edición <input id="poemVideoSpeed" type="number" min="0.5" max="10" step="0.5" value="2" /></label>
+          <div class="video-actions"><button id="previewPoemVideo" type="button" class="secondary">Reproducir vista previa</button><button id="downloadPoemVideo" type="button">Crear y descargar video</button><button type="button" class="secondary" data-close-video>Cancelar</button></div>
+          <p id="poemVideoStatus" class="hint" role="status"></p>
+        </div>
+      </dialog>
+
+      <dialog id="authDialog" class="auth-dialog" aria-labelledby="authDialogTitle">
+        <form id="authForm" class="auth-form">
+          <div class="auth-heading">
+            <div>
+              <p class="eyebrow">Tu biblioteca</p>
+              <h2 id="authDialogTitle">Iniciar sesión</h2>
+            </div>
+            <button id="closeAuthDialog" type="button" class="secondary auth-close" aria-label="Cerrar">×</button>
+          </div>
+          <button id="discordLogin" type="button" class="discord-login">Continuar con Discord</button>
+          <div class="auth-divider"><span>o usa tu cuenta</span></div>
+          <label id="authUsernameField" class="auth-field hidden">
+            <span>Nombre de usuario</span>
+            <input id="authUsername" name="username" type="text" minlength="3" maxlength="40" autocomplete="username" />
+          </label>
+          <label class="auth-field">
+            <span>Correo o usuario</span>
+            <input id="authIdentifier" name="identifier" type="text" required autocomplete="username" />
+          </label>
+          <label class="auth-field">
+            <span>Contraseña</span>
+            <input id="authPassword" name="password" type="password" minlength="8" required autocomplete="current-password" />
+          </label>
+          <p id="authStatus" class="auth-status" role="status"></p>
+          <button id="authSubmit" type="submit" class="auth-submit">Iniciar sesión</button>
+          <button id="toggleAuthMode" type="button" class="auth-mode-toggle">¿Primera vez? Crear cuenta</button>
+        </form>
+      </dialog>
+
+      <dialog id="sessionConflictDialog" class="auth-dialog session-conflict-dialog" aria-labelledby="sessionConflictTitle">
+        <div class="auth-form">
+          <div class="auth-heading">
+            <div>
+              <p class="eyebrow">Sesión duplicada</p>
+              <h2 id="sessionConflictTitle">Usa una sola sesión</h2>
+            </div>
+          </div>
+          <p id="sessionConflictMessage" class="session-conflict-message">
+            Esta cuenta está abierta en otro navegador. Cierra las demás sesiones para continuar aquí.
+          </p>
+          <button id="closeOtherSessions" type="button" class="auth-submit">
+            Cerrar las otras sesiones
+          </button>
+          <p id="sessionConflictStatus" class="auth-status" role="status"></p>
+        </div>
+      </dialog>
+
+      <dialog id="localImportDialog" class="auth-dialog" aria-labelledby="localImportTitle">
+        <div class="auth-form">
+          <div class="auth-heading">
+            <div>
+              <p class="eyebrow">Trabajo de este navegador</p>
+              <h2 id="localImportTitle">Importar poemas locales</h2>
+            </div>
+          </div>
+          <p id="localImportMessage" class="session-conflict-message"></p>
+          <button id="importLocalPoems" type="button" class="auth-submit">Importar en mi cuenta</button>
+          <button id="keepLocalPoemsSeparate" type="button" class="secondary">Mantenerlos separados</button>
+          <button id="discardLocalPoems" type="button" class="secondary discard-local-action">Descartar poemas locales</button>
+        </div>
+      </dialog>
+
+      <section class="controls" aria-label="Controles métricos">
+        <details class="control-card config-shell">
+          <summary>
+            <span>Configuración</span>
+            <span class="summary-hint">
+              Forma, conteo silábico, acento versal y rima
+              <span class="guide-hover" tabindex="0">
+                <span class="guide-trigger" aria-label="Ver guía de formas"
+                  >i</span
+                >
+                <span class="guide-popover">
+                  Elige una forma para cargar su metro, acento versal y rima.
+                  Todos los valores siguen siendo editables. En metros mixtos,
+                  escribe la secuencia completa: 7-5-7-5.
+                </span>
+              </span>
+              <svg
+                class="config-chevron"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </span>
+          </summary>
+
+          <div class="config-grid">
+            <details class="config-group poetic-form-group" open>
+              <summary>Forma métrica</summary>
+              <div class="config-body poetic-form-layout">
+                <label class="poetic-form-selector">
+                  Forma o estrofa
+                  <select id="poeticForm" title="Carga el metro, acento versal y rima de una forma poética.">
+                    <option value="custom" selected>Personalizada</option>
+                    <option value="copla">Copla</option>
+                    <option value="cuadernaVia">Cuaderna vía</option>
+                    <option value="cuarteta">Cuarteta</option>
+                    <option value="cuarteto">Cuarteto</option>
+                    <option value="decima">Décima o espinela</option>
+                    <option value="pieQuebrado">Estrofa de pie quebrado</option>
+                    <option value="lira">Lira</option>
+                    <option value="octavaReal">Octava real</option>
+                    <option value="octavilla">Octavilla</option>
+                    <option value="pareado">Pareado</option>
+                    <option value="quinteto">Quinteto</option>
+                    <option value="quintilla">Quintilla</option>
+                    <option value="redondilla">Redondilla</option>
+                    <option value="romance">Romance</option>
+                    <option value="seguidilla">Seguidilla</option>
+                    <option value="serventesio">Serventesio</option>
+                    <option value="sextina">Sextina</option>
+                    <option value="silva">Silva</option>
+                    <option value="silvaArromanzada">Silva arromanzada</option>
+                    <option value="soneto">Soneto</option>
+                    <option value="terceto">Terceto</option>
+                    <option value="tercetillo">Tercetillo</option>
+                  </select>
+                </label>
+
+                <div class="metric-config-row">
+                  <section class="metric-config-section meter-config-section" aria-labelledby="meterConfigTitle">
+                    <h3 id="meterConfigTitle">Conteo silábico por verso</h3>
+                    <input id="syllablePattern" type="text" inputmode="numeric" value="" placeholder="Ej: 11, 7-5-7-5 o 7 11" aria-label="Conteo silábico por verso" title="Usa guiones para una secuencia ordenada y espacios para permitir varios conteos en cualquier orden." />
+                  </section>
+
+                  <section class="metric-config-section rhyme-config-section" aria-labelledby="rhymeConfigTitle">
+                    <h3 id="rhymeConfigTitle">Tipo de rima</h3>
+                    <select id="rhymeMode" aria-label="Tipo de rima" title="Define el modo de comparación de rima por defecto para todos los versos.">
+                      <option value="asonante" selected>Asonante</option>
+                      <option value="consonante">Consonante</option>
+                      <option value="palabra-final">Repetición de palabra final</option>
+                    </select>
+                    <label id="assonanceRangeField" hidden>Comparación de asonancias: versos anteriores y posteriores<input id="assonanceRange" type="number" min="1" max="1000" value="5" /></label>
+                  </section>
+
+                  <section class="metric-config-section sinalefa-config-section" aria-labelledby="sinalefaConfigTitle">
+                    <h3 id="sinalefaConfigTitle">Sinalefa</h3>
+                    <button id="sinalefaEnabled" type="button" class="secondary compact-action" title="Recalcula la sinalefa automática y limpia overrides globales.">
+                      Detectar automáticamente
+                    </button>
+                    <label class="checkbox-row" for="rioplatenseY">
+                      <input id="rioplatenseY" type="checkbox" checked />
+                      Y rioplatense (como en «yo»)
+                    </label>
+                    <p class="hint">Haz clic en cada unión para forzar o romper la sinalefa. El acento versal siempre la corta.</p>
+                  </section>
+                </div>
+
+                <div class="metric-detail-row">
+                  <fieldset class="metric-detail-section stress-pattern-config">
+                    <legend>Acento versal por conteo</legend>
+                    <div id="stressPatternFields" class="stress-pattern-fields">
+                      <span class="hint">Define primero el conteo silábico.</span>
+                    </div>
+                    <p class="hint config-field-help">Usa <strong>+</strong> para añadir varios patrones al mismo conteo.</p>
+                  </fieldset>
+
+                  <fieldset class="metric-detail-section stress-pattern-config hemistich-pattern-config">
+                    <legend>Hemistiquios por conteo</legend>
+                    <div id="hemistichPatternFields" class="stress-pattern-fields"><span class="hint">Define primero el conteo silábico.</span></div>
+                    <p class="hint config-field-help">Indica la posición de corte: <strong>7</strong> para 7 + 7; <strong>4-8</strong> para tres partes. Usa <strong>+</strong> para añadir alternativas. Se aplica la que mejor encaje en cada verso.</p>
+                    <label>Aplicar a versos (vacío: todos)<input id="hemistichVerses" placeholder="Ej: 2,4,6" /></label>
+                    <input id="hemistichSplit" type="hidden" value="" />
+                    <p class="hint">También puedes escribir <strong>/</strong> en el poema o definir cortes en cada verso.</p>
+                  </fieldset>
+
+                  <fieldset class="metric-detail-section rhyme-scheme-config">
+                    <legend>Esquema de rima</legend>
+                    <input id="rhymeScheme" type="text" value="" placeholder="Ej: ABBA, abab o AbAb" aria-label="Esquema de rima" title="Minúscula exige arte menor (8 sílabas o menos); mayúscula, arte mayor (más de 8). Usa - para versos sueltos." />
+                    <div class="rhyme-scheme-options">
+                      <label class="checkbox-row" for="repeatRhymeScheme">
+                        <input id="repeatRhymeScheme" type="checkbox" />
+                        Repetir esquema
+                      </label>
+                      <label class="checkbox-row" for="distinguishSZInRhyme">
+                        <input id="distinguishSZInRhyme" type="checkbox" />
+                        Distinguir s y z en consonante
+                      </label>
+                    </div>
+                  </fieldset>
+                </div>
+
+                <p id="poeticFormHint" class="hint poetic-form-hint">
+                  El conteo se valida en cada verso analizado.
+                </p>
+              </div>
+            </details>
+          </div>
+        </details>
+
+        <details
+          id="managerShell"
+          class="control-card config-shell manager-shell"
+        >
+          <summary>
+            <span>Gestor de archivos</span>
+            <span class="summary-hint">
+              Poemas guardados y descargas
+              <svg
+                class="config-chevron"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </span>
+          </summary>
+          <div class="manager-body">
+            <div
+              id="versionManagerModal"
+              class="version-manager-inline"
+              aria-label="Gestor de archivos"
+            >
+              <div class="version-modal-body">
+                <div class="version-manager-inline-status-row"></div>
+                <input
+                  id="versionSearchInput"
+                  type="search"
+                  class="version-search-input"
+                  placeholder="Buscar poemas, versiones o palabras del poema..."
+                  title="Buscar en poemas guardados"
+                  aria-label="Buscar en poemas guardados"
+                />
+
+                <div class="version-modal-actions">
+                  <div class="version-modal-actions-row">
+                    <button
+                      id="newPoemManager"
+                      type="button"
+                      class="secondary compact-action"
+                    >
+                      ➕ Nuevo poema
+                    </button>
+                    <button
+                      id="selectAllVersions"
+                      type="button"
+                      class="secondary compact-action"
+                    >
+                      <span aria-hidden="true">☑</span>
+                      Seleccionar todo
+                    </button>
+                    <button
+                      id="deleteSelectedVersions"
+                      type="button"
+                      class="secondary compact-action"
+                    >
+                      <span aria-hidden="true">🗑</span>
+                      Borrar seleccionadas
+                    </button>
+                    <button
+                      id="loadDataFromServer"
+                      type="button"
+                      class="secondary compact-action"
+                      title="Comparar cada poema local con el servidor y conservar todas las diferencias"
+                    >
+                      Comparar y sincronizar
+                    </button>
+                  </div>
+                  <div class="version-modal-actions-row">
+                    <label class="manager-font-control" for="defaultPoemFont">
+                      Fuente por defecto
+                      <select id="defaultPoemFont" class="poem-font-selector">
+                        <option value="open-dyslexic">OpenDyslexic</option>
+                        <option value="atkinson" selected>Atkinson Hyperlegible</option>
+                        <option value="alegreya">Alegreya · literaria</option>
+                        <option value="lora">Lora · formal</option>
+                        <option value="cormorant">Cormorant Garamond · elegante</option>
+                        <option value="eb-garamond">EB Garamond · clásica</option>
+                        <option value="playfair">Playfair Display · editorial</option>
+                        <option value="libre-baskerville">Libre Baskerville · tradicional</option>
+                        <option value="merriweather">Merriweather · lectura</option>
+                        <option value="montserrat">Montserrat · moderna</option>
+                        <option value="nunito">Nunito · informal</option>
+                        <option value="source-sans">Source Sans 3 · limpia</option>
+                        <option value="lexend">Lexend · accesible</option>
+                        <option value="josefin">Josefin Sans · geométrica</option>
+                        <option value="cinzel">Cinzel · épica</option>
+                        <option value="bebas-neue">Bebas Neue · cartel</option>
+                        <option value="caveat">Caveat · manuscrita</option>
+                        <option value="pacifico">Pacifico · alegre</option>
+                        <option value="permanent-marker">Permanent Marker · rotulador</option>
+                        <option value="bungee">Bungee · urbana</option>
+                        <option value="unifraktur">UnifrakturCook · gótica</option>
+                      </select>
+                    </label>
+                    <label class="manager-font-control" for="poemFontManager">
+                      Fuente del poema
+                      <select id="poemFontManager" class="poem-font-selector">
+                        <option value="open-dyslexic">OpenDyslexic</option>
+                        <option value="atkinson" selected>Atkinson Hyperlegible</option>
+                        <option value="alegreya">Alegreya · literaria</option>
+                        <option value="lora">Lora · formal</option>
+                        <option value="cormorant">Cormorant Garamond · elegante</option>
+                        <option value="eb-garamond">EB Garamond · clásica</option>
+                        <option value="playfair">Playfair Display · editorial</option>
+                        <option value="libre-baskerville">Libre Baskerville · tradicional</option>
+                        <option value="merriweather">Merriweather · lectura</option>
+                        <option value="montserrat">Montserrat · moderna</option>
+                        <option value="nunito">Nunito · informal</option>
+                        <option value="source-sans">Source Sans 3 · limpia</option>
+                        <option value="lexend">Lexend · accesible</option>
+                        <option value="josefin">Josefin Sans · geométrica</option>
+                        <option value="cinzel">Cinzel · épica</option>
+                        <option value="bebas-neue">Bebas Neue · cartel</option>
+                        <option value="caveat">Caveat · manuscrita</option>
+                        <option value="pacifico">Pacifico · alegre</option>
+                        <option value="permanent-marker">Permanent Marker · rotulador</option>
+                        <option value="bungee">Bungee · urbana</option>
+                        <option value="unifraktur">UnifrakturCook · gótica</option>
+                      </select>
+                    </label>
+                    <button
+                      id="defaultPoemColorBtn"
+                      type="button"
+                      class="secondary compact-action default-color-action"
+                      title="Color por defecto para nuevos poemas"
+                    >
+                      <span
+                        class="default-color-swatch"
+                        aria-hidden="true"
+                      ></span
+                      >Color por defecto
+                    </button>
+                    <button
+                      id="downloadSelectedMd"
+                      type="button"
+                      class="secondary format-action logo-action"
+                      title="Descargar seleccionadas en Markdown"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        fill="currentColor"
+                        viewBox="0 0 16 16"
+                        aria-hidden="true"
+                        style="
+                          display: inline-block;
+                          vertical-align: middle;
+                          margin-right: 4px;
+                        "
+                      >
+                        <path
+                          d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"
+                        />
+                      </svg>
+                      <span>MD</span>
+                    </button>
+                    <button
+                      id="downloadSelectedPdf"
+                      type="button"
+                      class="secondary format-action logo-action"
+                      title="Descargar seleccionadas en PDF"
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        fill="currentColor"
+                        viewBox="0 0 16 16"
+                        aria-hidden="true"
+                        style="
+                          display: inline-block;
+                          vertical-align: middle;
+                          margin-right: 4px;
+                        "
+                      >
+                        <path
+                          d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2zM4.5 11a.5.5 0 0 0 0 1h7a.5.5 0 0 0 0-1h-7z"
+                        />
+                      </svg>
+                      <span>PDF</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  id="savedVersionsList"
+                  class="saved-versions-list"
+                  role="list"
+                ></div>
+                <section class="trash-panel" aria-labelledby="trashTitle">
+                  <div class="trash-panel-header">
+                    <strong id="trashTitle">Papelera</strong>
+                    <button id="emptyPoemTrash" type="button" class="secondary compact-action">
+                      Vaciar
+                    </button>
+                  </div>
+                  <div id="poemTrashList" class="poem-trash-list"></div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <details id="lookupShell" class="control-card config-shell">
+          <summary>
+            <span>Rimas y definición</span>
+            <span class="summary-hint">
+              Consulta automática en Wikcionario y corpus abierto
+              <svg
+                class="config-chevron"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </span>
+          </summary>
+          <div
+            id="wordLookupBar"
+            class="quick-control-group word-lookup-bar"
+            aria-live="polite"
+          >
+            <span class="quick-control-label">Palabra</span>
+            <input
+              id="selectedLookupWord"
+              class="selected-word-input"
+              type="text"
+              value="copla"
+              placeholder="Selecciona una palabra"
+              aria-label="Palabra para buscar"
+              title="Escribe o selecciona una palabra para consultar definición y rimas"
+            />
+            <button
+              type="button"
+              id="lookupExcludeCurrentBtn"
+              title="Añade esta palabra a la lista de palabras a evitar, para que no se repita en las rimas asonantes"
+              aria-label="Evitar que esta palabra se repita en las rimas"
+            >
+              Evitar repetir
+            </button>
+          </div>
+          <div
+            id="lookupExcludedBar"
+            class="lookup-excluded-bar"
+            aria-live="polite"
+          ></div>
+          <div id="lookupResults" class="lookup-results" aria-live="polite">
+            <p class="lookup-empty">
+              Selecciona o escribe una palabra para consultar definición y
+              rimas.
+            </p>
+            <p class="lookup-attribution">
+  Definiciones obtenidas desde
+  <a href="https://es.wiktionary.org/" target="_blank" rel="noopener noreferrer">Wikcionario</a>. <br>
+  Frecuencia y rimas desde
+  <a href="https://github.com/rspeer/wordfreq" target="_blank" rel="noopener noreferrer">rspeer/wordfreq</a>. <br>
+  Sinónimos desde
+  <a href="https://github.com/edublancas/sinonimos" target="_blank" rel="noopener noreferrer">edublancas/sinonimos</a>.
+  <br>
+  Corroboración rápida en
+  <a href="https://dle.rae.es/" target="_blank" rel="noopener noreferrer">RAE</a> y
+  <a href="https://iedra.es/rimas/" target="_blank" rel="noopener noreferrer">IEDRA</a>.
+</p>
+          </div>
+        </details>
+
+        <div class="quick-controls" aria-label="Ajustes de lectura y vista">
+          <div class="quick-control-group">
+            <span class="quick-control-label">Tamaño de texto</span>
+            <button
+              id="fontSizeDown"
+              type="button"
+              class="secondary compact-action"
+              title="Reducir tamaño de texto"
+            >
+              A-
+            </button>
+            <button
+              id="fontSizeUp"
+              type="button"
+              class="secondary compact-action"
+              title="Aumentar tamaño de texto"
+            >
+              A+
+            </button>
+            <span id="fontScaleValue" class="quick-control-value">100%</span>
+          </div>
+
+          <div class="quick-control-group">
+            <label class="quick-control-label" for="panelViewMode">Vista</label>
+            <select id="panelViewMode" title="Elige qué panel quieres ver.">
+              <option value="both" selected>Escritura + análisis</option>
+              <option value="writing">Solo escritura</option>
+              <option value="analysis">Solo análisis</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <article class="panel input-panel">
+          <div class="panel-header">
+            <input
+              id="poemTitle"
+              class="poem-panel-title-input"
+              type="text"
+              value="Sin título"
+              lang="es"
+              spellcheck="true"
+              title="Título del poema"
+              aria-label="Título del poema"
+            />
+            <span class="panel-header-meta">
+              <span
+                class="top-action-group"
+                role="group"
+                aria-label="Acciones de poema"
+              >
+                <select
+                  id="poemFontTop"
+                  class="poem-font-selector top-font-selector"
+                  title="Fuente del poema"
+                  aria-label="Fuente del poema"
+                >
+                  <option value="open-dyslexic">OpenDyslexic</option>
+                  <option value="atkinson" selected>Atkinson Hyperlegible</option>
+                  <option value="alegreya">Alegreya · literaria</option>
+                  <option value="lora">Lora · formal</option>
+                  <option value="cormorant">Cormorant Garamond · elegante</option>
+                  <option value="eb-garamond">EB Garamond · clásica</option>
+                  <option value="playfair">Playfair Display · editorial</option>
+                  <option value="libre-baskerville">Libre Baskerville · tradicional</option>
+                  <option value="merriweather">Merriweather · lectura</option>
+                  <option value="montserrat">Montserrat · moderna</option>
+                  <option value="nunito">Nunito · informal</option>
+                  <option value="source-sans">Source Sans 3 · limpia</option>
+                  <option value="lexend">Lexend · accesible</option>
+                  <option value="josefin">Josefin Sans · geométrica</option>
+                  <option value="cinzel">Cinzel · épica</option>
+                  <option value="bebas-neue">Bebas Neue · cartel</option>
+                  <option value="caveat">Caveat · manuscrita</option>
+                  <option value="pacifico">Pacifico · alegre</option>
+                  <option value="permanent-marker">Permanent Marker · rotulador</option>
+                  <option value="bungee">Bungee · urbana</option>
+                  <option value="unifraktur">UnifrakturCook · gótica</option>
+                </select>
+                <button
+                  id="newPoemTop"
+                  type="button"
+                  class="secondary icon-action"
+                  title="Nuevo poema"
+                >
+                  ➕
+                </button>
+                <button
+                  id="savePoem"
+                  type="button"
+                  class="secondary icon-action"
+                  title="Guardar poema (Ctrl+S)"
+                >
+                  💾
+                </button>
+                <button
+                  id="currentPoemColorBtn"
+                  type="button"
+                  class="secondary poem-color-btn"
+                  title="Color del poema actual"
+                  aria-label="Color del poema actual"
+                ></button>
+                <button
+                  id="importPoemsMd"
+                  type="button"
+                  class="secondary icon-action"
+                  title="Importar poemas desde archivo Markdown"
+                  aria-label="Importar poemas desde archivo Markdown"
+                >
+                  <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 3v12m0-12 4 4m-4-4L8 7M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
+                  </svg>
+                </button>
+                <button
+                  id="exportPoemsMd"
+                  type="button"
+                  class="secondary format-action logo-action"
+                  title="Descargar poema abierto como Markdown"
+                  aria-label="Descargar poema abierto como Markdown"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    fill="currentColor"
+                    viewBox="0 0 16 16"
+                    aria-hidden="true"
+                    style="
+                      display: inline-block;
+                      vertical-align: middle;
+                      margin-right: 4px;
+                    "
+                  >
+                    <path
+                      d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"
+                    />
+                  </svg>
+                  <span>MD</span>
+                </button>
+                <button id="exportPoemVideo" type="button" class="secondary format-action" title="Exportar la evolución del poema como video">Video</button>
+                <button
+                  id="downloadPoemPdf"
+                  type="button"
+                  class="secondary format-action logo-action"
+                  title="Descargar poema abierto como PDF"
+                  aria-label="Descargar poema abierto como PDF"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    fill="currentColor"
+                    viewBox="0 0 16 16"
+                    aria-hidden="true"
+                    style="
+                      display: inline-block;
+                      vertical-align: middle;
+                      margin-right: 4px;
+                    "
+                  >
+                    <path
+                      d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2zM4.5 11a.5.5 0 0 0 0 1h7a.5.5 0 0 0 0-1h-7z"
+                    />
+                  </svg>
+                  <span>PDF</span>
+                </button>
+              </span>
+            </span>
+          </div>
+          <div class="input-memory-bar">
+            <div class="input-memory-group">
+              <label for="savedPoemName">Título</label>
+              <select
+                id="savedPoemName"
+                title="Selecciona un poema guardado en memoria local."
+              ></select>
+              <input
+                id="editPoemNameInput"
+                class="hidden"
+                type="text"
+                maxlength="80"
+                title="Editar nombre del poema"
+              />
+              <button
+                id="editSelectors"
+                type="button"
+                class="secondary icon-action"
+                title="Editar poema y versión"
+              >
+                ✏
+              </button>
+              <button
+                id="saveSelectorEdits"
+                type="button"
+                class="secondary icon-action hidden"
+                title="Guardar cambios de poema y versión"
+              >
+                ✓
+              </button>
+              <button
+                id="cancelSelectorEdits"
+                type="button"
+                class="secondary icon-action hidden"
+                title="Cancelar edición"
+              >
+                ✕
+              </button>
+              <button
+                id="deletePoemEntry"
+                type="button"
+                class="secondary icon-action"
+                title="Eliminar todas las versiones del poema seleccionado"
+              >
+                🗑
+              </button>
+            </div>
+            <div class="input-memory-group">
+              <label for="savedPoemVersion">Versión</label>
+              <select
+                id="savedPoemVersion"
+                title="Selecciona una versión anterior del poema guardado."
+              ></select>
+              <input
+                id="editPoemVersionInput"
+                class="hidden"
+                type="text"
+                maxlength="48"
+                placeholder="Nombre de versión"
+                title="Editar nombre de la versión"
+              />
+              <button
+                id="deletePoemVersion"
+                type="button"
+                class="secondary icon-action"
+                title="Eliminar la versión seleccionada del historial"
+              >
+                🗑
+              </button>
+            </div>
+          </div>
+          <div class="poem-capture-bar" aria-label="Introducir poema por voz o imagen">
+            <button
+              id="speechToText"
+              type="button"
+              class="secondary capture-action"
+              title="Iniciar dictado en español"
+              aria-pressed="false"
+            >
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 22h8" />
+              </svg>
+              <span>Dictar</span>
+            </button>
+            <button
+              id="imageToText"
+              type="button"
+              class="secondary capture-action"
+              title="Sacar una foto o elegir una imagen para extraer el texto"
+            >
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M14.5 4 16 6h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l1.5-2h5Z" />
+                <circle cx="12" cy="12.5" r="3.5" />
+              </svg>
+              <span>Foto a texto</span>
+            </button>
+            <span id="captureStatus" class="capture-status" role="status" aria-live="polite"></span>
+          </div>
+          <label class="sr-only" for="poemInput">Poema</label>
+          <textarea
+            id="poemInput"
+            lang="es"
+            spellcheck="true"
+            aria-label="Poema"
+            title="Escribe o pega aquí tu poema. Usa líneas en blanco para separar estrofas."
+          ></textarea>
+          <input
+            id="importPoemsFile"
+            class="hidden"
+            type="file"
+            accept=".md,text/markdown,text/plain"
+          />
+          <input
+            id="poemImageFile"
+            class="hidden"
+            type="file"
+            accept="image/*"
+            capture="environment"
+          />
+        </article>
+
+        <article class="panel output-panel">
+          <div class="panel-header">
+            <h2>Análisis</h2>
+            <span class="panel-header-meta"
+              ><span id="stanzaSummaryBadge" class="badge">Estrofas 1</span
+              ><span id="rhymeSchemeBadge" class="badge">Esquema libre</span
+              ><button
+                id="analysisModeToggle"
+                type="button"
+                class="secondary compact-action"
+                title="Alterna entre vista visual y vista texto para copiar y pegar."
+              >
+                Modo texto
+              </button
+              ><button
+                id="copyAnalysisText"
+                type="button"
+                class="secondary compact-action hidden"
+                title="Copiar el análisis en formato texto."
+              >
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="9" y="9" width="11" height="11" rx="2" />
+                  <path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3" />
+                </svg>
+                Copiar
+              </button></span
+            >
+          </div>
+          <div
+            id="analysisOutput"
+            class="analysis-output"
+            aria-live="polite"
+          ></div>
+          <pre
+            id="analysisTextOutput"
+            class="analysis-text-output hidden"
+            aria-live="polite"
+          ></pre>
+        </article>
+      </section>
+
+      <div
+        id="colorPickerModal"
+        class="color-picker-modal"
+        aria-hidden="true"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="colorPickerTitle"
+      >
+        <div class="color-picker-backdrop" data-close-color-picker="true"></div>
+        <div class="color-picker-content">
+          <div class="color-picker-header">
+            <h3 id="colorPickerTitle">Elegir color</h3>
+            <button
+              id="colorPickerClose"
+              type="button"
+              class="secondary icon-action"
+              title="Cerrar"
+              data-close-color-picker="true"
+            >
+              ✕
+            </button>
+          </div>
+          <div
+            id="colorPickerSwatches"
+            class="color-picker-swatches"
+            role="listbox"
+            aria-label="Paleta de colores"
+          ></div>
+          <div class="color-picker-custom-row">
+            <label for="colorPickerCustom">Personalizado</label>
+            <input
+              id="colorPickerCustom"
+              type="color"
+              aria-label="Color personalizado"
+            />
+            <span
+              id="colorPickerPreview"
+              class="color-picker-preview"
+              aria-hidden="true"
+            ></span>
+          </div>
+          <div class="color-picker-intensity">
+            <label for="colorPickerIntensity">Intensidad del fondo</label>
+            <select id="colorPickerIntensity" aria-describedby="colorPickerIntensityHint">
+              <option value="soft">Suave</option>
+              <option value="medium">Media</option>
+              <option value="strong">Intensa · menos transparente</option>
+            </select>
+            <p id="colorPickerIntensityHint">Se aplica a los fondos de todos los poemas y rimas.</p>
+            <div id="colorPickerSample" class="color-picker-sample">Así se verá el fondo con este color.</div>
+          </div>
+          <div class="color-picker-actions">
+            <button
+              id="colorPickerCancel"
+              type="button"
+              class="secondary"
+              data-close-color-picker="true"
+            >
+              Cancelar
+            </button>
+            <button id="colorPickerAccept" type="button" class="primary">
+              Aceptar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <aside id="supportReminder" class="support-reminder" aria-label="Apoya el desarrollo">
+        <div class="support-reminder-copy">
+          <span class="support-reminder-mark" aria-hidden="true">♥</span>
+          <p>
+            <strong>¿Te resulta útil Escandidor?</strong>
+            Tu apoyo ayuda a mantenerlo y a seguir creando herramientas para poetas.
+            <span id="supporterCountMessage" class="supporter-count-message" aria-live="polite" hidden></span>
+          </p>
+        </div>
+        <div class="support-reminder-actions">
+          <a class="support-reminder-link" href="apoyar.html">Apoyar el proyecto</a>
+          <button id="dismissSupportReminder" class="support-reminder-dismiss" type="button" aria-label="Ocultar este recordatorio" title="Ocultar durante 30 días">×</button>
+        </div>
+      </aside>
+
+      <footer
+        class="app-footer"
+        style="
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+          text-align: center;
+          padding: 1rem 0;
+        "
+      >
+        <div>
+          De Mesa© para el
+          <a
+            href="https://discord.gg/mSz3ER2JKR"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Busto de Pallas</a
+          >. <a href="agradecimientos.html">Agradecimientos</a> ·
+          <a href="apoyar.html">Apoya el proyecto</a>.
+        </div>
+        <div
+          class="footer-credits"
+          style="
+            font-size: 0.75rem;
+            opacity: 0.75;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.3;
+          "
+        >
+          Componentes y Recursos con Licencia de Código Abierto / Uso Público:
+          fuente tipográfica <strong>OpenDyslexic</strong> incluida localmente
+          en <strong>opendyslexic-0.92</strong> (<a href="opendyslexic-0.92/OFL.txt">SIL Open Font License 1.1</a>) y
+          módulo de exportación de documentos <strong>jsPDF</strong>
+          (Licencia MIT). Los indicadores MD y PDF se renderizan como texto
+          local. Las herramientas de consulta operan mediante peticiones a
+          diccionarios de acceso público libre y utilizan los datos de
+          frecuencia léxica en español de
+          <a
+            href="https://github.com/rspeer/wordfreq"
+            target="_blank"
+            rel="noopener noreferrer"
+            >rspeer/wordfreq</a
+          > bajo <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 4.0</a>.
+            El dictado local para Firefox utiliza
+            <a href="https://alphacephei.com/vosk/" target="_blank" rel="noopener noreferrer">Vosk</a>,
+            <a href="https://github.com/ccoreilly/vosk-browser" target="_blank" rel="noopener noreferrer">Vosk Browser</a>
+            y el modelo pequeno en espanol, bajo
+            <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener noreferrer">Apache 2.0</a>.
+          <a href="THIRD-PARTY-LICENSES.md">Licencias y atribuciones completas</a> ·
+          <a href="privacidad.html">Privacidad</a>.
+        </div>
+      </footer>
+    </main>
+
+    <script type="module" src="app.js"></script>
+    <script type="module" src="auth.js"></script>
+    <script type="module" src="support-reminder.js"></script>
+  </body>
+</html>

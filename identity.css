@@ -1,0 +1,277 @@
+﻿/* Newspaper identity and shared semantic colors for every public page. */
+/* Flexoki by Steph Ango (MIT): https://stephango.com/flexoki
+   Base-100 keeps the light edition cream; the dark edition uses warm ink.
+   Actions use red-600 in both editions; text accents adapt to the paper. */
+:root {
+  color-scheme: light;
+  --brand-bg: #E6E4D9;
+  --bg: var(--brand-bg);
+  --bg-2: #DAD8CE;
+  --surface: #F2F0E5;
+  --surface-2: #DAD8CE;
+  --surface-rgb: 242, 240, 229;
+  --surface-strong-rgb: 218, 216, 206;
+  --ink-rgb: 16, 15, 15;
+  --accent2-rgb: 87, 86, 83;
+  --text: #100F0F;
+  --ink: var(--text);
+  --muted: #575653;
+  --text-muted: var(--muted);
+  --muted-text: var(--muted);
+  --accent: #942822;
+  --accent-2: #575653;
+  --brand-red: #AF3029;
+  --action: #AF3029;
+  --action-hover: #942822;
+  --on-action: #FFFCF0;
+  --on-accent: #FFFCF0;
+  --line: #B7B5AC;
+  --panel-border: var(--line);
+  --panel: var(--surface);
+  --paper: var(--bg);
+  --paper-light: var(--surface);
+  --rust: var(--accent);
+  --teal: var(--accent-2);
+  --success: #536907;
+  --success-bg: #DDE2B2;
+  --danger: #AF3029;
+  --danger-bg: #FFE1D5;
+  --warning: #664D01;
+  --warning-bg: #F6E2A0;
+  --cyan: #1C6C66;
+  --blue: #205EA6;
+  --purple: #5E409D;
+  --orange: #9D4310;
+  --shadow: none;
+  --ui-font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --display-font: Georgia, 'Times New Roman', serif;
+  --reading-font: Georgia, 'Times New Roman', serif;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --brand-bg: #100F0F;
+  --bg-2: #1C1B1A;
+  --surface: #1C1B1A;
+  --surface-2: #282726;
+  --surface-rgb: 28, 27, 26;
+  --surface-strong-rgb: 40, 39, 38;
+  --ink-rgb: 206, 205, 195;
+  --accent2-rgb: 183, 181, 172;
+  --text: #CECDC3;
+  --muted: #B7B5AC;
+  --accent: #E8705F;
+  --accent-2: #B7B5AC;
+  --on-accent: #100F0F;
+  --line: #575653;
+  --success: #A0AF54;
+  --success-bg: #252D09;
+  --danger: #E8705F;
+  --danger-bg: #3E1715;
+  --warning: #DFB431;
+  --warning-bg: #3A2D04;
+  --cyan: #5ABDAC;
+  --blue: #66A0C8;
+  --purple: #A699D0;
+  --orange: #EC8B49;
+}
+* { box-sizing: border-box; }
+body { color: var(--text); background: var(--bg); font-family: var(--ui-font); }
+body.has-poem-theme {
+  --poem-tint-scale: 1;
+  --bg: color-mix(in srgb, var(--poem-color) calc(var(--color-surface, 12%) * var(--poem-tint-scale)), var(--brand-bg));
+  --poem-surface: color-mix(in srgb, var(--poem-color) calc(var(--color-surface, 12%) * var(--poem-tint-scale)), var(--surface));
+  --poem-surface-strong: color-mix(in srgb, var(--poem-color) calc(var(--color-strong, 20%) * var(--poem-tint-scale)), var(--surface));
+  --poem-border: color-mix(in srgb, var(--poem-color) var(--color-border, 60%), var(--line));
+  --poem-detail: color-mix(in srgb, var(--poem-color) 30%, var(--text));
+  --action: var(--poem-color);
+  --on-action: var(--poem-on-color);
+  --action-hover: color-mix(in srgb, var(--poem-color) 85%, var(--poem-on-color));
+  --accent: var(--poem-detail);
+  --panel-border: var(--poem-border);
+  --panel: var(--poem-surface);
+}
+:root[data-theme='dark'] body.has-poem-theme {
+  --poem-tint-scale: .6;
+  --poem-detail: color-mix(in srgb, var(--poem-color) 30%, var(--text));
+}
+:where(a,button,input,select,textarea,summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+a { text-underline-offset: 4px; }
+input,select,textarea { accent-color: var(--accent); }
+input::placeholder,textarea::placeholder { color: var(--muted); opacity: .9; }
+::selection { background: var(--action); color: var(--on-action); }
+.publication-header { width: min(1240px, calc(100% - 48px)); margin-inline: auto; }
+.publication-nav { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 18px 0; margin: 0; border-bottom: 1px solid var(--text); }
+.publication-brand { color: var(--text); font-family: var(--display-font); font-size: 17px; font-weight: 400; letter-spacing: -.01em; text-decoration: none; white-space: nowrap; }
+.publication-links { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 22px; font-size: 12px; }
+.publication-links a { color: var(--text); font-weight: 500; text-decoration: none; }
+.publication-links a:hover,.publication-links a[aria-current] { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; }
+.publication-links .nav-support { color: var(--accent); }
+.edition-line { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 10px 0; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
+button.theme-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 34px; padding: 7px 11px; background: transparent; color: var(--text); border: 1px solid var(--line); border-radius: 2px; font: 500 11px var(--ui-font); box-shadow: none; white-space: nowrap; }
+button.theme-toggle:hover { background: var(--surface-2); transform: none; box-shadow: none; }
+.theme-toggle svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+/* Flat, ruled writing surfaces instead of translucent notebook cards. */
+.app-shell { width: min(1560px, calc(100% - 32px)); padding-top: 26px; }
+.hero { border-bottom: 2px solid var(--text); padding-bottom: 22px; }
+.hero h1 { font-family: var(--display-font); font-weight: 400; font-size: clamp(1.9rem, 3vw, 3.1rem); line-height: 1.08; letter-spacing: -.045em; }
+.eyebrow { color: var(--accent); font-family: var(--ui-font); letter-spacing: .13em; }
+.panel,.workspace,.control-card,.config-shell,.quick-controls,.metric-config-row,.metric-detail-section,.lookup-results,.version-manager-content,.color-picker-content,.version-preview-panel,.auth-dialog { border-radius: 2px; box-shadow: none; backdrop-filter: none; }
+.panel { border-top: 3px solid var(--text); }
+.panel-header h2 { font-family: var(--display-font); font-size: 1.25rem; letter-spacing: -.035em; }
+.control-card,.config-shell,.quick-controls { border-color: var(--line); background: var(--surface); }
+button { border-radius: 2px; background: var(--action); color: var(--on-action); box-shadow: none; }
+button:hover { box-shadow: none; transform: none; }
+button.secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); }
+button.discord-login { background: #5865f2; color: #fff; border-radius: 2px; }
+:where(input,select,textarea):not([type='checkbox']):not([type='radio']):not([type='color']):not([type='hidden']) { color: var(--text); background-color: var(--surface); border-color: var(--line); border-radius: 2px; }
+#poemInput,.analysis-output,.analysis-text-output { font-family: var(--poem-font-family, var(--reading-font)); }
+.auth-dialog,.color-picker-content,.version-manager-content,.version-preview-panel,.guide-popover,.lookup-results { background: var(--surface); color: var(--text); border-color: var(--line); }
+.auth-dialog::backdrop { background: #0009; }
+.support-reminder { border-radius: 2px; background: var(--surface-2); border-color: var(--line); border-left-color: var(--accent); }
+.support-reminder-link { background: var(--action); color: var(--on-action); border-radius: 2px; }
+.support-reminder-dismiss { background: transparent; color: var(--muted); }
+.quick-control-group:first-child { padding: 8px 0; }
+.metric-detail-section legend { font-weight: 700; }
+/* The secondary pages use the same masthead, accent and reading hierarchy. */
+.support-page .support-intro { min-height: 0; padding-block: 55px 60px; }
+.support-page h1 { font-family: var(--display-font); font-size: clamp(2.7rem, 4.8vw,4.4rem); font-weight: 400; line-height: 1.07; letter-spacing: -.045em; }
+.support-page h2 { font-family: var(--reading-font); }
+.support-page .impact-panel { background: var(--surface); border-color: var(--line); border-top-color: var(--accent); }
+.support-page .impact-number { font-family: var(--display-font); font-weight: 400; }
+.support-page .kofi-button { background: var(--action); color: var(--on-action); border: 1px solid var(--action); border-radius: 2px; box-shadow: none; }
+.support-page .kofi-button:hover { transform: none; box-shadow: none; }
+.support-page .other-support { padding-block: 45px 55px; }
+.reading-page main,.reading-page .page { width: min(920px, calc(100% - 40px)); padding-top: 36px; }
+.reading-page article,.reading-page .card { border: 1px solid var(--line); border-top: 4px solid var(--accent); background: var(--surface); color: var(--text); }
+.reading-page h1,.admin-header h1 { font-family: var(--display-font); font-weight: 400; line-height: 1.08; letter-spacing: -.04em; }
+.reading-page h2 { font-family: var(--reading-font); }
+.reading-page .button-link,.reading-page .donor-list li { border-radius: 2px; background: var(--surface-2); color: var(--text); }
+.admin-header,.admin-stats,.admin-table-wrap,.admin-tabs { border-color: var(--line); }
+.admin-table-wrap { background: var(--surface); }
+.admin-table-wrap th,.admin-table-wrap td,.admin-stats>div+div { border-color: var(--line); }
+.admin-tab.is-active { background: var(--action); color: var(--on-action); }
+/* Color-coded metrics stay distinct and legible against dark paper. */
+:root[data-theme='dark'] .poem-tree-summary { background: color-mix(in srgb, var(--poem-accent, var(--accent)) var(--color-highlight, 12%), var(--surface)); }
+:root[data-theme='dark'] .poem-version-list { background: var(--surface); }
+:root[data-theme='dark'] .rhyme-chip { background: var(--surface-2); }
+:root[data-theme='dark'] :is(.rhyme-tone-0,.rhyme-cool-0,.rhyme-cool-3) { color: var(--blue); }
+:root[data-theme='dark'] :is(.rhyme-tone-1,.rhyme-warm-1,.rhyme-warm-4) { color: var(--orange); }
+:root[data-theme='dark'] :is(.rhyme-tone-2,.rhyme-cool-2,.rhyme-cool-5) { color: var(--success); }
+:root[data-theme='dark'] :is(.rhyme-tone-3,.rhyme-cool-1,.rhyme-cool-4) { color: var(--purple); }
+:root[data-theme='dark'] :is(.rhyme-tone-4,.rhyme-warm-0,.rhyme-warm-3,.rhyme-warm-5) { color: var(--danger); }
+:root[data-theme='dark'] :is(.rhyme-tone-5,.rhyme-warm-2) { color: var(--warning); }
+:root[data-theme='dark'] [class*='rhyme-neutral-'] { color: var(--text); }
+:root[data-theme='dark'] :is(.toast.is-success,.toast.is-error,.toast.is-warning) { background: var(--surface-2); }
+:root[data-theme='dark'] :is(.stress-pattern-remove,.auth-status.is-error,.cloud-save-status.is-error,.admin-status.is-error,.invalid-hemi) { color: var(--danger); }
+:root[data-theme='dark'] :is(.sinalefa-boundary,.syneresis-toggle) { color: var(--cyan); }
+:root[data-theme='dark'] .monosyllable-warning { background: var(--surface-2); color: var(--warning); }
+:root[data-theme='dark'] .color-picker-swatch.is-selected { outline: 2px solid var(--text); outline-offset: 2px; }
+@media(max-width:700px) {
+  .publication-header { width: calc(100% - 32px); }
+  .publication-nav { flex-wrap: wrap; gap: 12px; padding-block: 15px; }
+  .publication-brand { font-size: 16px; }
+  .publication-links { gap: 16px; font-size: 11px; justify-content: flex-start; }
+  .publication-links .theme-toggle { margin-left: auto; }
+  .edition-line { font-size: 8px; letter-spacing: .06em; }
+  .app-shell { width: calc(100% - 20px); }
+  .support-page h1 { font-size: clamp(2.3rem, 9.5vw, 3.2rem); }
+}
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+
+.poem-color-0 { --poem-accent: #205EA6; }
+.poem-color-1 { --poem-accent: #5E409D; }
+.poem-color-2 { --poem-accent: #536907; }
+.poem-color-3 { --poem-accent: #9D4310; }
+.poem-color-4 { --poem-accent: #AF3029; }
+.poem-color-5 { --poem-accent: #1C6C66; }
+:root[data-theme='dark'] .rhyme-chip { --rhyme-display: var(--rhyme-dark-ink, color-mix(in srgb, var(--rhyme-ink) 60%, var(--text))); }
+
+body a { color: var(--accent-2); }
+.publication-brand { color: var(--text); }
+.color-picker-backdrop { background: #0009; }
+
+.export-dialog { width: min(520px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; }
+.export-dialog .auth-form > button { min-height: 44px; padding: 10px 16px; }
+.video-dialog { width: min(940px, calc(100% - 32px)); }
+.video-dialog canvas { display: block; width: 100%; height: auto; border: 1px solid var(--line); }
+.video-speed { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.video-speed input { width: 90px; padding: 8px; }
+.video-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.video-actions button { padding: 10px 14px; min-height: 40px; }
+.video-actions button:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Semantic badges use pigment colors on their matching paper/ink surfaces. */
+:is(.metric-count.is-valid,.scheme-chip.is-valid,.scheme-badge.is-valid,.poemtype-chip.is-valid,.poemtype-badge.is-valid,.vpos.green,.toast.is-success) { background: var(--success-bg); color: var(--success); border-color: var(--success); }
+:is(.metric-count.is-invalid,.scheme-chip.is-invalid,.scheme-badge.is-invalid,.poemtype-chip.is-invalid,.poemtype-badge.is-invalid,.vpos.red,.toast.is-error) { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+:is(.vpos.yellow,.toast.is-warning,.monosyllable-warning) { background: var(--warning-bg); color: var(--warning); border-color: var(--warning); }
+:root[data-theme='dark'] :is(.toast.is-success,.toast.is-error,.toast.is-warning) { background: var(--surface-2); }
+:root[data-theme='dark'] .sinalefa-boundary, :root[data-theme='dark'] .syneresis-toggle { color: var(--cyan); }
+
+.sinalefa-toggle.is-active { background: var(--success-bg); color: var(--success); border-color: var(--success); }
+.sinalefa-toggle.is-warning { background: var(--warning-bg); color: var(--warning); border-color: var(--warning); }
+.sinalefa-toggle.is-inactive { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+
+/* Expanded pigment palette, with an independent background intensity choice. */
+.color-picker-content { width: min(440px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto; }
+.color-picker-swatch { border-radius: 2px; box-shadow: none; }
+.color-picker-swatch.is-selected { outline: 2px solid var(--text); outline-offset: 2px; }
+.color-picker-intensity { display: grid; gap: 8px; }
+.color-picker-intensity label { font-size: 13px; font-weight: 600; }
+.color-picker-intensity select { width: 100%; padding: 9px; }
+.color-picker-intensity p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.color-picker-sample { padding: 12px; border: 1px solid var(--line); color: var(--text); font-size: 13px; }
+@media (max-width: 480px) {
+  .color-picker-swatches { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+}
+
+/* A poem's pigment becomes its writing-room identity. */
+body.has-poem-theme :is(.hero,.publication-nav) { border-bottom-color: var(--poem-detail); }
+body.has-poem-theme .panel { border-top: 4px solid var(--poem-color); }
+body.has-poem-theme .panel-header { background: var(--poem-surface-strong); border-bottom-color: var(--poem-border); }
+body.has-poem-theme :is(.panel-header h2,.eyebrow) { color: var(--poem-detail); }
+body.has-poem-theme :is(.quick-controls,.control-card,.config-shell,.metric-config-row,.metric-detail-section) { background: var(--poem-surface); border-color: var(--poem-border); }
+body.has-poem-theme #poemInput { background: var(--poem-surface); }
+body.has-poem-theme :is(.quick-controls,.word-lookup-bar,.support-reminder) { border-left: 4px solid var(--poem-color); }
+body.has-poem-theme button.secondary { background: var(--poem-surface-strong); border-color: var(--poem-border); }
+body.has-poem-theme :is(input,select,textarea):focus-visible { outline-color: var(--poem-detail); }
+body.has-poem-theme button.primary:hover { background: var(--action-hover); }
+.poem-tree-node { border-left: 4px solid var(--poem-accent, var(--accent)); }
+/* Dark edition: opaque, raised surfaces with recessed rather than luminous edges. */
+:root[data-theme='dark'] {
+  --surface: #282726;
+  --surface-2: #343331;
+  --surface-rgb: 40, 39, 38;
+  --surface-strong-rgb: 52, 51, 49;
+  --line: #1C1B1A;
+}
+:root[data-theme='dark'] body.has-poem-theme {
+  --bg: color-mix(in srgb, var(--poem-color) calc(var(--color-surface, 12%) * .15), var(--brand-bg));
+  --poem-border: color-mix(in srgb, var(--poem-surface) 65%, #100F0F);
+}
+:root[data-theme='dark'] body .workspace {
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+:root[data-theme='dark'] body .panel {
+  background: var(--poem-surface, var(--surface));
+  border: 1px solid var(--poem-border, var(--line));
+  box-shadow: none;
+}
+:root[data-theme='dark'] body .panel-header {
+  background: var(--poem-surface-strong, var(--surface-2));
+  border-bottom-color: var(--poem-border, var(--line));
+}
+:root[data-theme='dark'] body :is(.quick-controls,.word-lookup-bar,.support-reminder,.poem-tree-node) {
+  border-color: var(--poem-border, var(--line));
+  border-left-width: 1px;
+  box-shadow: none;
+}
+:root[data-theme='dark'] body .poem-tree-node {
+  background: color-mix(in srgb, var(--poem-accent, var(--accent)) 12%, var(--surface));
+}
+:root[data-theme='dark'] body .poem-tree-summary {
+  background: color-mix(in srgb, var(--poem-accent, var(--accent)) 16%, var(--surface));
+  border-bottom-color: var(--poem-border, var(--line));
+}
+:root[data-theme='dark'] body .poem-version-list { background: var(--surface); }

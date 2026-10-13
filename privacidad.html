@@ -1,11 +1,12 @@
 <!doctype html>
 <html lang="es">
   <head>
+    <script src="theme-init.js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Privacidad | Escandidor</title>
     <meta name="description" content="Información sobre los datos que trata Escandidor y los servicios externos que utiliza." />
-    <link rel="canonical" href="https://mesa-de-poesia.pages.dev/privacidad.html" />
+    <link rel="canonical" href="https://mesa-de-poesia.pages.dev/privacidad" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&amp;family=Cormorant+Garamond:wght@600;700&amp;display=swap" rel="stylesheet" />
@@ -25,14 +26,25 @@
       .data-deletion label { display: block; font-weight: 700; }
       .data-deletion-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-top: 12px; }
       .data-deletion-controls div { flex: 1 1 220px; }
-      .data-deletion input { width: 100%; min-height: 42px; margin-top: 5px; padding: 8px 10px; border: 1px solid #9b8876; background: #fff; color: var(--text); font: inherit; }
+      .data-deletion input { width: 100%; min-height: 42px; margin-top: 5px; padding: 8px 10px; border: 1px solid #9b8876; background: var(--surface-2); color: var(--text); font: inherit; }
       .data-deletion button { min-height: 42px; padding: 8px 14px; border: 0; background: var(--danger); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
       .data-deletion button:disabled { opacity: 0.45; cursor: not-allowed; }
       .data-deletion-status { min-height: 1.5em; margin-bottom: 0; }
       nav { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 18px; }
     </style>
-  </head>
-  <body>
+      <link rel="stylesheet" href="identity.css" />
+    <script src="theme.js" defer></script>
+  <meta name="theme-color" content="#E6E4D9" />
+</head>
+  <body class="reading-page">
+<header class="publication-header">
+  <nav class="publication-nav" aria-label="Navegación principal">
+    <a class="publication-brand" href="index.html">Mesa de Poesía<span aria-hidden="true">.</span></a>
+    <div class="publication-links"><a href="index.html" >Inicio</a><a href="escandidor.html" >Escandidor</a><a href="apoyar.html" class="nav-support" >Apoyar el proyecto ↗</a><button type="button" class="theme-toggle" data-theme-toggle aria-label="Cambiar a modo oscuro" aria-pressed="false">Modo oscuro</button></div>
+  </nav>
+
+  <div class="edition-line"><span>Un taller de poesía en español</span><span>Métrica · Ritmo · Rima</span></div>
+</header>
     <main>
       <article>
         <h1>Privacidad</h1>
@@ -76,7 +88,7 @@
         <p>Conservas los derechos sobre los poemas que introduces. No publiques contenido que no tengas derecho a utilizar. Las licencias y atribuciones de componentes externos están en el aviso de terceros.</p>
 
         <nav aria-label="Enlaces legales y de navegación">
-          <a href="index.html">Volver al escandidor</a>
+          <a href="escandidor.html">Volver al escandidor</a>
           <a href="THIRD-PARTY-LICENSES.md">Licencias de terceros</a>
         </nav>
       </article>

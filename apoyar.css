@@ -6,7 +6,7 @@
   --muted: #6f5d4c;
   --rust: #93492d;
   --teal: #315c66;
-  --line: rgba(53, 35, 18, 0.18);
+  --line: rgba(var(--ink-rgb), 0.18);
 }
 
 * {
@@ -19,7 +19,7 @@ body {
   color: var(--ink);
   background:
     linear-gradient(90deg, transparent 0 7.5%, rgba(147, 73, 45, 0.08) 7.5% calc(7.5% + 1px), transparent calc(7.5% + 1px)),
-    repeating-linear-gradient(0deg, transparent 0 31px, rgba(49, 92, 102, 0.055) 31px 32px),
+    repeating-linear-gradient(0deg, transparent 0 31px, rgba(var(--accent2-rgb), 0.055) 31px 32px),
     var(--paper);
   font-family: "Atkinson Hyperlegible", sans-serif;
   letter-spacing: 0;
@@ -95,7 +95,7 @@ h1 {
   border-radius: 6px;
   background: var(--rust);
   color: #fffaf2;
-  box-shadow: 5px 5px 0 rgba(49, 92, 102, 0.24);
+  box-shadow: 5px 5px 0 rgba(var(--accent2-rgb), 0.24);
   font-weight: 700;
   text-decoration: none;
   transition: transform 160ms ease, box-shadow 160ms ease;
@@ -104,7 +104,7 @@ h1 {
 .kofi-button:hover,
 .kofi-button:focus-visible {
   transform: translate(-2px, -2px);
-  box-shadow: 8px 8px 0 rgba(49, 92, 102, 0.24);
+  box-shadow: 8px 8px 0 rgba(var(--accent2-rgb), 0.24);
 }
 
 .external-mark {
@@ -123,7 +123,7 @@ h1 {
   padding: 30px;
   border-top: 6px solid var(--rust);
   border-bottom: 1px solid var(--line);
-  background: rgba(255, 250, 242, 0.72);
+  background: rgba(var(--surface-rgb), 0.72);
 }
 
 .impact-number {
@@ -232,3 +232,5 @@ footer {
     transition: none;
   }
 }
+.support-header { display: flex; justify-content: space-between; align-items: center; gap: 24px; border-bottom: 1px solid var(--line); }
+a:focus-visible { outline: 2px solid var(--teal); outline-offset: 5px; }

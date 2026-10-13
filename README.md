@@ -24,7 +24,7 @@ npm test
 npm run dev
 ```
 
-`npm run dev` sirve el sitio completo con Pages Functions y una D1 local. Para usar solo el analizador sin cuentas se puede abrir `index.html`.
+`npm run dev` sirve el sitio completo con Pages Functions y una D1 local. Para usar solo el analizador sin cuentas se puede abrir `escandidor.html`.
 
 ```powershell
 npm run check
@@ -62,7 +62,12 @@ Ejemplo de formato de salida:
 Ca-**mi**-no **len**-to por la **tar**-de **cla**-ra, 11 2-4-8-10
 
 ## Mapa del repositorio
-- index.html: estructura de la pagina.
+- index.html: landing estatica e indexable.
+- escandidor.html: estructura de la herramienta de escansion.
+- landing.css: estilos editoriales de la portada.
+- identity.css: identidad visual y paletas clara/oscura compartidas.
+- theme-init.js / theme.js: preferencia de color del sistema, selector y persistencia del tema.
+- _redirects: compatibilidad de rutas antiguas.
 - styles.css: estilos y layout responsive.
 - analyzer.js: reglas de silabificacion, acentuacion y conteo.
 - app.js: renderizado y eventos UI del analizador.
@@ -90,7 +95,7 @@ Ca-**mi**-no **len**-to por la **tar**-de **cla**-ra, 11 2-4-8-10
 Los archivos web permanecen en la raiz porque `wrangler.jsonc` publica `.` y sus URL son parte del contrato. Moverlos requiere una migracion separada de referencias, sitemap, despliegue y pruebas.
 
 ## Ejecucion sin backend
-1. Abre index.html en tu navegador.
+1. Abre escandidor.html en tu navegador.
 2. Escribe o pega tu poema en el panel izquierdo.
 3. Revisa el analisis en el panel derecho.
 
@@ -300,3 +305,14 @@ Aun no implementado o parcial:
 - Tonicidad secundaria profunda.
 
 Ver detalles en reglas_escanción.md.
+
+
+## Exportaciones
+
+El botón MD permite elegir entre todas las versiones del poema y la última. La exportación del poema abierto incluye los cambios del borrador actual sin obligar a guardarlos. En una selección de varios poemas, la última versión se calcula por identidad de poema, aunque los títulos coincidan.
+
+El botón Video permite ver y descargar una animación de las versiones guardadas, en orden cronológico, con velocidad ajustable y cancelación. Incluye el borrador actual cuando tiene cambios y omite duplicados de texto. La grabación se genera localmente a 1280 × 720 mediante canvas y MediaRecorder; descarga MP4 cuando el navegador lo permite y WebM como alternativa. Cada pausa de 10 segundos sin input crea un autoguardado local nuevo si hay cambios. Los autoguardados anteriores se conservan; guardar manualmente el mismo contenido marca esa versión como manual sin duplicarla. El video reconstruye las transiciones entre estas versiones, no cada pulsación original.
+
+## Paleta visual
+
+La identidad utiliza Flexoki, de Steph Ango (MIT): https://stephango.com/flexoki. Los fondos claros usan base-100 y base-50 para conservar el aspecto crema; la edici?n oscura usa black, base-950 y base-900. Los botones usan red-600 con texto paper en ambos modos. Los colores de texto y los indicadores se adaptan con tonos de la paleta extendida.

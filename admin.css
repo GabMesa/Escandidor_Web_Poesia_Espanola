@@ -10,7 +10,7 @@
   justify-content: space-between;
   gap: 24px;
   padding-bottom: 20px;
-  border-bottom: 2px solid rgba(53, 35, 18, 0.16);
+  border-bottom: 2px solid rgba(var(--ink-rgb), 0.16);
 }
 
 .admin-header h1 {
@@ -42,13 +42,13 @@
 }
 
 .admin-status.is-error {
-  color: #9a342d;
+  color: var(--danger);
 }
 
 .admin-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-block: 1px solid rgba(53, 35, 18, 0.14);
+  border-block: 1px solid rgba(var(--ink-rgb), 0.14);
 }
 
 .admin-stats > div {
@@ -59,7 +59,7 @@
 }
 
 .admin-stats > div + div {
-  border-left: 1px solid rgba(53, 35, 18, 0.14);
+  border-left: 1px solid rgba(var(--ink-rgb), 0.14);
 }
 
 .admin-stats strong {
@@ -82,7 +82,7 @@
 
 .admin-tabs {
   display: flex;
-  border: 1px solid rgba(53, 35, 18, 0.18);
+  border: 1px solid rgba(var(--ink-rgb), 0.18);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -97,7 +97,7 @@
 }
 
 .admin-tab.is-active {
-  background: var(--accent);
+  background: var(--action);
   color: #fffaf3;
 }
 
@@ -105,17 +105,17 @@
   width: 100%;
   min-height: 42px;
   padding: 9px 12px;
-  border: 1px solid rgba(53, 35, 18, 0.2);
+  border: 1px solid rgba(var(--ink-rgb), 0.2);
   border-radius: 6px;
-  background: #fffaf3;
+  background: var(--surface-2);
   color: var(--text);
   font: inherit;
 }
 
 .admin-table-wrap {
   overflow-x: auto;
-  border-block: 1px solid rgba(53, 35, 18, 0.16);
-  background: rgba(255, 250, 243, 0.7);
+  border-block: 1px solid rgba(var(--ink-rgb), 0.16);
+  background: rgba(var(--surface-rgb), 0.7);
 }
 
 .admin-table-wrap table {
@@ -127,7 +127,7 @@
 .admin-table-wrap th,
 .admin-table-wrap td {
   padding: 12px 14px;
-  border-bottom: 1px solid rgba(53, 35, 18, 0.1);
+  border-bottom: 1px solid rgba(var(--ink-rgb), 0.1);
   text-align: left;
   vertical-align: middle;
 }
@@ -142,9 +142,9 @@
 .admin-table-wrap select {
   min-height: 34px;
   padding: 5px 8px;
-  border: 1px solid rgba(53, 35, 18, 0.18);
+  border: 1px solid rgba(var(--ink-rgb), 0.18);
   border-radius: 4px;
-  background: #fff;
+  background: var(--surface-2);
   color: var(--text);
   font: inherit;
 }
@@ -191,7 +191,7 @@
 
   .admin-stats > div + div {
     border-left: 0;
-    border-top: 1px solid rgba(53, 35, 18, 0.14);
+    border-top: 1px solid rgba(var(--ink-rgb), 0.14);
   }
 
   .admin-toolbar {
@@ -208,9 +208,9 @@
   min-width: 190px;
   min-height: 34px;
   padding: 5px 8px;
-  border: 1px solid rgba(53, 35, 18, 0.18);
+  border: 1px solid rgba(var(--ink-rgb), 0.18);
   border-radius: 4px;
-  background: #fff;
+  background: var(--surface-2);
   color: var(--text);
   font: inherit;
 }

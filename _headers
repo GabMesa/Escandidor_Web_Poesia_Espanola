@@ -1,3 +1,9 @@
+/admin
+  X-Robots-Tag: noindex, nofollow, noarchive
+
+/404.html
+  X-Robots-Tag: noindex, follow
+
 /admin.html
   X-Robots-Tag: noindex, nofollow, noarchive
 

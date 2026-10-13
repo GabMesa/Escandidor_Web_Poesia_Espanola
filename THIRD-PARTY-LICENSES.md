@@ -169,3 +169,9 @@ distribution and must not be removed.
 RAE, IEDRA and “Vamos a hablar de métrica” are linked as external references;
 their data is not bundled by this application. The `epidemian/es.txt` gist and
 `xavier-hernandez/spanish-wordlist` are not present in this distribution.
+
+## Flexoki
+
+Palette by Steph Ango: https://stephango.com/flexoki
+Source: https://github.com/kepano/flexoki
+The selected palette values are integrated in identity.css. A copy of the MIT license is included in FLEXOKI-LICENSE.txt.

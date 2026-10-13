@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="es">
   <head>
+    <script src="theme-init.js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow, noarchive" />
@@ -11,8 +12,19 @@
     <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&amp;family=Cormorant+Garamond:wght@600;700&amp;display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="admin.css" />
-  </head>
-  <body>
+      <link rel="stylesheet" href="identity.css" />
+    <script src="theme.js" defer></script>
+  <meta name="theme-color" content="#E6E4D9" />
+</head>
+  <body class="admin-page">
+<header class="publication-header">
+  <nav class="publication-nav" aria-label="Navegación principal">
+    <a class="publication-brand" href="index.html">Mesa de Poesía<span aria-hidden="true">.</span></a>
+    <div class="publication-links"><a href="index.html" >Inicio</a><a href="escandidor.html" >Escandidor</a><a href="apoyar.html" class="nav-support" >Apoyar el proyecto ↗</a><button type="button" class="theme-toggle" data-theme-toggle aria-label="Cambiar a modo oscuro" aria-pressed="false">Modo oscuro</button></div>
+  </nav>
+
+  <div class="edition-line"><span>Un taller de poesía en español</span><span>Métrica · Ritmo · Rima</span></div>
+</header>
     <main class="admin-shell">
       <header class="admin-header">
         <div>
@@ -21,7 +33,7 @@
         </div>
         <div class="admin-header-actions">
           <span id="adminIdentity" class="admin-identity"></span>
-          <a href="index.html" class="admin-back-link">Volver al escandidor</a>
+          <a href="escandidor.html" class="admin-back-link">Volver al escandidor</a>
         </div>
       </header>
 

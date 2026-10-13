@@ -169,6 +169,12 @@ export function isTriphthongVowelSequence(vowels) {
 
 export function findSinalefaTriphthongs(lineAnalysis, activeBoundaries, options = {}) {
   const triphthongs = [];
+  const trailingVowels = (word) => {
+    const original = sanitizeWord(word?.original ?? '');
+    const syllable = sanitizeWord(word?.syllables?.at(-1) ?? '');
+    const offset = original.length - syllable.length;
+    return [...syllable].filter((ch, index) => isVowelLike(ch, offset + index, original));
+  };
 
   for (let index = 0; index < activeBoundaries.length; index += 1) {
     if (!activeBoundaries[index]?.active) {
@@ -177,7 +183,7 @@ export function findSinalefaTriphthongs(lineAnalysis, activeBoundaries, options 
 
     const words = lineAnalysis.analyses.slice(index, index + 2);
     const vowels = [
-      ...extractVowelsForSinalefa(words[0]?.syllables?.at(-1), options),
+      ...trailingVowels(words[0]),
       ...extractLeadingVowelsForSinalefa(words[1]?.original, options)
     ];
 
@@ -199,7 +205,7 @@ export function findSinalefaTriphthongs(lineAnalysis, activeBoundaries, options 
 
     const words = lineAnalysis.analyses.slice(index, index + 3);
     const vowels = [
-      ...extractVowelsForSinalefa(words[0]?.syllables?.at(-1), options),
+      ...trailingVowels(words[0]),
       ...extractVowelsForSinalefa(words[1]?.original, options),
       ...extractVowelsForSinalefa(words[2]?.syllables?.[0], options)
     ];

@@ -1,3 +1,5 @@
+import { sortPoemVersions, selectMarkdownEntries, buildHistoryMarkdown, buildVideoTimeline } from './poem-exports.js';
+import { createPoemVideoExporter } from './poem-video.js';
 import {
   analyzePoem,
   normalizeInput,
@@ -36,6 +38,10 @@ const poeticForm = document.getElementById('poeticForm');
 const syllablePattern = document.getElementById('syllablePattern');
 const poeticFormHint = document.getElementById('poeticFormHint');
 const hemistichSplit = document.getElementById('hemistichSplit');
+const hemistichPatternFields = document.getElementById('hemistichPatternFields');
+for (const id of ['assonanceRange', 'hemistichVerses']) {
+  document.getElementById(id)?.addEventListener('input', () => updateAnalysis());
+}
 const rhymeMode = document.getElementById('rhymeMode');
 const rhymeScheme = document.getElementById('rhymeScheme');
 const repeatRhymeScheme = document.getElementById('repeatRhymeScheme');
@@ -133,12 +139,38 @@ const LOCAL_DEFAULT_POEM_FONT_KEY = 'escandador.defaultPoemFont.v1';
 const LOCAL_LAST_WORKED_POEM_KEY = 'escandador.lastWorkedPoem.v1';
 const POEM_COLOR_COUNT = 6;
 const COLOR_PICKER_PALETTE = [
-  '#e05a4d', '#e8823a', '#e7b83b', '#a7c145',
-  '#4fae5a', '#3fb1a0', '#3f96c8', '#3f66c8',
-  '#6a5ae0', '#9b52d8', '#c94fb0', '#d8477a',
-  '#8a5a44', '#6b7280', '#2f8f8a', '#1f2933'
+  // Flexoki: pastel, light, medium, vivid, deep, and neutral shades.
+  '#F89A8A', '#F9AE77', '#ECCB60', '#BEC97E', '#87D3C3', '#92BFDB', '#C4B9E0', '#F4A4C2',
+  '#E8705F', '#EC8B49', '#DFB431', '#A0AF54', '#5ABDAC', '#66A0C8', '#A699D0', '#E47DA8',
+  '#D14D41', '#DA702C', '#D0A215', '#879A39', '#3AA99F', '#4385BE', '#8B7EC8', '#CE5D97',
+  '#AF3029', '#9D4310', '#664D01', '#536907', '#1C6C66', '#205EA6', '#5E409D', '#A02F6F',
+  '#6C201C', '#71320D', '#503D02', '#3D4C07', '#164F4A', '#163B66', '#3C2A62', '#641F46',
+  '#E6E4D9', '#CECDC3', '#B7B5AC', '#9F9D96', '#6F6E69', '#575653', '#403E3C', '#100F0F'
 ];
-const AUTO_SAVE_DELAY_MS = 1200;
+const COLOR_INTENSITY_KEY = 'escandador.colorIntensity.v1';
+const COLOR_INTENSITIES = {
+  soft: { surface: 12, strong: 20, highlight: 12, border: 60 },
+  medium: { surface: 20, strong: 28, highlight: 22, border: 75 },
+  strong: { surface: 28, strong: 36, highlight: 32, border: 90 }
+};
+
+function loadColorIntensity() {
+  try {
+    const value = localStorage.getItem(COLOR_INTENSITY_KEY);
+    return Object.hasOwn(COLOR_INTENSITIES, value) ? value : 'soft';
+  } catch {
+    return 'soft';
+  }
+}
+
+function applyColorIntensity(value) {
+  const intensity = COLOR_INTENSITIES[value] ?? COLOR_INTENSITIES.soft;
+  for (const [name, percentage] of Object.entries(intensity)) {
+    document.documentElement.style.setProperty(`--color-${name}`, `${percentage}%`);
+  }
+}
+
+const AUTO_SAVE_DELAY_MS = 10_000;
 const TRASH_LIMIT = 10;
 const LOOKUP_AUTO_FETCH_DELAY_MS = 420;
 const LOOKUP_WIKTIONARY_BASE_URL = 'https://es.wiktionary.org/wiki/';
@@ -379,6 +411,16 @@ function updateCurrentPoemColorButton(activeTitle = '') {
   currentPoemColorBtn.dataset.title = title;
 }
 
+// Pick the higher WCAG contrast for solid controls, including pale custom colors.
+function getPoemActionTextColor(hex) {
+  const channels = hex.replace('#', '').match(/../g).map(value => {
+    const channel = parseInt(value, 16) / 255;
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  const luminance = channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+  return (1.05 / (luminance + 0.05)) > ((luminance + 0.05) / 0.05) ? '#FFFFFF' : '#000000';
+}
+
 function applyPoemScreenTheme(poemTitle) {
   const normalizedTitle = normalizePoemTitle(poemTitle);
   const stored = normalizedTitle ? loadPoemColors()[normalizedTitle] : '';
@@ -386,9 +428,11 @@ function applyPoemScreenTheme(poemTitle) {
 
   if (colorHex) {
     document.documentElement.style.setProperty('--poem-color', colorHex);
+    document.documentElement.style.setProperty('--poem-on-color', getPoemActionTextColor(colorHex));
     document.body.classList.add('has-poem-theme');
   } else {
     document.documentElement.style.removeProperty('--poem-color');
+    document.documentElement.style.removeProperty('--poem-on-color');
     document.body.classList.remove('has-poem-theme');
   }
 
@@ -405,9 +449,9 @@ function applyPoemColorTheme(node, colorValue, fallbackIndex = 0) {
     node.classList.remove(...[...node.classList].filter((className) => className.startsWith('poem-color-') && className !== 'poem-color-custom'));
     node.classList.add('poem-color-custom');
     node.style.setProperty('--poem-accent', customColor);
-    node.style.setProperty('--poem-accent-soft', toRgba(customColor, 0.12));
-    node.style.setProperty('--poem-accent-soft-2', toRgba(customColor, 0.35));
-    node.style.setProperty('--poem-accent-soft-3', toRgba(customColor, 0.18));
+    node.style.setProperty('--poem-accent-soft', `color-mix(in srgb, ${customColor} var(--color-highlight, 12%), var(--surface))`);
+    node.style.setProperty('--poem-accent-soft-2', `color-mix(in srgb, ${customColor} var(--color-border, 32%), var(--line))`);
+    node.style.setProperty('--poem-accent-soft-3', `color-mix(in srgb, ${customColor} var(--color-strong, 10%), var(--surface))`);
     return { isCustom: true, colorHex: customColor };
   }
 
@@ -512,11 +556,14 @@ function getReadableTextColor(hex) {
   return luminance > 148 ? '#1f1a15' : '#ffffff';
 }
 
+const FLEXOKI_RHYME_COLORS = ['#205EA6', '#AF3029', '#536907', '#5E409D', '#9D4310', '#1C6C66', '#A02F6F', '#664D01'];
+const FLEXOKI_DARK_RHYME_COLORS = ['#66A0C8', '#E8705F', '#A0AF54', '#A699D0', '#EC8B49', '#5ABDAC', '#E47DA8', '#DFB431'];
 function generateDistinctRhymeColor(index) {
-  const hue = (index * 137.508) % 360;
-  const saturation = 66;
-  const lightness = 45 + ((index % 3) * 6) - 3;
-  return hslToHex(hue, saturation, lightness);
+  return FLEXOKI_RHYME_COLORS[Math.abs(index) % FLEXOKI_RHYME_COLORS.length];
+}
+function getDarkRhymeColor(color) {
+  const index = FLEXOKI_RHYME_COLORS.indexOf(String(color).toUpperCase());
+  return index < 0 ? '' : FLEXOKI_DARK_RHYME_COLORS[index];
 }
 
 function getPoemColorHex(colorValue) {
@@ -526,12 +573,12 @@ function getPoemColorHex(colorValue) {
 
   if (Number.isInteger(colorValue)) {
     const palette = [
-      '#4b7f8f', '#8a5a44', '#498a55', '#af7f2b', '#a05364', '#2f8f8a'
+      '#205EA6', '#AF3029', '#536907', '#5E409D', '#9D4310', '#1C6C66'
     ];
     return palette[colorValue % palette.length];
   }
 
-  return '#4b7f8f';
+  return '#205EA6';
 }
 
 function ensureRhymeColorStoreForPoem(poemTitle, labels) {
@@ -764,6 +811,11 @@ function setColorPickerSelection(colorHex) {
     colorPickerPreview.style.color = getReadableTextColor(normalized);
   }
 
+  const sample = document.getElementById('colorPickerSample');
+  const intensity = COLOR_INTENSITIES[document.getElementById('colorPickerIntensity').value];
+  sample.style.background = `color-mix(in srgb, ${normalized} ${intensity.highlight}%, var(--surface))`;
+  sample.style.borderColor = `color-mix(in srgb, ${normalized} ${intensity.border}%, var(--line))`;
+
   if (colorPickerSwatches) {
     const lower = normalized.toLowerCase();
     colorPickerSwatches.querySelectorAll('.color-picker-swatch').forEach((swatch) => {
@@ -796,7 +848,7 @@ function openColorPicker({ title, current, onAccept, onDefault, showDefaultActio
     return;
   }
 
-  const startColor = isHexColor(current) ? current.trim() : '#4b7f8f';
+  const startColor = isHexColor(current) ? current.trim() : '#205EA6';
   const titleEl = document.getElementById('colorPickerTitle');
   if (titleEl && title) {
     titleEl.textContent = title;
@@ -805,6 +857,7 @@ function openColorPicker({ title, current, onAccept, onDefault, showDefaultActio
   colorPickerState.onAccept = typeof onAccept === 'function' ? onAccept : null;
   colorPickerState.onDefault = typeof onDefault === 'function' ? onDefault : null;
   colorPickerState.showDefaultAction = Boolean(showDefaultAction);
+  document.getElementById('colorPickerIntensity').value = loadColorIntensity();
   renderColorPickerSwatches(startColor);
   setColorPickerSelection(startColor);
 
@@ -830,6 +883,9 @@ function applyDefaultColorPicker() {
 }
 
 function confirmColorPicker() {
+  const intensity = document.getElementById('colorPickerIntensity').value;
+  applyColorIntensity(intensity);
+  try { localStorage.setItem(COLOR_INTENSITY_KEY, intensity); } catch { /* Keep the choice for this session. */ }
   const accept = colorPickerState.onAccept;
   const color = colorPickerState.selected;
   closeColorPicker();
@@ -2788,6 +2844,7 @@ window.addEventListener('escandidor:trash-synced', (event) => {
 });
 
 window.addEventListener('escandidor:library-changed', () => {
+  cancelPendingAutoSave();
   const loadedPoemKey = String(state.loadedVersionTitle ?? '').trim();
   const loadedVersionId = String(state.loadedVersionId ?? '').trim();
   replaceLibraryState(loadPoemMemoryStore());
@@ -2834,6 +2891,7 @@ function loadVersionById(poemKey, versionId) {
     savedPoemVersion.value = selectedVersionId;
   }
 
+  cancelPendingAutoSave();
   const selectedTitle = getStoredPoemTitle(selectedPoemKey, versions);
   if (poemTitle) {
     poemTitle.value = selectedTitle;
@@ -2851,7 +2909,10 @@ function loadVersionById(poemKey, versionId) {
       syllablePattern.value = String(version.settings.syllablePattern ?? '');
     }
     renderStressPatternFields(resolveStoredStressPatterns(version.settings));
-    hemistichSplit.value = String(version.settings.hemistichSplit ?? hemistichSplit.value);
+    renderHemistichPatternFields(resolveStoredHemistichPatterns(version.settings));
+    hemistichSplit.value = String(version.settings.hemistichSplit ?? '');
+    document.getElementById('hemistichVerses').value = version.settings.hemistichVerses ?? '';
+    document.getElementById('assonanceRange').value = version.settings.assonanceRange ?? 5;
     if (rhymeMode) {
       rhymeMode.value = normalizeRhymeMode(version.settings.rhymeMode);
     }
@@ -3022,10 +3083,6 @@ async function downloadTextAsPdf(filename, title, content) {
   }
 }
 
-function downloadVersionMarkdown(title, version) {
-  const fileName = `${getVersionDownloadBaseName(title, version)}.md`;
-  downloadTextFile(fileName, buildVersionMarkdownContent(title, version), 'text/markdown');
-}
 
 function downloadVersionPdf(title, version) {
   const fileName = `${getVersionDownloadBaseName(title, version)}.pdf`;
@@ -3539,7 +3596,10 @@ function buildCurrentSnapshot() {
       poeticForm: poeticForm?.value ?? 'custom',
       syllablePattern: syllablePattern?.value ?? '',
       stressPatterns: readStressPatternsFromControls(),
+      hemistichPatterns: readHemistichPatternsFromControls(),
       hemistichSplit: hemistichSplit.value,
+      hemistichVerses: document.getElementById('hemistichVerses').value,
+      assonanceRange: document.getElementById('assonanceRange').value,
       rhymeMode: rhymeMode?.value ?? 'asonante',
       rhymeScheme: rhymeScheme?.value ?? '',
       repeatRhymeScheme: Boolean(repeatRhymeScheme?.checked),
@@ -3570,7 +3630,10 @@ function getSnapshotSignature(snapshot) {
       poeticForm: String(snapshot.settings?.poeticForm ?? 'custom'),
       syllablePattern: String(snapshot.settings?.syllablePattern ?? ''),
       stressPatterns: resolveStoredStressPatterns(snapshot.settings),
+      hemistichPatterns: resolveStoredHemistichPatterns(snapshot.settings),
       hemistichSplit: String(snapshot.settings?.hemistichSplit ?? ''),
+      hemistichVerses: String(snapshot.settings?.hemistichVerses ?? ''),
+      assonanceRange: String(snapshot.settings?.assonanceRange ?? 5),
       rhymeMode: String(snapshot.settings?.rhymeMode ?? 'asonante'),
       rhymeScheme: String(snapshot.settings?.rhymeScheme ?? ''),
       repeatRhymeScheme: Boolean(snapshot.settings?.repeatRhymeScheme),
@@ -3625,6 +3688,7 @@ function generateNewPoemTitle() {
 }
 
 function createNewPoem() {
+  cancelPendingAutoSave();
   const title = generateNewPoemTitle();
 
   if (poemTitle) {
@@ -3641,8 +3705,11 @@ function createNewPoem() {
   }
 
   renderStressPatternFields({});
+  renderHemistichPatternFields({});
   if (hemistichSplit) {
     hemistichSplit.value = '';
+    document.getElementById('hemistichVerses').value = '';
+    document.getElementById('assonanceRange').value = 5;
   }
   if (rhymeMode) {
     rhymeMode.value = 'asonante';
@@ -3682,6 +3749,7 @@ function createNewPoem() {
 }
 
 function saveCurrentPoemVersion(options = {}) {
+  cancelPendingAutoSave();
   const {
     notify = false,
     notifyWhenUnchanged = false,
@@ -3732,30 +3800,23 @@ function saveCurrentPoemVersion(options = {}) {
       lineOverrides: latest.lineOverrides
     });
     const latestKind = String(latest.kind ?? 'manual');
-    const latestWasAutosave = latestKind === 'autosave';
-    const shouldReplaceLatest = latestWasAutosave && (saveKind === 'autosave' || saveKind === 'manual');
-
-    if (shouldReplaceLatest) {
-      const preservedVersionNumber = Number.isInteger(Number(latest.versionNumber)) && Number(latest.versionNumber) > 0
-        ? Number(latest.versionNumber)
-        : nextVersionNumber;
-      versions[versions.length - 1] = {
-        ...latest,
-        ...nextVersion,
-        versionNumber: preservedVersionNumber,
-        label: normalizeVersionLabel(latest.label ?? '')
-      };
-    } else if (latestSignature === nextSignature && latestKind === saveKind) {
-      refreshSavedPoemNameOptions(poemKey);
-      refreshSavedPoemVersionOptions(poemKey, String(latest.id ?? ''));
-      if (notify && notifyWhenUnchanged) {
-        showToast('Sin cambios para guardar.', 'warning');
+    if (latestSignature === nextSignature && previousTitle === title) {
+      if (saveKind === 'manual' && latestKind === 'autosave') {
+        // Explicit saving marks this existing checkpoint for cloud sync; keep its identity and date.
+        Object.assign(nextVersion, latest, { kind: 'manual', poemTitle: title });
+        versions[versions.length - 1] = nextVersion;
+      } else {
+        refreshSavedPoemNameOptions(poemKey);
+        refreshSavedPoemVersionOptions(poemKey, String(latest.id ?? ''));
+        state.loadedVersionTitle = poemKey;
+        state.loadedVersionId = String(latest.id ?? '');
+        saveLastWorkedPoemReference(poemKey, state.loadedVersionId);
+        if (notify && notifyWhenUnchanged) showToast('Sin cambios para guardar.', 'warning');
+        if (saveKind === 'manual') dispatchPoemSaved(poemKey, title, latest, previousTitle !== title ? previousTitle : '');
+        return false;
       }
-      if (saveKind === 'manual') {
-        dispatchPoemSaved(poemKey, title, latest, previousTitle !== title ? previousTitle : '');
-      }
-      return false;
     } else {
+      // Every idle checkpoint is immutable: later autosaves and manual saves append revisions.
       versions.push(nextVersion);
     }
   } else {
@@ -3937,17 +3998,8 @@ function getCheckedVersionEntries() {
 
 function downloadSelectedVersionsAsMarkdown() {
   const entries = getCheckedVersionEntries();
-  if (!entries.length) {
-    showToast('Selecciona al menos una versión.', 'warning');
-    return;
-  }
-
-  const sections = entries.map(({ title, version }) => buildVersionMarkdownContent(title, version).trimEnd());
-  const combined = sections.join('\n\n---\n\n') + '\n';
-  const fileName = entries.length === 1
-    ? `${getVersionDownloadBaseName(entries[0].title, entries[0].version)}.md`
-    : 'seleccion.md';
-  downloadTextFile(fileName, combined, 'text/markdown');
+  if (!entries.length) { showToast('Selecciona al menos una versión.', 'warning'); return; }
+  requestMarkdownExport(entries, 'seleccion');
 }
 
 async function downloadSelectedVersionsAsPdf() {
@@ -4159,12 +4211,15 @@ function deleteSelectedPoemVersions() {
   showToast(`${selectedCount} versión${selectedCount === 1 ? '' : 'es'} borrada${selectedCount === 1 ? '' : 's'}.`, 'success');
 }
 
-function scheduleAutoSave() {
-  if (autoSaveTimer) {
-    clearTimeout(autoSaveTimer);
-  }
+function cancelPendingAutoSave() {
+  if (autoSaveTimer) clearTimeout(autoSaveTimer);
+  autoSaveTimer = null;
+}
 
+function scheduleAutoSave() {
+  cancelPendingAutoSave();
   autoSaveTimer = setTimeout(() => {
+    autoSaveTimer = null;
     saveCurrentPoemVersion({ kind: 'autosave' });
   }, AUTO_SAVE_DELAY_MS);
 }
@@ -4282,6 +4337,7 @@ function deleteSelectedPoemEntry() {
 }
 
 function parsePoemsFromMarkdown(markdown) {
+  markdown = String(markdown ?? '').replace(/<!--[^]*?-->/g, '');
   const lines = String(markdown ?? '').replace(/\r\n?/g, '\n').split('\n');
   const poems = [];
   let currentTitle = '';
@@ -4338,7 +4394,10 @@ function importPoemsFromMarkdown(markdown) {
         poeticForm: poeticForm?.value ?? 'custom',
         syllablePattern: syllablePattern?.value ?? '',
         stressPatterns: readStressPatternsFromControls(),
+        hemistichPatterns: readHemistichPatternsFromControls(),
         hemistichSplit: hemistichSplit.value,
+        hemistichVerses: document.getElementById('hemistichVerses').value,
+        assonanceRange: document.getElementById('assonanceRange').value,
         rhymeMode: rhymeMode?.value ?? 'asonante',
         rhymeScheme: rhymeScheme?.value ?? '',
         repeatRhymeScheme: Boolean(repeatRhymeScheme?.checked),
@@ -4369,23 +4428,56 @@ function importPoemsFromMarkdown(markdown) {
   updateAnalysis();
 }
 
-function downloadMarkdownFile() {
-  const content = buildPoemMarkdownExport();
-  if (!content.trim()) {
-    return;
+function getCurrentPoemExportEntries() {
+  const key = state.loadedVersionTitle;
+  const store = loadPoemMemoryStore();
+  const versions = Array.isArray(store.poems?.[key]) ? sortPoemVersions(store.poems[key]) : [];
+  const title = normalizePoemTitle(poemTitle?.value ?? '') || 'Poema';
+  const entries = versions.map(version => ({ poemKey: key, title, version }));
+  if (!entries.length || isCurrentDraftDirtyAgainstLoadedVersion()) {
+    entries.push({ poemKey: key || 'current-draft', title, version: { ...buildCurrentSnapshot(), savedAt: new Date().toISOString(), isDraft: true, versionNumber: getNextVersionNumber(versions) } });
   }
-
-  const fileName = `${sanitizeFileNamePart(normalizePoemTitle(poemTitle?.value ?? 'poema')) || 'poema'}.md`;
-  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = fileName;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
+  return entries;
 }
+
+let markdownExportRequest = null;
+function requestMarkdownExport(entries, filename) {
+  if (!entries.length) return;
+  markdownExportRequest = { entries, filename };
+  document.getElementById('markdownExportSummary').textContent = `${entries.length} ${entries.length === 1 ? 'versión disponible' : 'versiones disponibles'}. La última se elige por fecha para cada poema.`;
+  document.getElementById('markdownExportDialog').showModal();
+}
+function completeMarkdownExport(scope) {
+  if (!markdownExportRequest) return;
+  const { entries, filename } = markdownExportRequest;
+  const selected = selectMarkdownEntries(entries, scope);
+  downloadTextFile(`${sanitizeFileNamePart(filename) || 'poema'}.md`, buildHistoryMarkdown(selected), 'text/markdown');
+  document.getElementById('markdownExportDialog').close();
+}
+function downloadMarkdownFile() {
+  const entries = getCurrentPoemExportEntries();
+  requestMarkdownExport(entries, entries[0]?.title || 'poema');
+}
+
+const markdownDialog = document.getElementById('markdownExportDialog');
+markdownDialog.addEventListener('close', () => { markdownExportRequest = null; });
+document.getElementById('markdownExportLatest').addEventListener('click', () => completeMarkdownExport('latest'));
+document.getElementById('markdownExportAll').addEventListener('click', () => completeMarkdownExport('all'));
+for (const button of document.querySelectorAll('[data-close-markdown]')) button.addEventListener('click', () => markdownDialog.close());
+const poemVideoExporter = createPoemVideoExporter({
+  dialog: document.getElementById('poemVideoDialog'),
+  canvas: document.getElementById('poemVideoCanvas'),
+  speed: document.getElementById('poemVideoSpeed'),
+  preview: document.getElementById('previewPoemVideo'),
+  download: document.getElementById('downloadPoemVideo'),
+  status: document.getElementById('poemVideoStatus'),
+  summary: document.getElementById('poemVideoSummary')
+});
+document.getElementById('exportPoemVideo').addEventListener('click', () => {
+  const entries = getCurrentPoemExportEntries();
+  if (!entries.some(entry => String(entry.version.poemText ?? '').trim())) { showToast('Escribe o guarda un poema antes de crear el video.', 'warning'); return; }
+  poemVideoExporter.open(entries[0]?.title || 'Poema', buildVideoTimeline(entries.map(entry => entry.version)));
+});
 
 const JSPDF_CDN_URL = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/+esm';
 let jsPdfModulePromise = null;
@@ -5246,12 +5338,9 @@ function computeConsonanteAsonantMatches(runtimes) {
     }
 
     for (const runtime of group) {
-      const hasAssonantOnlyPair = group.some((other) => {
-        return other.lineIndex !== runtime.lineIndex && other.rhyme.consonantKey !== runtime.rhyme.consonantKey;
-      });
-
-      if (hasAssonantOnlyPair) {
-        matchesByLine.set(runtime.lineIndex, true);
+      const pairs = group.filter((other) => other.lineIndex !== runtime.lineIndex && other.rhyme.consonantKey !== runtime.rhyme.consonantKey && Math.abs(other.verseNumber - runtime.verseNumber) <= Number(document.getElementById('assonanceRange')?.value || 5));
+      if (pairs.length) {
+        matchesByLine.set(runtime.lineIndex, pairs.map((other) => `Verso ${other.verseNumber}: ${other.lineAnalysis.text}`).join('; '));
       }
     }
   }
@@ -5392,6 +5481,35 @@ function renderStressPatternFields(patterns = readStressPatternsFromControls()) 
   }).join('');
 }
 
+function normalizeHemistichPatterns(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).filter(([count]) => Number.isInteger(Number(count)) && Number(count) > 0 && Number(count) <= 20)
+    .map(([count, patterns]) => [count, (Array.isArray(patterns) ? patterns : [patterns]).map((pattern) => String(pattern ?? '').trim())]));
+}
+
+function resolveStoredHemistichPatterns(settings) {
+  const counts = getConfiguredSyllableCounts(settings?.syllablePattern ?? '');
+  const normalized = normalizeHemistichPatterns(settings?.hemistichPatterns);
+  const legacy = settings?.hemistichPatterns ? '' : String(settings?.hemistichSplit ?? '').trim();
+  return Object.fromEntries(counts.map((count) => [count, normalized[count]?.length ? normalized[count] : [legacy]]));
+}
+
+function readHemistichPatternsFromControls() {
+  if (!hemistichPatternFields) return {};
+  return Object.fromEntries([...hemistichPatternFields.querySelectorAll('[data-hemi-group]')].map((group) =>
+    [group.dataset.hemiGroup, [...group.querySelectorAll('[data-hemi-count]')].map((input) => input.value.trim())]));
+}
+
+function renderHemistichPatternFields(patterns = readHemistichPatternsFromControls()) {
+  if (!hemistichPatternFields) return;
+  const normalized = normalizeHemistichPatterns(patterns);
+  const counts = getConfiguredSyllableCounts();
+  hemistichPatternFields.innerHTML = counts.length ? counts.map((count) => {
+    const alternatives = normalized[count]?.length ? normalized[count] : [''];
+    return `<div class="stress-pattern-group" data-hemi-group="${count}"><div class="stress-pattern-heading"><strong>${count} sílabas</strong><button type="button" class="stress-pattern-add" data-add-hemi="${count}" aria-label="Añadir otro hemistiquio para ${count} sílabas">+</button></div>${alternatives.map((pattern, index) => `<div class="stress-pattern-entry"><input type="text" data-hemi-count="${count}" value="${escapeHtml(pattern)}" placeholder="Ej: 7 o 4-8" aria-label="Hemistiquio ${index + 1} para ${count} sílabas" />${index ? '<button type="button" class="stress-pattern-remove" data-remove-hemi aria-label="Eliminar alternativa de hemistiquio">−</button>' : ''}</div>`).join('')}</div>`;
+  }).join('') : '<span class="hint">Define primero el conteo silábico.</span>';
+}
+
 function parseHemistichPositions(value) {
   return parseNumberList(value);
 }
@@ -5456,12 +5574,36 @@ function getEffectiveHemistichPositions(lineAnalysis, lineIndex, verseIndex = 0,
     return { boundaries: inlineHemistich, invalid: [] };
   }
 
-  if (!state.hemistichEnabled) {
-    return { boundaries: [], invalid: [] };
-  }
-
   const override = getLineOverride(lineIndex).hemistich;
-  const inputPositions = override?.trim() ? parseHemistichPositions(override) : state.hemistichPositions;
+  // A verse override and an inline slash take precedence over per-count settings.
+  if (override?.trim()) return resolveHemistichCuts(lineAnalysis, lineIndex, verseIndex, effectivePattern, parseHemistichPositions(override));
+  const selectedVerses = parseNumberList(document.getElementById('hemistichVerses')?.value ?? '');
+  if (selectedVerses.length && !selectedVerses.includes(verseIndex + 1)) return { boundaries: [], invalid: [] };
+  const counts = getExpectedSyllableCounts(state.syllablePattern, verseIndex);
+  const validation = buildValidationBoundaries(lineAnalysis, lineIndex, verseIndex, effectivePattern);
+  const pronouncedCount = lineAnalysis.rawCount - validation.filter((boundary) => boundary.active).length;
+  const naturalCount = adjustPoeticCount(pronouncedCount, lineAnalysis.analyses.at(-1)?.accentType ?? 'llana');
+  // For flexible meters, an empty group explicitly leaves that meter unsplit.
+  const applicableCounts = counts.includes(naturalCount) ? [naturalCount] : counts;
+  const alternatives = applicableCounts.flatMap((count) => (state.hemistichPatterns?.[count] ?? [])
+    .filter((pattern) => pattern.trim()).map((pattern) => ({ count, positions: parseHemistichPositions(pattern) })));
+  if (!alternatives.length) {
+    // Preserve older poems configured without a syllable target.
+    return !counts.length && state.hemistichPositions.length
+      ? resolveHemistichCuts(lineAnalysis, lineIndex, verseIndex, effectivePattern, state.hemistichPositions)
+      : { boundaries: [], invalid: [] };
+  }
+  return alternatives.map(({ count, positions }) => {
+    const result = resolveHemistichCuts(lineAnalysis, lineIndex, verseIndex, effectivePattern, positions);
+    const active = buildValidationBoundaries(lineAnalysis, lineIndex, verseIndex, effectivePattern)
+      .filter((boundary) => boundary.active && !result.boundaries.includes(boundary.index));
+    const segments = buildMetricSegmentData(lineAnalysis, active, result.boundaries);
+    const total = segments.reduce((sum, segment) => sum + segment.metric, 0);
+    return { ...result, score: result.invalid.length * 100 + Math.abs(total - count) };
+  }).sort((a, b) => a.score - b.score)[0];
+}
+
+function resolveHemistichCuts(lineAnalysis, lineIndex, verseIndex, effectivePattern, inputPositions) {
   const validationBoundaries = buildValidationBoundaries(lineAnalysis, lineIndex, verseIndex, effectivePattern);
 
   const total = lineAnalysis.rawCount;
@@ -5987,16 +6129,17 @@ function renderRhyme(runtime) {
   const assonantMatchHint = String(runtime.rhyme.assonantMatchHint ?? '').trim();
   const poemTitleScope = state.currentAnalysisTitle || normalizePoemTitle(poemTitle?.value ?? 'Sin título');
   const rhymeColor = getRhymeColor(poemTitleScope, label || runtime.rhyme.activeKey || '');
-  const labelColor = label && label !== '-' ? rhymeColor : '#4b7f8f';
+  const labelColor = label && label !== '-' ? rhymeColor : '#205EA6';
   const contrastColor = getReadableTextColor(labelColor);
-  const chipStyle = `background:${toRgba(labelColor, 0.12)};border-color:${toRgba(labelColor, 0.28)};color:${labelColor};`;
+  const darkRhymeColor = getDarkRhymeColor(labelColor);
+  const chipStyle = `${darkRhymeColor ? `--rhyme-dark-ink:${darkRhymeColor};` : ''}--rhyme-ink:${labelColor};background:color-mix(in srgb, ${labelColor} var(--color-highlight, 12%), var(--surface));border-color:color-mix(in srgb, ${labelColor} var(--color-border, 32%), var(--line));color:var(--rhyme-display, ${labelColor});`;
   const agudaNote = runtime.lineAnalysis?.accentType === 'aguda'
     ? ' Final aguda.'
     : '';
   const info = `Rima ${escapeHtml(source)} activa. Clave usada: ${escapeHtml(runtime.rhyme.activeKey)}. Consonante: ${escapeHtml(runtime.rhyme.consonantKey)}. Asonante: ${escapeHtml(runtime.rhyme.assonantKey)}. Final completa: ${escapeHtml(runtime.rhyme.finalWordKey)}.${agudaNote}`;
   const warningHint = mixWarning ? `<span class="hover-hint info-click jump-to-verse" role="button" tabindex="0" data-info="${escapeHtml(mixWarning)}" data-jump-line="${runtime.lineIndex}" title="${escapeHtml(mixWarning)}">!</span>` : '';
   const consonantHint = consonantMatchHint ? `<span class="hover-hint info-click" role="button" tabindex="0" data-info="${escapeHtml(consonantMatchHint)}" title="${escapeHtml(consonantMatchHint)}">C</span>` : '';
-  const assonantHint = assonantMatchHint ? `<span class="hover-hint info-click" role="button" tabindex="0" data-info="${escapeHtml(assonantMatchHint)}" title="${escapeHtml(assonantMatchHint)}">A</span>` : '';
+  const assonantHint = assonantMatchHint ? `<span class="hover-hint info-click" style="background:var(--warning-bg);border:1px solid var(--warning);color:var(--warning)" role="button" tabindex="0" data-info="${escapeHtml(assonantMatchHint)}" title="${escapeHtml(assonantMatchHint)}">A</span>` : '';
   const swatchStyle = `background:${labelColor};color:${contrastColor};`;
   const colorAction = label && label !== '-'
     ? `<button type="button" class="rhyme-color-btn" data-action="edit-rhyme-color" data-rhyme-label="${escapeHtml(label)}" data-rhyme-poem="${escapeHtml(poemTitleScope)}" data-color="${escapeHtml(labelColor)}" title="Cambiar color de la rima ${escapeHtml(label)}" aria-label="Cambiar color de la rima ${escapeHtml(label)}" style="${swatchStyle}" onclick="window.openRhymeColorSelector(this)"></button>`
@@ -6338,7 +6481,7 @@ function renderAnalysis(result) {
       ? 'Este verso coincide en rima consonante dentro de su serie asonante.'
       : '';
     runtime.rhyme.assonantMatchHint = consonanteAsonantMatches.has(runtime.lineIndex)
-      ? 'Este verso coincide en rima asonante con otro verso, aunque no en consonante.'
+      ? consonanteAsonantMatches.get(runtime.lineIndex)
       : '';
   }
   lastRuntime = runtimes;
@@ -6391,8 +6534,11 @@ function syncStateFromControls() {
   state.syllablePattern = syllablePattern?.value ?? '';
   state.stressPatterns = readStressPatternsFromControls();
   state.hemistichPositions = parseHemistichPositions(hemistichSplit.value);
-  state.hemistichEnabled = state.hemistichPositions.length > 0;
+  state.hemistichPatterns = readHemistichPatternsFromControls();
+  state.hemistichEnabled = state.hemistichPositions.length > 0 || Object.values(state.hemistichPatterns).some((patterns) => patterns.some(Boolean));
   state.rhymeMode = normalizeRhymeMode(rhymeMode?.value);
+  const assonanceField = document.getElementById('assonanceRangeField');
+  if (assonanceField) assonanceField.hidden = state.rhymeMode !== 'consonante';
   state.rhymeScheme = rhymeScheme?.value ?? '';
   state.repeatRhymeScheme = Boolean(repeatRhymeScheme?.checked);
   state.distinguishSZInRhyme = Boolean(distinguishSZInRhyme?.checked);
@@ -6416,7 +6562,8 @@ function applyPoeticFormPreset() {
   const preset = POETIC_FORM_PRESETS[poeticForm?.value] ?? POETIC_FORM_PRESETS.custom;
   if (syllablePattern) syllablePattern.value = preset.syllablePattern ?? '';
   renderStressPatternFields(preset.stressPatterns ?? {});
-  if (hemistichSplit) hemistichSplit.value = preset.hemistichSplit ?? '';
+  if (hemistichSplit) hemistichSplit.value = '';
+  renderHemistichPatternFields(resolveStoredHemistichPatterns(preset));
   if (rhymeMode) rhymeMode.value = preset.rhymeMode ?? 'asonante';
   if (rhymeScheme) rhymeScheme.value = preset.rhymeScheme ?? '';
   if (repeatRhymeScheme) repeatRhymeScheme.checked = Boolean(preset.repeatRhymeScheme);
@@ -6880,8 +7027,10 @@ poemImageFile?.addEventListener('change', () => recognizePoemImage(poemImageFile
 poeticForm?.addEventListener('change', applyPoeticFormPreset);
 syllablePattern?.addEventListener('input', () => {
   const currentPatterns = readStressPatternsFromControls();
+  const currentHemistichPatterns = readHemistichPatternsFromControls();
   markPoeticFormCustom();
   renderStressPatternFields(currentPatterns);
+  renderHemistichPatternFields(currentHemistichPatterns);
   updateAnalysis();
 });
 
@@ -6913,6 +7062,32 @@ stressPatternFields?.addEventListener('click', (event) => {
     patterns[count] = values.join(', ');
   }
   renderStressPatternFields(patterns);
+  markPoeticFormCustom();
+  updateAnalysis();
+});
+
+hemistichPatternFields?.addEventListener('input', () => {
+  hemistichSplit.value = '';
+  markPoeticFormCustom();
+  updateAnalysis();
+});
+hemistichPatternFields?.addEventListener('click', (event) => {
+  const add = event.target.closest('[data-add-hemi]');
+  const remove = event.target.closest('[data-remove-hemi]');
+  if (!add && !remove) return;
+  if (add) {
+    const count = add.dataset.addHemi;
+    const entry = document.createElement('div');
+    entry.className = 'stress-pattern-entry';
+    entry.innerHTML = `<input type="text" data-hemi-count="${count}" placeholder="Ej: 7 o 4-8" aria-label="Otro hemistiquio para ${count} sílabas" /><button type="button" class="stress-pattern-remove" data-remove-hemi aria-label="Eliminar alternativa de hemistiquio">−</button>`;
+    add.closest('[data-hemi-group]').append(entry);
+    entry.querySelector('input').focus();
+  } else {
+    const group = remove.closest('[data-hemi-group]');
+    remove.closest('.stress-pattern-entry').remove();
+    group.querySelector('[data-add-hemi]').focus();
+  }
+  hemistichSplit.value = '';
   markPoeticFormCustom();
   updateAnalysis();
 });
@@ -7115,6 +7290,10 @@ colorPickerSwatches?.addEventListener('click', (event) => {
     return;
   }
   setColorPickerSelection(swatch.dataset.color ?? '');
+});
+
+document.getElementById('colorPickerIntensity')?.addEventListener('change', () => {
+  setColorPickerSelection(colorPickerState.selected);
 });
 
 colorPickerCustom?.addEventListener('input', () => {
@@ -7394,7 +7573,7 @@ savedVersionsList?.addEventListener('click', (event) => {
     if (!newest) {
       return;
     }
-    downloadVersionMarkdown(title, newest);
+    requestMarkdownExport(sortPoemVersions(versions).map(version => ({ poemKey, title, version })), title);
     return;
   }
 
@@ -7480,7 +7659,7 @@ savedVersionsList?.addEventListener('click', (event) => {
   }
 
   if (action === 'download-md') {
-    downloadVersionMarkdown(title, version);
+    requestMarkdownExport(sortPoemVersions(versions).map(version => ({ poemKey, title, version })), title);
     return;
   }
 
@@ -7718,6 +7897,7 @@ analysisOutput.addEventListener(
   true
 );
 
+applyColorIntensity(loadColorIntensity());
 updateAnalysis();
 initializeUiPreferences();
 refreshSavedPoemNameOptions(normalizePoemTitle(poemTitle?.value ?? ''));

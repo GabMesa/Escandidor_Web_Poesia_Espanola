@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="es">
   <head>
+    <script src="theme-init.js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Agradecimientos | Escandidor de poesia</title>
@@ -8,7 +9,7 @@
       name="description"
       content="Agradecimientos a las fuentes y herramientas que inspiran este proyecto de escansion poetica."
     />
-    <link rel="canonical" href="https://mesa-de-poesia.pages.dev/agradecimientos.html" />
+    <link rel="canonical" href="https://mesa-de-poesia.pages.dev/agradecimientos" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&amp;family=Cormorant+Garamond:wght@600;700&amp;display=swap" rel="stylesheet" />
@@ -45,7 +46,7 @@
         color-scheme: light;
         --bg: #efe7db;
         --panel: rgba(253, 247, 238, 0.88);
-        --panel-border: rgba(53, 35, 18, 0.12);
+        --panel-border: rgba(var(--ink-rgb), 0.12);
         --text: #1f160f;
         --muted: #705f50;
         --accent: #8b4d2c;
@@ -62,8 +63,8 @@
         letter-spacing: 0;
         color: var(--text);
         background:
-          linear-gradient(90deg, transparent 0 7.5%, rgba(139, 77, 44, 0.08) 7.5% calc(7.5% + 1px), transparent calc(7.5% + 1px)),
-          repeating-linear-gradient(0deg, transparent 0 31px, rgba(49, 92, 102, 0.055) 31px 32px),
+          linear-gradient(90deg, transparent 0 7.5%, rgba(var(--ink-rgb), 0.08) 7.5% calc(7.5% + 1px), transparent calc(7.5% + 1px)),
+          repeating-linear-gradient(0deg, transparent 0 31px, rgba(var(--accent2-rgb), 0.055) 31px 32px),
           var(--bg);
       }
 
@@ -140,7 +141,7 @@
         padding: 7px 11px;
         border: 1px solid var(--panel-border);
         border-radius: 4px;
-        background: rgba(246, 238, 226, 0.72);
+        background: rgba(var(--surface-rgb), 0.72);
       }
 
       .donor-list li.is-anonymous {
@@ -165,8 +166,8 @@
         align-items: center;
         justify-content: center;
         border-radius: 999px;
-        border: 1px solid rgba(53, 35, 18, 0.2);
-        background: #f6eee2;
+        border: 1px solid rgba(var(--ink-rgb), 0.2);
+        background: var(--surface-2);
         color: var(--text);
         text-decoration: none;
         padding: 0.55rem 1rem;
@@ -177,8 +178,19 @@
         background: #f2e6d6;
       }
     </style>
-  </head>
-  <body>
+      <link rel="stylesheet" href="identity.css" />
+    <script src="theme.js" defer></script>
+  <meta name="theme-color" content="#E6E4D9" />
+</head>
+  <body class="reading-page">
+<header class="publication-header">
+  <nav class="publication-nav" aria-label="Navegación principal">
+    <a class="publication-brand" href="index.html">Mesa de Poesía<span aria-hidden="true">.</span></a>
+    <div class="publication-links"><a href="index.html" >Inicio</a><a href="escandidor.html" >Escandidor</a><a href="apoyar.html" class="nav-support" >Apoyar el proyecto ↗</a><button type="button" class="theme-toggle" data-theme-toggle aria-label="Cambiar a modo oscuro" aria-pressed="false">Modo oscuro</button></div>
+  </nav>
+
+  <div class="edition-line"><span>Un taller de poesía en español</span><span>Métrica · Ritmo · Rima</span></div>
+</header>
     <main class="page">
       <section class="card" aria-labelledby="agradecimientos-title">
         <h1 id="agradecimientos-title">Agradecimientos</h1>
@@ -240,7 +252,7 @@
         </section>
 
         <div class="actions">
-          <a class="button-link" href="index.html">Volver al escandidor</a>
+          <a class="button-link" href="escandidor.html">Volver al escandidor</a>
           <a class="button-link" href="apoyar.html">Apoyar el proyecto</a>
           <a class="button-link" href="THIRD-PARTY-LICENSES.md">Licencias de terceros</a>
           <a class="button-link" href="privacidad.html">Privacidad</a>

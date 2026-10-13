@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveDiscordUser } from '../functions/api/auth/discord/callback.js';
+import { resolveDiscordUser, onRequestGet } from '../functions/api/auth/discord/callback.js';
 
 class DiscordMemoryDb {
   constructor(users = []) {
@@ -128,4 +128,12 @@ test('does not link an email already owned by another Discord identity', async (
     /otra cuenta de Discord/
   );
   assert.equal(db.users.length, 1);
+});
+
+test('Discord callback returns authentication errors to the editor route', async () => {
+  const response = await onRequestGet({ request: new Request('https://mesa-de-poesia.pages.dev/api/auth/discord/callback'), env: {} });
+  assert.equal(response.status, 302);
+  const destination = new URL(response.headers.get('location'));
+  assert.equal(destination.pathname, '/escandidor');
+  assert.ok(destination.searchParams.get('auth_error'));
 });

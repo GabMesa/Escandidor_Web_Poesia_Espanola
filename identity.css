@@ -1,7 +1,7 @@
 ﻿/* Newspaper identity and shared semantic colors for every public page. */
 /* Flexoki by Steph Ango (MIT): https://stephango.com/flexoki
    Base-100 keeps the light edition cream; the dark edition uses warm ink.
-   Actions use red-600 in both editions; text accents adapt to the paper. */
+   Actions use green-600 in both editions; text accents adapt to the paper. */
 :root {
   color-scheme: light;
   --brand-bg: #E6E4D9;
@@ -18,11 +18,11 @@
   --muted: #575653;
   --text-muted: var(--muted);
   --muted-text: var(--muted);
-  --accent: #942822;
+  --accent: #435406;
   --accent-2: #575653;
-  --brand-red: #AF3029;
-  --action: #AF3029;
-  --action-hover: #942822;
+  --brand-green: #536907;
+  --action: var(--brand-green);
+  --action-hover: #435406;
   --on-action: #FFFCF0;
   --on-accent: #FFFCF0;
   --line: #B7B5AC;
@@ -59,7 +59,7 @@
   --accent2-rgb: 183, 181, 172;
   --text: #CECDC3;
   --muted: #B7B5AC;
-  --accent: #E8705F;
+  --accent: #A0AF54;
   --accent-2: #B7B5AC;
   --on-accent: #100F0F;
   --line: #575653;

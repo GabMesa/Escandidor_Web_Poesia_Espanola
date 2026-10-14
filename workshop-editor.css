@@ -1,5 +1,5 @@
 /* The editor belongs to the Workshop. Keep its analysis and poem font choices. */
-html.in-workshop{--bg:#f3f0e7;--surface:#faf8f2;--text:#292b27;--muted:#6b7066;--line:#dcded2;--action:#923e36;--accent:#923e36;color-scheme:light}
+html.in-workshop{--bg:#f3f0e7;--surface:#faf8f2;--text:#292b27;--muted:#6b7066;--line:#dcded2;--action:#536907;--accent:#435406;color-scheme:light}
 .in-workshop body{padding:0!important;background:var(--bg)!important;font-family:var(--ui-font);font-size:14px;color:var(--text)}
 .in-workshop .publication-header,.in-workshop .hero,.in-workshop footer,.in-workshop .skip-link{display:none!important}
 .in-workshop .app-shell{width:100%;max-width:none;margin:0;padding:0}

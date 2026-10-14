@@ -106,7 +106,7 @@ export function createLibrary({state,allPoems,persist,showDialog,toast,command,o
     if(target.id==='library-version'){ui.versionId=target.value;render();return true;}
     if(target.hasAttribute('data-lib-all')){const ids=[...document.querySelectorAll('[data-check-poem]')].map(e=>e.dataset.checkPoem);state.checked=target.checked?[...new Set([...state.checked,...ids])]:state.checked.filter(id=>!ids.includes(id));render();return true;}
     if(target.id==='library-cleanup'){try{await command({action:'cleanup',value:target.checked});render();}catch(e){toast(e.message);}return true;}
-    if(target.id==='library-import-file'){const file=target.files[0];if(!file)return true;try{if(file.size>2000000)throw Error('El archivo supera 2 MB.');await command({action:'import',text:await file.text()});render();toast('Poemas importados a Biblioteca.');}catch(e){toast(e.message);}return true;}return false;
+    if(target.id==='library-import-file'){const file=target.files[0];if(!file)return true;try{if(file.size>2000000)throw Error('El archivo supera 2 MB.');const result=await command({action:'import',text:await file.text()});render();toast(`${result.importedCount} ${result.importedCount===1?'poema importado':'poemas importados'} a Biblioteca.`);}catch(e){toast(e.message);}finally{target.value='';}return true;}return false;
   }
   async function submit(form){
     if(!form.id.startsWith('library-'))return false;const data=new FormData(form);

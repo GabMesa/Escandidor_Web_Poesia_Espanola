@@ -175,3 +175,7 @@ their data is not bundled by this application. The `epidemian/es.txt` gist and
 Palette by Steph Ango: https://stephango.com/flexoki
 Source: https://github.com/kepano/flexoki
 The selected palette values are integrated in identity.css. A copy of the MIT license is included in FLEXOKI-LICENSE.txt.
+
+## Discord icon
+
+`assets/discord.svg` uses the Discord icon from [Simple Icons](https://github.com/simple-icons/simple-icons), licensed under CC0. Discord is a trademark of Discord Inc.; the icon identifies the sign-in provider.

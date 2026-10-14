@@ -25,6 +25,9 @@ if (window.parent !== window && new URLSearchParams(location.search).get('taller
         const version = command.versionId && command.versionId !== 'latest'
           ? versions.find(v => String(v.id) === String(command.versionId)) : sortPoemVersions(versions).at(-1);
         if (!version || !loadVersionById(key, String(version.id))) throw Error('No se encontró el poema o la versión.');
+      } else if (command.action === 'open-latest') {
+        const latest = findLatestSavedVersion(store);
+        if (latest) loadVersionById(latest.title, latest.versionId);
       } else if (command.action === 'rename-poem') {
         if (!renamePoemTitleInline(key, command.value)) throw Error('No se pudo renombrar el poema.');
       } else if (command.action === 'rename-version') {
@@ -94,7 +97,7 @@ if (window.parent !== window && new URLSearchParams(location.search).get('taller
         throw Error('Acción de biblioteca desconocida.');
       }
       renderSavedVersionList(savedPoemName?.value || '', savedPoemVersion?.value || '');
-      respond({ ok: true, settings: {
+      respond({ ok: true, loadedPoemKey: state.loadedVersionTitle, loadedVersionId: state.loadedVersionId, settings: {
         autoCompress: state.autoCompressVersions,
         autoCleanup: trashAutoCleanupEnabled(),
         defaultFont: loadDefaultPoemFont(), defaultColor: loadDefaultPoemColor(),
@@ -2118,6 +2121,7 @@ function renderLookupResults() {
     ${loaderBlock}
     ${errorLine}
     
+    <div class="lookup-definition-column">
     <div class="lookup-section">
       <strong>Definición (Wikcionario)</strong>
     </div>
@@ -2125,13 +2129,15 @@ function renderLookupResults() {
     <p class="lookup-definition" style="margin-top: 0.35rem;"><strong>Frecuencia:</strong> ${escapeHtml(frequencyText)}</p>
     ${corroborationLinks}
 
-    <details class="lookup-collapsible-section" open>
+    <details class="lookup-collapsible-section">
       <summary class="lookup-section" style="cursor: pointer; list-style: max-content;">
         <strong>Sinónimos</strong>
       </summary>
       <div class="lookup-synonym-groups">${synonymsHtml}</div>
     </details>
+    </div>
 
+    <div class="lookup-rhymes-column">
     <details class="lookup-collapsible-section" open>
       <summary class="lookup-section" style="cursor: pointer; list-style: max-content; margin-top: 1rem;">
         <strong>Rimas filtradas (${mode})</strong>
@@ -2147,6 +2153,7 @@ function renderLookupResults() {
         ${filteredList}
       </ul>
     </details>
+    </div>
 
     <div class="lookup-credit" style="font-size: 0.75rem; color: var(--text-muted, #6b7280); margin-top: 1.5rem; padding-top: 0.5rem; border-top: 1px dashed rgba(127,127,127,0.2);">
       Definiciones desde <a href="https://es.wiktionary.org/" target="_blank" rel="noopener noreferrer">Wikcionario</a> (<a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-SA</a> / <a href="https://www.gnu.org/licenses/fdl-1.3.html" target="_blank" rel="noopener noreferrer">GFDL</a>). Frecuencia y rimas desde <a href="https://github.com/rspeer/wordfreq" target="_blank" rel="noopener noreferrer">rspeer/wordfreq</a> (<a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 4.0</a>). Sinónimos desde <a href="https://github.com/edublancas/sinonimos" target="_blank" rel="noopener noreferrer">edublancas/sinonimos</a> (MIT). <a href="THIRD-PARTY-LICENSES.md">Licencias completas</a>. Corroboración rápida en <a href="https://dle.rae.es/" target="_blank" rel="noopener noreferrer">RAE</a> y <a href="https://iedra.es/rimas/" target="_blank" rel="noopener noreferrer">IEDRA</a>.

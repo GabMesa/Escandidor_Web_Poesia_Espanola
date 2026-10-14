@@ -99,12 +99,20 @@ function offerLocalImport() {
   localImportDialog.showModal();
 }
 
-function handleAuthState(payload) {
+async function handleAuthState(payload) {
   const wasAnonymous = !applicationState.auth.user;
+  const previousUserId = applicationState.auth.user?.id;
   renderUser(payload.user);
+  if(new URLSearchParams(location.search).get('real')==='1'){
+    if(!applicationState.runtime.authInitialized || previousUserId!==payload.user?.id){
+      if(payload.user) await cloudSync.loadFromServer();
+      applicationState.runtime.authInitialized=true;
+      window.dispatchEvent(new CustomEvent('escandidor:auth-ready'));
+    }
+    return;
+  }
   applicationState.runtime.authInitialized=true;window.dispatchEvent(new CustomEvent('escandidor:auth-ready'));
   if (!payload.user) return;
-  if(new URLSearchParams(location.search).get('real')==='1'){cloudSync.loadFromServer();return;}
 
   if (Number(payload.otherSessions) > 0) {
     showSessionConflict(payload.otherSessions);
@@ -161,7 +169,7 @@ authForm.addEventListener('submit', async (event) => {
       method: 'POST',
       body: JSON.stringify(body),
     });
-    handleAuthState(payload);
+    await handleAuthState(payload);
     authDialog.close();
   } catch (error) {
     authStatus.textContent = error.message;
@@ -278,7 +286,7 @@ async function checkCurrentSession() {
       authStatus.textContent = 'Esta sesión se cerró desde otro navegador. Inicia sesión de nuevo.';
       return;
     }
-    handleAuthState(payload);
+    await handleAuthState(payload);
   } catch {}
 }
 

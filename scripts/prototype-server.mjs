@@ -8,7 +8,7 @@ import {normalizePlica} from '../plica-policy.js';
 import {randomUUID} from 'node:crypto';
 const root=resolve(fileURLToPath(new URL('..',import.meta.url)));
 const port=Number(process.env.PROTOTYPE_PORT)||8793;
-const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon','.woff2':'font/woff2','.otf':'font/otf','.json':'application/json'};
+const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon','.woff2':'font/woff2','.otf':'font/otf','.json':'application/json','.txt':'text/plain; charset=utf-8','.md':'text/plain; charset=utf-8'};
 const json=(res,status,value)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));};
 const server=createServer(async(req,res)=>{
   try {

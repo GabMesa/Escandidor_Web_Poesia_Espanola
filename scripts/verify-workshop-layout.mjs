@@ -69,7 +69,8 @@ try{
   await until('!!d.querySelector(".lookup-rhyme-list")');
   await sleep(1600);
   assert.ok(await evaluate('d.querySelector(".lookup-rhyme-list").getBoundingClientRect().height')<=114);
-  assert.ok(await evaluate('d.querySelector("#lookupResults").getBoundingClientRect().height')<=280);
+  assert.equal(await evaluate('d.querySelector("#lookupResults").getBoundingClientRect().height'),780);
+  assert.equal(await evaluate('d.querySelector(".lookup-synonym-groups").getBoundingClientRect().height'),252);
   await shot('04-definiciones-rimas-compactas');
   await evaluate(`d.querySelector('#lookupShell').open=false`);
   await click('[data-view=library]');await shot('05-biblioteca-con-mas-ancho');

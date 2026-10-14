@@ -22,7 +22,7 @@ const backend=spawn(process.execPath,[wrangler,'pages','dev',root,'--d1','escand
 let startupError='';for(const stream of [backend.stdout,backend.stderr])stream.on('data',chunk=>{startupError=(startupError+String(chunk).replaceAll(secret,'[redacted]')).slice(-4000);});
 let up=false;for(let i=0;i<400;i++){if(backend.exitCode!==null)break;try{const r=await fetch(`http://127.0.0.1:${apiPort}/api/auth/me`);if(r.ok){up=true;break;}}catch{}await new Promise(r=>setTimeout(r,100));}
 if(!up){backend.kill();throw Error('No se pudo iniciar la API local. '+startupError);}
-const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon','.woff2':'font/woff2','.ttf':'font/ttf','.otf':'font/otf','.json':'application/json','.pdf':'application/pdf','.webm':'video/webm'};
+const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon','.woff2':'font/woff2','.ttf':'font/ttf','.otf':'font/otf','.json':'application/json','.pdf':'application/pdf','.webm':'video/webm','.txt':'text/plain; charset=utf-8','.md':'text/plain; charset=utf-8'};
 const json=(res,status,value)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));};
 const server=createServer(async(req,res)=>{
  try{

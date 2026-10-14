@@ -1,0 +1,122 @@
+[
+  {
+    "name": "Alegreya",
+    "license": "SIL OFL 1.1",
+    "path": "licenses/fonts/alegreya.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/alegreya/OFL.txt"
+  },
+  {
+    "name": "Atkinson Hyperlegible",
+    "license": "SIL OFL 1.1",
+    "path": "licenses/fonts/atkinsonhyperlegible.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/atkinsonhyperlegible/OFL.txt"
+  },
+  {
+    "name": "Bebas Neue",
+    "license": "SIL OFL 1.1",
+    "path": "licenses/fonts/bebasneue.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/bebasneue/OFL.txt"
+  },
+  {
+    "name": "Bungee",
+    "license": "SIL OFL 1.1",
+    "path": "licenses/fonts/bungee.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/bungee/OFL.txt"
+  },
+  {
+    "name": "Caveat",
+    "license": "SIL OFL 1.1",
+    "path": "licenses/fonts/caveat.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/caveat/OFL.txt"
+  },
+  {
+    "name": "Cinzel",
+    "license": "SIL OFL 1.1",
+    "path": "licenses/fonts/cinzel.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/cinzel/OFL.txt"
+  },
+  {
+    "name": "Cormorant Garamond",
+    "license": "SIL OFL 1.1",
+    "path": "licenses/fonts/cormorantgaramond.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/cormorantgaramond/OFL.txt"
+  },
+  {
+    "name": "EB Garamond",
+    "license": "SIL OFL 1.1",
+    "path": "licenses/fonts/ebgaramond.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/ebgaramond/OFL.txt"
+  },
+  {
+    "name": "Josefin Sans",
+    "license": "SIL OFL 1.1",
+    "path": "licenses/fonts/josefinsans.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/josefinsans/OFL.txt"
+  },
+  {
+    "name": "Lexend",
+    "license": "SIL OFL 1.1",
+    "path": "licenses/fonts/lexend.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/lexend/OFL.txt"
+  },
+  {
+    "name": "Libre Baskerville",
+    "license": "SIL OFL 1.1",
+    "path": "licenses/fonts/librebaskerville.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/librebaskerville/OFL.txt"
+  },
+  {
+    "name": "Lora",
+    "license": "SIL OFL 1.1",
+    "path": "licenses/fonts/lora.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/lora/OFL.txt"
+  },
+  {
+    "name": "Merriweather",
+    "license": "SIL OFL 1.1",
+    "path": "licenses/fonts/merriweather.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/merriweather/OFL.txt"
+  },
+  {
+    "name": "Montserrat",
+    "license": "SIL OFL 1.1",
+    "path": "licenses/fonts/montserrat.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/montserrat/OFL.txt"
+  },
+  {
+    "name": "Nunito",
+    "license": "SIL OFL 1.1",
+    "path": "licenses/fonts/nunito.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/OFL.txt"
+  },
+  {
+    "name": "Pacifico",
+    "license": "SIL OFL 1.1",
+    "path": "licenses/fonts/pacifico.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/pacifico/OFL.txt"
+  },
+  {
+    "name": "Permanent Marker",
+    "license": "Apache 2.0",
+    "path": "licenses/fonts/permanentmarker.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/apache/permanentmarker/LICENSE.txt"
+  },
+  {
+    "name": "Playfair Display",
+    "license": "SIL OFL 1.1",
+    "path": "licenses/fonts/playfairdisplay.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/playfairdisplay/OFL.txt"
+  },
+  {
+    "name": "Source Sans 3",
+    "license": "SIL OFL 1.1",
+    "path": "licenses/fonts/sourcesans3.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/sourcesans3/OFL.txt"
+  },
+  {
+    "name": "UnifrakturCook",
+    "license": "SIL OFL 1.1",
+    "path": "licenses/fonts/unifrakturcook.txt",
+    "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/unifrakturcook/OFL.txt"
+  }
+]

@@ -174,7 +174,7 @@ test('requires a more open middle vowel in joined three-vowel groups', () => {
   const puenteAerodinamicoBoundaries = puenteAerodinamico.boundaries.map((boundary) => ({ ...boundary, active: boundary.candidate }));
   assert.deepEqual(
     findSinalefaTriphthongs(puenteAerodinamico, puenteAerodinamicoBoundaries).map(({ start, end, vowels, valid }) => ({ start, end, vowels, valid })),
-    [{ start: 0, end: 0, vowels: ['e', 'a', 'e'], valid: true }]
+    []
   );
   assert.deepEqual(findAutomaticTriphthongBreaks(puenteAerodinamico, puenteAerodinamicoBoundaries), []);
 
@@ -209,6 +209,19 @@ test('does not combine different syllables of a middle word into a triphthong', 
   const line = analyzeLine('mi ala y');
   const boundaries = line.boundaries.map(boundary => ({ ...boundary, active: true }));
   assert.deepEqual(findSinalefaTriphthongs(line, boundaries), []);
+});
+
+test('Me aúlla en keeps its accented hiatus and two independent sinalefas', () => {
+  const line = analyzeLine('Me aúlla en');
+  assert.deepEqual(line.analyses[1].syllables, ['a', 'ú', 'lla']);
+  const boundaries = line.boundaries.map(boundary => ({ ...boundary, active: true }));
+  assert.deepEqual(findSinalefaTriphthongs(line, boundaries), []);
+  assert.deepEqual(findAutomaticTriphthongBreaks(line, boundaries), []);
+  for (const boundary of boundaries) {
+    boundary.active = false;
+    assert.deepEqual(findSinalefaTriphthongs(line, boundaries), []);
+    boundary.active = true;
+  }
 });
 
 test('distinguishes tonic monosyllables from articles, clitics, conjunctions and contractions', () => {

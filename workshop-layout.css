@@ -20,6 +20,27 @@ body > .workspace { max-width: none; grid-template-columns: 150px minmax(0, 1fr)
 #workshop-auth-form .discord-login { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 16px; min-height: 44px; border: 1px solid #5865f2; background: #5865f2; color: #fff; border-radius: 6px; text-decoration: none; font-weight: 650; }
 #workshop-auth-form .discord-login:hover { background: #4752c4; }
 .discord-logo { flex: 0 0 24px; width: 24px; height: 20px; fill: currentColor; }
+.workshop-public-links { display:flex; align-items:center; gap:16px; margin-left:auto; font-size:12px; }
+.workshop-public-links a { text-decoration:none; }
+.workshop-public-links a:hover { text-decoration:underline; }
+.workshop-footer { margin:20px 14px 0; padding:18px 0 24px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
+.workshop-footer-intro { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
+.workshop-footer-intro p { margin:0; color:var(--text); font:16px Georgia,serif; }
+.workshop-footer nav { display:flex; flex-wrap:wrap; gap:16px; }
+.workshop-building-blocks { margin-top:18px; padding-top:16px; border-top:1px solid var(--line); }
+.workshop-building-blocks .eyebrow { margin-bottom:4px; }
+.workshop-credit-lede { font:18px Georgia,serif; color:var(--text); margin-bottom:14px; }
+.workshop-credit-groups { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:24px; }
+.workshop-credit-groups h2 { font:600 12px var(--ui-font); color:var(--text); margin-bottom:6px; }
+.workshop-credit-groups p { margin:0; line-height:1.8; }
+.workshop-credit-groups span { font-size:11px; }
+.workshop-credit-details { margin:16px 0 0; font-size:11px; }
+#toast { left:auto; right:16px; bottom:16px; transform:none; max-width:min(440px,calc(100vw - 32px)); z-index:100; overflow-wrap:anywhere; }
+@media (max-width:1100px) {
+  .topbar { flex-wrap:wrap; }
+  .topbar #workshop-account { max-width:none; flex:1 1 100%; }
+  .workshop-credit-groups { grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+}
 @media (max-width: 760px) {
   .topbar { margin: 0 10px; gap: 8px; }
   .topbar #workshop-account { flex: 1 1 100%; }
@@ -27,4 +48,8 @@ body > .workspace { max-width: none; grid-template-columns: 150px minmax(0, 1fr)
   .sidebar { margin-bottom: 12px; }
   .sidebar nav button { min-height: 40px; }
   .page-heading h1 { font-size: 27px; }
+  .workshop-public-links { flex:1 1 100%; margin-left:0; gap:14px; font-size:11px; }
+  .workshop-footer { margin:12px 10px 0; }
+  .workshop-footer nav { gap:10px 16px; }
+  .workshop-credit-groups { grid-template-columns:1fr; gap:14px; }
 }

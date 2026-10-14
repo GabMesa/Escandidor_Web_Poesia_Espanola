@@ -192,6 +192,7 @@ window.addEventListener('message',event=>{
   if(message?.type==='workshop:editor'){state.view='editor';render();}
   if(message?.type==='workshop:library'){state.view='library';state.library.tab='poems';const poem=allPoems().find(p=>p.sourceKey===message.poemKey);if(poem){state.library.poemId=poem.id;state.library.versionId='latest';}render();window.scrollTo(0,0);}
   if(message?.type==='workshop:saved'){const poem=state.data.poems.find(p=>p.id===message.sourceId);if(poem){poem.linkedLocalId='local:'+message.poemKey;persist();}document.querySelector('#poem-count').textContent=allPoems().length;}
+  if(message?.type==='workshop:toast')toast(message.message);
   if(message?.type==='workshop:error')toast(message.message);
   if(message?.type==='workshop:library-changed' && !['editor','files'].includes(state.view))render();
 });

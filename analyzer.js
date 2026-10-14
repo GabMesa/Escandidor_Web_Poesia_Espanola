@@ -186,7 +186,8 @@ export function findSinalefaTriphthongs(lineAnalysis, activeBoundaries, options 
     const words = lineAnalysis.analyses.slice(index, index + 2);
     const vowels = [
       ...trailingVowels(words[0]),
-      ...extractLeadingVowelsForSinalefa(words[1]?.original, options)
+      // A written hiatus stays separate unless the user chooses syneresis.
+      ...extractLeadingVowelsForSinalefa(words[1]?.syllables?.[0], options)
     ];
 
     if (vowels.length === 3) {

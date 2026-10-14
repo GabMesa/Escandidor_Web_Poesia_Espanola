@@ -1,3 +1,16 @@
+import {attributionGroups,creditLink,creditEscape} from './attribution-resources.js';
+
+document.querySelector('#credits-resources').innerHTML=attributionGroups.map(group=>`<section class="credits-section"><h2>${creditEscape(group.title)}</h2>${group.items.map(([name,description,source,license,notice,extra])=>`<article class="credits-resource"><h3>${creditLink(source,name)}</h3><p>${creditEscape(description)}</p><p class="credit-license">${creditLink(notice,license)}${extra?'<br>'+creditLink(extra,'Licencia de fflate'):''}</p></article>`).join('')}</section>`).join('');
+async function loadFontNotices(){
+  const list=document.querySelector('#credits-font-list');
+  try{
+    const response=await fetch('/licenses/fonts/catalog.json');
+    if(!response.ok)throw Error('Font notices unavailable');
+    const fonts=await response.json();
+    list.innerHTML=fonts.map(font=>`<div>${creditLink('/'+font.path,font.name)}<span>${creditEscape(font.license)} · ${creditLink(font.source,'Fuente y autoría')}</span></div>`).join('');
+  }catch{list.innerHTML=creditLink('/THIRD-PARTY-LICENSES.md','Consultar las fuentes y licencias completas');}
+}
+loadFontNotices();
 const donorList = document.getElementById('donorList');
 const donorStatus = document.getElementById('donorStatus');
 

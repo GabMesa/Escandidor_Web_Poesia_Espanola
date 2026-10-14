@@ -2067,9 +2067,10 @@ function renderLookupResults() {
   const selectedWordEncoded = encodeURIComponent(state.selectedLookupWord);
   const corroborationLinks = state.selectedLookupWord
     ? `<p class="lookup-definition" style="margin-top: 0.35rem;">
-        <a href="https://dle.rae.es/${selectedWordEncoded}" target="_blank" rel="noopener noreferrer">Abrir en RAE</a>
+        <a href="https://es.wiktionary.org/wiki/${selectedWordEncoded}" target="_blank" rel="noopener noreferrer">Fuente en Wikcionario</a>
+        · <a href="https://es.wiktionary.org/w/index.php?title=${selectedWordEncoded}&amp;action=history" target="_blank" rel="noopener noreferrer">Historial y autores</a>
         ·
-        <a href="https://iedra.es/rimas/${selectedWordEncoded}" target="_blank" rel="noopener noreferrer">Abrir en IEDRA</a>
+        <a href="https://dle.rae.es/${selectedWordEncoded}" target="_blank" rel="noopener noreferrer">Abrir en RAE</a>
       </p>`
     : '';
 
@@ -2114,7 +2115,7 @@ function renderLookupResults() {
 
   const loaderVisible = state.lookupLoadingDefinition;
   const loaderMessage = wordCorpusLoadingMessage || 'Cargando información desde las fuentes...';
-  const loaderBlock = loaderVisible ? `<p class="lookup-loader"><span class="lookup-spinner" aria-hidden="true"></span>${escapeHtml(loaderMessage)}</p>` : '';
+  const loaderBlock = `<div class="lookup-status" role="status">${loaderVisible ? `<p class="lookup-loader"><span class="lookup-spinner" aria-hidden="true"></span>${escapeHtml(loaderMessage)}</p>` : ''}</div>`;
   const errorLine = state.lookupError ? `<p class="lookup-definition">${escapeHtml(state.lookupError)}</p>` : '';
 
   lookupResults.innerHTML = `
@@ -2129,12 +2130,12 @@ function renderLookupResults() {
     <p class="lookup-definition" style="margin-top: 0.35rem;"><strong>Frecuencia:</strong> ${escapeHtml(frequencyText)}</p>
     ${corroborationLinks}
 
-    <details class="lookup-collapsible-section">
-      <summary class="lookup-section" style="cursor: pointer; list-style: max-content;">
+    <section class="lookup-collapsible-section lookup-synonyms-section">
+      <div class="lookup-section">
         <strong>Sinónimos</strong>
-      </summary>
+      </div>
       <div class="lookup-synonym-groups">${synonymsHtml}</div>
-    </details>
+    </section>
     </div>
 
     <div class="lookup-rhymes-column">
@@ -2147,6 +2148,7 @@ function renderLookupResults() {
         </span>
       </summary>
       ${rhymeControls}
+      <p class="lookup-iedra-link"><a href="https://iedra.es/rimas/${selectedWordEncoded}" target="_blank" rel="noopener noreferrer">Abrir en IEDRA ↗</a></p>
       ${typeLoadingNotice}
       <p class="lookup-rhyme-count">${rhymeCountLabel} rimas</p>
       <ul class="lookup-rhyme-list" style="margin-top: 0.5rem;">
@@ -2291,6 +2293,10 @@ function ensureToastElement() {
 }
 
 function showToast(message, type = 'info') {
+  if (window.parent !== window && new URLSearchParams(location.search).get('taller') === '1') {
+    window.parent.postMessage({type:'workshop:toast',message:String(message ?? '').trim(),level:type},location.origin);
+    return;
+  }
   const toast = ensureToastElement();
   toast.textContent = String(message ?? '').trim();
   toast.classList.remove('is-info', 'is-success', 'is-warning', 'is-error');
@@ -2305,6 +2311,18 @@ function showToast(message, type = 'info') {
     toast.classList.remove('is-visible');
   }, 2200);
 }
+
+function showGuideToast(event) {
+  const guide = event.target?.closest?.('.guide-hover');
+  if (!guide || (event.type === 'keydown' && !['Enter', ' '].includes(event.key))) return;
+  const message = guide.querySelector('.guide-popover')?.textContent?.trim();
+  if (message) {
+    if (event.type === 'keydown') event.preventDefault();
+    showToast(message, 'info');
+  }
+}
+document.addEventListener('click', showGuideToast);
+document.addEventListener('keydown', showGuideToast);
 
 function clampFontScale(value) {
   const numeric = Number(value);

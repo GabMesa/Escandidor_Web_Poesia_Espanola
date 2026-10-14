@@ -1,4 +1,5 @@
 import {renderVersionSelectOptions} from '../poem-version-selection.js';
+import {sortPoemsByLastUpdate} from '../poem-library-order.js';
 import {showPoemColorPicker} from '../poem-color-picker.js';
 import {escapeHtml as h,latestVersion,countLines,poemBlocks,readEditorLibrary} from './model.js';
 import {buildHistoryMarkdown,sortPoemVersions} from '../poem-exports.js';
@@ -21,7 +22,7 @@ export function createLibrary({state,allPoems,persist,showDialog,toast,command,o
     return [...(state.data.libraryTrash||[]).map((g,i)=>({...g,demo:true,index:i})),...Object.entries(native).flatMap(([title,groups])=>(groups||[]).map((g,i)=>({...g,title,index:i,demo:false})))];
   }
   function renderHtml(heading){
-    const poems=allPoems(),allTags=tagCatalog(state.data,poems),q=state.query.trim().toLocaleLowerCase('es');
+    const poems=sortPoemsByLastUpdate(allPoems()),allTags=tagCatalog(state.data,poems),q=state.query.trim().toLocaleLowerCase('es');
     const validVersionKeys=new Set(poems.flatMap(p=>p.versions.map(v=>versionKey(p.id,v.id))));ui.checkedVersions=ui.checkedVersions.filter(key=>validVersionKeys.has(key));
     const filtered=poems.filter(p=>(!q||(p.title+' '+p.versions.map(v=>label(v)+' '+v.poemText).join(' ')).toLocaleLowerCase('es').includes(q))&&(!state.tags.length||(state.tagMode==='all'?state.tags.every(t=>p.tags.includes(t)):state.tags.some(t=>p.tags.includes(t)))));
     state.checked=state.checked.filter(id=>poems.some(p=>p.id===id));

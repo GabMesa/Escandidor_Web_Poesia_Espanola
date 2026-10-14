@@ -39,9 +39,11 @@ try{
  for(const text of ['la','la luna','la casa','la casa canta'])await save(text);
  let versions=(await groups())[0];assert.deepEqual(versions.map(v=>v.poemText),['la luna','la casa canta']);assert.deepEqual(versions.map(v=>v.versionNumber),[2,4]);
  assert.deepEqual(await evaluate('Object.values(JSON.parse(localStorage.getItem("escandador.poemMemory.v1")).trash).flatMap(g=>g.flatMap(e=>e.versions)).map(v=>v.poemText).sort()'),['la','la casa']);
- assert.equal(await evaluate('document.getElementById("compressPoemVersions").disabled'),false);
+ assert.equal(await evaluate('document.getElementById("compressPoemVersions").disabled'),true);
  await evaluate('document.getElementById("autoCompressVersions").click()');await save('la casa canta de noche');assert.equal((await groups())[0].length,3);
  await send('Page.reload');await sleep(350);await ready();assert.equal(await evaluate('document.getElementById("autoCompressVersions").checked'),false);
+ await evaluate('document.querySelector(".poem-select-all").click()');
+ assert.equal(await evaluate('document.getElementById("compressPoemVersions").disabled'),false);
  await evaluate('document.getElementById("compressPoemVersions").click()');versions=(await groups())[0];assert.deepEqual(versions.map(v=>v.poemText),['la luna','la casa canta de noche']);assert.deepEqual(versions.map(v=>v.versionNumber),[2,5]);
  assert.equal(await evaluate('document.getElementById("autoCompressVersions").checked'),false);
  await evaluate('document.getElementById("autoCompressVersions").click();document.getElementById("newPoemTop").click()');
@@ -49,6 +51,27 @@ try{
  let all=await groups();assert.equal(all.length,2);assert.equal(all[0].length,2);assert.deepEqual(all[1].map(v=>v.poemText),['El mar canta']);
  await evaluate(`document.getElementById('poemInput').value='El mar canta de noche';document.getElementById('poemInput').dispatchEvent(new Event('input',{bubbles:true}))`);
  await sleep(10200);all=await groups();assert.deepEqual(all[1].map(v=>v.poemText),['El mar canta de noche']);assert.equal(all[1][0].kind,'autosave');
+ // Manual compression follows checked poems even when a different poem is open.
+ await evaluate('document.getElementById("autoCompressVersions").click()');
+ for(const title of ['Bosque','Rio','Sol']){
+  await evaluate(`document.getElementById('newPoemTop').click();document.getElementById('poemTitle').value=${JSON.stringify(title)};document.getElementById('poemInput').value='canta';document.getElementById('savePoem').click();document.getElementById('poemInput').value='canta de noche';document.getElementById('savePoem').click()`);
+ }
+ await send('Page.reload');await sleep(350);await ready();
+ assert.equal(await evaluate('document.getElementById("compressPoemVersions").disabled'),true);
+ const beforeSelection=await groups();
+ await evaluate(`for(const node of document.querySelectorAll('.poem-tree-node')){const title=node.querySelector('.poem-title-input').value;if(title==='Bosque')node.querySelector('.poem-select-all').click();}`);
+ // Selecting one version also identifies its poem for full-history compression.
+ await evaluate(`for(const node of document.querySelectorAll('.poem-tree-node')){if(node.querySelector('.poem-title-input').value==='Rio')node.querySelector('.saved-version-checkbox').click();}`);
+ assert.equal(await evaluate('document.getElementById("compressPoemVersions").disabled'),false);
+ await evaluate('window.compressionEvents=[];window.addEventListener("escandidor:versions-compressed",event=>window.compressionEvents.push(event.detail));document.getElementById("compressPoemVersions").click()');
+ all=await groups();
+ for(const title of ['Bosque','Rio'])assert.deepEqual(all.find(v=>v[0].poemTitle===title).map(v=>v.poemText),['canta de noche']);
+ assert.deepEqual(all.find(v=>v[0].poemTitle==='Sol'),beforeSelection.find(v=>v[0].poemTitle==='Sol'));
+ assert.equal(await evaluate('document.getElementById("poemTitle").value'),'Sol');
+ assert.equal(await evaluate('document.getElementById("poemInput").value'),'canta de noche');
+ assert.deepEqual(await evaluate('window.compressionEvents.map(e=>e.title).sort()'),['Bosque','Rio']);
+ await evaluate('document.getElementById("selectAllVersions").click();document.getElementById("selectAllVersions").click()');
+ assert.equal(await evaluate('document.getElementById("compressPoemVersions").disabled'),true);
  for(const theme of ['light','dark']){await evaluate(`document.documentElement.dataset.theme='${theme}';document.getElementById('compressPoemVersions').closest('details').open=true`);await setWidth(320);assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);}
- assert.deepEqual(errors,[]);console.log('PASS: enabled by default; approved sequence; preserved numbers; trash; persistent toggle; manual compression with auto disabled; separate poems; real autosave compression; mobile light/dark.');
+ assert.deepEqual(errors,[]);console.log('PASS: enabled by default; approved sequence; preserved numbers; trash; persistent toggle; manual compression with auto disabled; checked poems with another poem open; multiple and partial selections; no-selection disabled; separate poems; real autosave compression; mobile light/dark.');
 }finally{try{await Promise.race([browserClose?.(),sleep(2000)]);}catch{}ws?.close();proc.kill();server.close();}

@@ -3212,8 +3212,10 @@ function updateSelectAllButtonLabel(totalItems) {
 function updateVersionManagerStatus() {
   const compressionButton = document.getElementById('compressPoemVersions');
   if (compressionButton) {
-    const poemKey = savedPoemName?.value || state.loadedVersionTitle;
-    compressionButton.disabled = (loadPoemMemoryStore().poems[poemKey]?.length || 0) < 2;
+    const store = loadPoemMemoryStore();
+    compressionButton.disabled = !getCheckedVersionEntries().some(
+      ({ poemKey }) => (store.poems[poemKey]?.length || 0) >= 2
+    );
   }
   if (!versionManagerStatus) {
     return;
@@ -3815,39 +3817,57 @@ function dispatchVersionsCompressed(poemKey, title, result) {
   }));
 }
 
-function compressSelectedPoemVersions({ notify = true } = {}) {
-  const poemKey = savedPoemName?.value || state.loadedVersionTitle;
+function compressSelectedPoemVersions() {
+  const poemKeys = [...new Set(getCheckedVersionEntries().map(({ poemKey }) => poemKey))];
+  if (!poemKeys.length) {
+    showToast('Selecciona al menos un poema para comprimir sus versiones.', 'warning');
+    return;
+  }
+  compressStoredPoemVersions(poemKeys);
+}
+
+function compressStoredPoemVersions(poemKeys, { notify = true } = {}) {
   const store = loadPoemMemoryStore();
-  const versions = store.poems[poemKey] || [];
-  const result = compressPoemVersions(versions);
-  if (!result.removed.length) {
+  const changes = [];
+  for (const poemKey of poemKeys) {
+    const versions = store.poems[poemKey] || [];
+    const result = compressPoemVersions(versions);
+    if (!result.removed.length) continue;
+    const title = getStoredPoemTitle(poemKey, versions);
+    store.poems[poemKey] = result.retained;
+    movePoemToTrash(store, title, result.removed);
+    changes.push({ poemKey, title, result });
+  }
+  if (!changes.length) {
     if (notify) showToast('No hay versiones consecutivas contenidas para comprimir.', 'info');
     return;
   }
   const dirty = isCurrentDraftDirtyAgainstLoadedVersion();
-  const title = getStoredPoemTitle(poemKey, versions);
-  store.poems[poemKey] = result.retained;
-  movePoemToTrash(store, title, result.removed);
   if (!savePoemMemoryStore(store)) {
     showToast('No se pudieron comprimir las versiones.', 'error');
     return;
   }
-  const removedIds = new Set(result.removed.map(version => String(version.id)));
-  for (const id of removedIds) selectedVersionIds.delete(makeVersionSelectionKey(poemKey, id));
-  if (state.loadedVersionTitle === poemKey && removedIds.has(String(state.loadedVersionId))) {
-    const newest = result.retained.at(-1);
-    if (!dirty) loadVersionById(poemKey, String(newest.id));
-    else {
-      state.loadedVersionId = String(newest.id);
-      saveLastWorkedPoemReference(poemKey, state.loadedVersionId);
+  let removedCount = 0;
+  for (const { poemKey, result } of changes) {
+    removedCount += result.removed.length;
+    const removedIds = new Set(result.removed.map(version => String(version.id)));
+    for (const id of removedIds) selectedVersionIds.delete(makeVersionSelectionKey(poemKey, id));
+    if (state.loadedVersionTitle === poemKey && removedIds.has(String(state.loadedVersionId))) {
+      const newest = result.retained.at(-1);
+      if (!dirty) loadVersionById(poemKey, String(newest.id));
+      else {
+        state.loadedVersionId = String(newest.id);
+        saveLastWorkedPoemReference(poemKey, state.loadedVersionId);
+      }
     }
   }
-  refreshSavedPoemNameOptions(poemKey);
-  refreshSavedPoemVersionOptions(poemKey, state.loadedVersionTitle === poemKey ? state.loadedVersionId : String(result.retained.at(-1).id));
-  renderSavedVersionList(poemKey, savedPoemVersion?.value || '');
+  const activePoemKey = savedPoemName?.value || state.loadedVersionTitle;
+  refreshSavedPoemNameOptions(activePoemKey);
+  refreshSavedPoemVersionOptions(activePoemKey, state.loadedVersionId || savedPoemVersion?.value || '');
+  renderSavedVersionList(activePoemKey, savedPoemVersion?.value || '');
   renderPoemTrash();
-  dispatchVersionsCompressed(poemKey, title, result);
-  if (notify) showToast(`${result.removed.length} versión${result.removed.length === 1 ? '' : 'es'} comprimida${result.removed.length === 1 ? '' : 's'}.`, 'success');
+  for (const { poemKey, title, result } of changes) dispatchVersionsCompressed(poemKey, title, result);
+  if (notify) showToast(`${removedCount} versión${removedCount === 1 ? '' : 'es'} comprimida${removedCount === 1 ? '' : 's'}.`, 'success');
 }
 
 function saveCurrentPoemVersion(options = {}) {
@@ -3927,7 +3947,7 @@ function saveCurrentPoemVersion(options = {}) {
         saveLastWorkedPoemReference(poemKey, state.loadedVersionId);
         if (notify && notifyWhenUnchanged) showToast('Sin cambios para guardar.', 'warning');
         if (saveKind === 'manual') dispatchPoemSaved(poemKey, title, latest, previousTitle !== title ? previousTitle : '');
-        if (state.autoCompressVersions) compressSelectedPoemVersions({ notify: false });
+        if (state.autoCompressVersions) compressStoredPoemVersions([poemKey], { notify: false });
         return false;
       }
     } else {

@@ -1,0 +1,52 @@
+/* The editor belongs to the Workshop. Keep its analysis and poem font choices. */
+html.in-workshop{--bg:#f3f0e7;--surface:#faf8f2;--text:#292b27;--muted:#6b7066;--line:#dcded2;--action:#923e36;--accent:#923e36;color-scheme:light}
+.in-workshop body{padding:0!important;background:var(--bg)!important;font-family:var(--ui-font);font-size:14px;color:var(--text)}
+.in-workshop .publication-header,.in-workshop .hero,.in-workshop footer,.in-workshop .skip-link{display:none!important}
+.in-workshop .app-shell{width:100%;max-width:none;margin:0;padding:0}
+.in-workshop .controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 16px}
+.in-workshop #managerShell{display:none!important}
+.in-workshop #libraryLauncher{grid-column:1/-1;display:flex;gap:14px;align-items:center;padding:12px 16px;border:1px solid var(--line);border-radius:7px;background:var(--surface)}
+.in-workshop #libraryLauncher h2{font:400 20px Georgia,serif;margin:0}.in-workshop #libraryLauncher p{font-size:12px;color:var(--muted);margin:0;flex:1}.in-workshop #libraryLauncher a{font-size:12px;color:var(--accent);white-space:nowrap}
+.in-workshop .config-shell{border:1px solid var(--line);border-radius:7px;background:var(--surface)!important;box-shadow:none}
+.in-workshop .config-shell>summary{font:600 13px var(--ui-font);padding:16px;color:var(--text)}
+.in-workshop .summary-hint{font-size:11px;color:var(--muted)}
+.in-workshop .quick-controls{grid-column:1/-1;padding:10px 16px;border:1px solid var(--line);border-radius:7px;background:var(--surface)!important;box-shadow:none;margin:0}
+.in-workshop .quick-control-label{font-weight:500;font-size:12px}
+.in-workshop .workspace{gap:18px;padding:0!important;background:transparent!important;box-shadow:none;border-radius:0}
+.in-workshop .panel{min-height:530px;border:1px solid var(--line);border-top:3px solid var(--poem-color,var(--accent));border-radius:8px;background:var(--surface);box-shadow:none;backdrop-filter:none}
+.in-workshop .panel-header{padding:20px;border-color:var(--line);gap:16px;background:transparent}
+.in-workshop .panel-header h2{font:400 25px/1.2 Georgia,serif;margin:0}
+.in-workshop #poemTitle{min-width:0;width:100%;padding:4px 0;background:transparent;border:0;border-radius:0;font:400 27px/1.2 Georgia,serif;color:var(--text)}
+.in-workshop #poemTitle:focus{outline:2px solid var(--accent);outline-offset:5px}
+.in-workshop button{font:500 12px var(--ui-font);border:1px solid var(--line);border-radius:5px;padding:8px 12px;background:var(--action);color:#fff;box-shadow:none;min-height:34px}
+.in-workshop button.secondary{background:var(--surface);color:var(--text)}
+.in-workshop .top-action-group{padding:0;gap:7px;border:0;border-radius:0;background:transparent;justify-content:start}
+.in-workshop .top-action-group .icon-action{width:34px;min-width:34px;padding:6px}
+.in-workshop button.poem-color-btn{border-radius:50%;width:32px;min-width:32px;min-height:32px}
+.in-workshop :where(input,select,textarea):not([type=checkbox]):not([type=radio]):not([type=color]):not([type=hidden]){font-family:var(--ui-font);font-size:12px;border-radius:5px;border-color:var(--line);background:var(--surface);color:var(--text)}
+.in-workshop .input-memory-bar{padding:12px 20px;background:color-mix(in srgb,var(--poem-color,#77917c) 6%,var(--surface));border-color:var(--line)}
+.in-workshop #poemInput{padding:22px;min-height:340px;font-family:var(--poem-font-family,var(--reading-font));font-size:var(--verse-font-size);line-height:var(--verse-line-height);background:var(--surface)!important;border:0;border-radius:0}
+.in-workshop .capture-actions{padding:12px 20px}.in-workshop .badge{border-radius:4px;font:500 11px var(--ui-font)}
+.in-workshop #libraryLauncher{display:none!important}
+.in-workshop button.rhyme-color-btn{min-height:16px;width:16px;height:16px;padding:0;border-radius:50%;border:1px solid #0002}
+.in-workshop button.syneresis-toggle{min-height:16px;height:16px;padding:0 4px;border-radius:4px;font-size:10px;line-height:1;background:var(--surface);color:var(--accent)}
+@media(max-width:820px){.in-workshop .controls{grid-template-columns:1fr}.in-workshop .summary-hint{max-width:55%;text-align:right}.in-workshop .workspace{grid-template-columns:1fr}.in-workshop .panel{min-height:400px}.in-workshop #libraryLauncher{flex-wrap:wrap}.in-workshop #libraryLauncher p{flex-basis:60%}}
+
+/* The outer Workshop page owns scrolling and the poem supplies its atmosphere. */
+html.in-workshop,.in-workshop body{height:auto;min-height:0;overflow:hidden}
+.in-workshop .controls{grid-template-columns:1fr}
+.in-workshop body.has-poem-theme{--action:var(--poem-color);--accent:var(--poem-color);--surface:color-mix(in srgb,var(--poem-color) var(--color-surface,12%),#faf8f2);--bg:color-mix(in srgb,var(--poem-color) 8%,#f3f0e7);--line:color-mix(in srgb,var(--poem-color) 35%,#dcded2)}
+.in-workshop body.has-poem-theme button:not(.secondary):not(.poem-color-btn):not(.rhyme-color-btn):not(.sinalefa-toggle):not(.syneresis-toggle){color:var(--poem-on-color,#fff)}
+.in-workshop .panel,.in-workshop .analysis-output{max-height:none;overflow:visible}
+
+.in-workshop .analysis-text-output{overflow:visible;max-height:none}
+.in-workshop button.lookup-rhyme-use-btn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 24px;width:24px;height:24px;min-height:24px;padding:0;border-radius:50%;line-height:1}
+
+/* Compact, rounded marks keep the syllables readable within the verse. */
+.in-workshop body .analysis-output button.sinalefa-toggle{display:inline-block;text-align:center;min-width:0;min-height:20px;padding:0 7px;margin:0 3px;border-radius:999px;font:inherit;line-height:1.15;vertical-align:baseline;box-shadow:none}
+.in-workshop body .analysis-output button.sinalefa-toggle.is-active{background:rgba(33,161,85,.12);border-color:rgba(31,122,53,.5);color:#3c661d}
+.in-workshop body .analysis-output button.sinalefa-toggle.is-inactive{background:rgba(214,59,72,.08);border-color:rgba(160,38,45,.45);color:#a0262d}
+.in-workshop body .analysis-output button.sinalefa-toggle.is-warning{background:rgba(230,184,45,.16);border-color:rgba(230,184,45,.68);color:#805c09}
+.in-workshop body .analysis-output button.syneresis-toggle{border-radius:999px;min-height:18px;height:auto;padding:0 4px;font:inherit;line-height:1.15;background:rgba(42,126,121,.09);color:#27716d}
+
+.in-workshop .analysis-output .sinalefa-toggle strong{color:inherit}

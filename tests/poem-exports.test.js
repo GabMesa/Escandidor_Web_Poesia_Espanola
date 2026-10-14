@@ -1,6 +1,6 @@
 ﻿import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sortPoemVersions, selectMarkdownEntries, buildHistoryMarkdown, buildVideoTimeline, interpolatePoemEdit } from '../poem-exports.js';
+import { poemTimestamp, sortPoemVersions, selectMarkdownEntries, buildHistoryMarkdown, buildVideoTimeline, interpolatePoemEdit } from '../poem-exports.js';
 const v1 = { savedAt:'2026-10-01', versionNumber:1, poemText:'La luna', label:'Borrador' };
 const v2 = { savedAt:'2026-10-02', versionNumber:2, poemText:'La luna brilla' };
 test('Markdown exports latest per poem using stable identity, including duplicate titles', () => {
@@ -25,4 +25,10 @@ test('Animation handles additions, replacements, deletions and Unicode without b
  assert.equal(interpolatePoemEdit('abcd','ab',.5),'abc');
  const frame=interpolatePoemEdit('🌙 luz','🌙 mar',.7);
  assert.ok(frame.startsWith('🌙 '));assert.doesNotMatch(frame,/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
+});
+
+test('database dates without a timezone are UTC and do not outrank a newer local version',()=>{
+ assert.equal(poemTimestamp('2026-10-14 12:00:00'),Date.parse('2026-10-14T12:00:00Z'));
+ const old={savedAt:'2026-10-14 12:00:00',versionNumber:1},next={savedAt:'2026-10-14T09:01:00-03:00',versionNumber:2};
+ assert.equal(sortPoemVersions([next,old]).at(-1),next);
 });

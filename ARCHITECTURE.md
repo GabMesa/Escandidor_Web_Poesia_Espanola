@@ -36,6 +36,8 @@ The existing `/api/poems` and `/api/trash` routes remain compatibility and featu
 
 - Identity: `users`, `sessions`, and future external identities.
 - Creative state: `poems`, `poem_versions`, and `deleted_poems`.
+- Contest author documents: `user_plica_profiles`, scoped only to the authenticated user. Personal fields are encrypted; the AI declaration and declaration date remain plain. The old `user_contest_plicas` table is retired. Author identity is never included in the anonymous work export.
+- Workshop: `contests`, `poem_tags`, `poem_tag_assignments`, `workshop_preferences`, and `workshop_revisions`, all scoped to the user. `/api/workshop` uses transactional revision checks. Poems keep their existing normalized model.
 - Catalog and authorization: `services`, `features`, `service_features`, and future user entitlements.
 - Billing ledger: supporters unify one-time donors and memberships across providers, while payments remain immutable events. Provider events grant or revoke entitlements; payment rows must not be queried directly to authorize features.
 
@@ -52,6 +54,8 @@ Before payments are added, give services and features stable unique keys, add pr
 
 ## Schema evolution
 
-`schema.sql` bootstraps a new database. `migrations/` is the history for an existing database and must retain applied filenames and order. The checked-in schema includes changes through `0011_auto_link_supporters.sql`.
+`schema.sql` bootstraps a new database. `migrations/` is the history for an existing database and must retain applied filenames and order. The checked-in schema includes changes through `0016_workshop.sql`.
 
 Never renumber, rewrite, or delete an applied migration. Add a migration and update `schema.sql` to the resulting clean-install state.
+
+The real Workshop lives under `taller/`, without seeded examples or mocked API responses. `scripts/local-server.mjs` runs its API and database locally, forwards the existing authentication and poetry endpoints, and handles contest HTML/PDF extraction. See `LOCAL.md`. `prototipo/` remains a separate demonstration and migration source.

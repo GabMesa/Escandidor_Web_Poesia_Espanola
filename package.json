@@ -5,16 +5,22 @@
   "version": "0.1.0",
   "description": "Escandador básico de poesía en español para hosting estático.",
   "scripts": {
+    "build": "node scripts/build-pages.mjs",
+    "dev:prototype": "node scripts/prototype-server.mjs",
+    "verify:prototype": "node scripts/verify-prototype.mjs",
     "test": "node --test",
     "check": "node --check app.js && node --check analyzer.js && node --check auth.js && node --check cloud-sync.js && node --check browser-storage.js && node --check poem-policy.js && node --check poem-compression.js && node --check trash-policy.js && node --check functions/_lib/trash-storage.js && node --check workers/trash-cleanup.js && node --check theme-init.js && node --check theme.js && node --check poem-exports.js && node --check poem-video.js",
     "dev": "wrangler pages dev .",
-    "deploy": "wrangler pages deploy . --project-name mesa-de-poesia",
-    "deploy:trash-cleanup": "wrangler deploy --config wrangler.trash-cleanup.jsonc"
+    "deploy": "npm run build && wrangler pages deploy .wrangler/pages-release --project-name mesa-de-poesia --branch main",
+    "deploy:trash-cleanup": "wrangler deploy --config wrangler.trash-cleanup.jsonc",
+    "dev:local": "node scripts/local-server.mjs",
+    "verify:local": "node scripts/verify-local.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.86.0"
   },
   "dependencies": {
+    "unpdf": "^1.7.0",
     "vosk-browser": "^0.0.8"
   }
 }

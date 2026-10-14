@@ -21,3 +21,15 @@ qa/
 .palette-qa-browser/
 
 .colors-qa-browser/
+
+.prototype-qa-browser/
+.covers-qa-browser/
+
+.dev.vars*
+.env*
+*.dpapi
+
+.local-app-qa-browser/
+.sinalefa-qa-browser/
+.landing-qa-browser/
+.versions-qa-browser/

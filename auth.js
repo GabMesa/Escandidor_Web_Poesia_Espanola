@@ -102,7 +102,9 @@ function offerLocalImport() {
 function handleAuthState(payload) {
   const wasAnonymous = !applicationState.auth.user;
   renderUser(payload.user);
+  applicationState.runtime.authInitialized=true;window.dispatchEvent(new CustomEvent('escandidor:auth-ready'));
   if (!payload.user) return;
+  if(new URLSearchParams(location.search).get('real')==='1'){cloudSync.loadFromServer();return;}
 
   if (Number(payload.otherSessions) > 0) {
     showSessionConflict(payload.otherSessions);

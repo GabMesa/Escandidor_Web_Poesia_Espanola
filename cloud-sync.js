@@ -192,7 +192,7 @@ export function createCloudSync({
       id: `cloud-${poem.id}-${version.version}`,
       label: version.versionName,
       versionNumber: version.version,
-      savedAt: version.createdAt || poem.updatedAt,
+      savedAt: String(version.createdAt||poem.updatedAt||'').replace(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/, '$1T$2Z'),
       poemText: version.content,
       settings,
       sinalefaOverrides,

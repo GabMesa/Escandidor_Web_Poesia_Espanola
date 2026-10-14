@@ -74,6 +74,7 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
       wrangler, 'pages', 'dev', '.', '--port', String(port),
       '--persist-to', persistence, '--log-level', 'error',
       '--show-interactive-dev-session=false',
+      '--binding', `PLICA_ENCRYPTION_KEY=${Buffer.alloc(32,7).toString('base64')}`,
     ], { cwd: root, stdio: 'ignore', windowsHide: true });
     await waitForServer(baseUrl, server);
 
@@ -100,6 +101,8 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     assert.equal(firstRegistration.response.status, 200);
     assert.equal(firstRegistration.payload.user.role, 'user');
     let firstCookie = cookieFrom(firstRegistration.response);
+    assert.equal((await jsonRequest(baseUrl, '/api/contests/import', { method: 'POST', body: { url: 'https://example.com/' } })).response.status, 401);
+    assert.equal((await jsonRequest(baseUrl, '/api/contests/import', { method: 'POST', cookie: firstCookie, body: { url: 'http://127.0.0.1/' } })).response.status, 422);
 
     const duplicateLogin = await jsonRequest(baseUrl, '/api/auth/login', {
       method: 'POST',
@@ -134,6 +137,54 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     assert.equal(secondRegistration.response.status, 200);
     assert.equal(secondRegistration.payload.user.role, 'user');
     const secondCookie = cookieFrom(secondRegistration.response);
+
+    // Seed the pre-0015 format, then restore the retirement guard before exercising backfill.
+    runWrangler(['d1','execute','escandidor-db','--local','--persist-to',persistence,'--command',`
+      DROP TRIGGER plicas_retired_insert;
+      INSERT INTO user_contest_plicas(user_id,contest_key,full_name,updated_at)
+        SELECT id,'reciente','Perfil reciente','2026-10-13' FROM users WHERE username='primera';
+      INSERT INTO user_contest_plicas(user_id,contest_key,full_name,email,updated_at)
+        SELECT id,'anterior','Perfil anterior','migration@example.test','2026-10-01' FROM users WHERE username='primera';
+      CREATE TRIGGER plicas_retired_insert BEFORE INSERT ON user_contest_plicas
+        BEGIN SELECT RAISE(ABORT,'Perfil retirado'); END;
+    `]);
+    const migratedPlica=await jsonRequest(baseUrl,'/api/plicas',{cookie:firstCookie});
+    assert.equal(migratedPlica.response.status,200);
+    assert.equal(migratedPlica.payload.plica.fullName,'Perfil reciente');
+    assert.equal(migratedPlica.payload.plica.email,'migration@example.test');
+    const legacyCount=runWrangler(['d1','execute','escandidor-db','--local','--persist-to',persistence,
+      '--command','SELECT COUNT(*) AS legacy_count FROM user_contest_plicas','--json']);
+    assert.match(legacyCount,/"legacy_count":\s*0/);
+
+    const anonymousPlica = await jsonRequest(baseUrl, '/api/plicas?contestId=concurso-prueba');
+    assert.equal(anonymousPlica.response.status, 401);
+    const plica = {fullName:'Autora de prueba',identityDocument:'ID de prueba',includeAi:true,
+      aiStatement:'Declaración editable de prueba.',signatureDate:'2026-10-13'};
+    const savedPlica = await jsonRequest(baseUrl, '/api/plicas', {method:'PUT',cookie:firstCookie,
+      body:{contestId:'concurso-prueba',plica}});
+    assert.equal(savedPlica.response.status,200);
+    const loadedPlica = await jsonRequest(baseUrl, '/api/plicas?contestId=concurso-prueba',{cookie:firstCookie});
+    assert.equal(loadedPlica.payload.plica.fullName,plica.fullName);
+    assert.equal(loadedPlica.payload.plica.aiStatement,plica.aiStatement);
+    assert.equal(loadedPlica.payload.plica.includeAi,true);
+    const otherPlica = await jsonRequest(baseUrl, '/api/plicas?contestId=concurso-prueba',{cookie:secondCookie});
+    assert.equal(otherPlica.payload.plica,null);
+    const anotherContest = await jsonRequest(baseUrl, '/api/plicas?contestId=otro-concurso',{cookie:firstCookie});
+    assert.equal(anotherContest.payload.plica.fullName,plica.fullName);
+    assert.equal(loadedPlica.response.headers.get('cache-control'),'no-store');
+    const storedPlica = runWrangler(['d1','execute','escandidor-db','--local','--persist-to',persistence,
+      '--command','SELECT encrypted_sensitive,include_ai,ai_statement,signature_date FROM user_plica_profiles','--json']);
+    assert.doesNotMatch(storedPlica,/Autora de prueba|ID de prueba/);
+    assert.match(storedPlica,/Declaraci/);
+    runWrangler(['d1','execute','escandidor-db','--local','--persist-to',persistence,
+      '--command',"UPDATE user_plica_profiles SET encrypted_sensitive='{}'"]);
+    const corruptedPlica=await jsonRequest(baseUrl,'/api/plicas',{cookie:firstCookie});
+    assert.equal(corruptedPlica.response.status,503);
+    assert.doesNotMatch(JSON.stringify(corruptedPlica.payload),/Autora|ID de prueba/);
+    assert.equal((await jsonRequest(baseUrl,'/api/plicas',{method:'PUT',cookie:firstCookie,body:{plica}})).response.status,200);
+    const invalidPlica = await jsonRequest(baseUrl,'/api/plicas',{method:'PUT',cookie:firstCookie,
+      body:{contestId:'concurso-prueba',plica:{includeAi:true,aiStatement:''}}});
+    assert.equal(invalidPlica.response.status,400);
 
     runWrangler([
       'd1', 'execute', 'escandidor-db', '--local', '--persist-to', persistence,

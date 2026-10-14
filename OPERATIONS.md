@@ -41,7 +41,7 @@ npx wrangler d1 migrations list escandidor-db --remote
 npx wrangler d1 migrations apply escandidor-db --remote
 ```
 
-Las migraciones comienzan en `0002`; `schema.sql` representa el resultado acumulado hasta `0013`. La ausencia de `0001` es historica. No renumeres ni reescribas migraciones aplicadas.
+Las migraciones comienzan en `0002`; `schema.sql` representa el resultado acumulado hasta `0016`. La ausencia de `0001` es historica. No renumeres ni reescribas migraciones aplicadas. Las migraciones antiguas se ejecutaron directamente y no todas están registradas: revisar el esquema real antes de aplicar la lista completa.
 
 Antes de cambios remotos, exporta D1 con el comando vigente de Wrangler y guarda la copia fuera del repositorio. Comprueba despues `users`, `poems`, `poem_versions`, `deleted_poems`, `supporters` y `kofi_payments`.
 
@@ -136,3 +136,13 @@ npm run deploy:trash-cleanup
 El último comando publica `escandidor-trash-cleanup` con la configuración `wrangler.trash-cleanup.jsonc`, conectado a la misma D1 que Pages. Se ejecuta una vez por hora y aplica las preferencias de cada usuario; desactivar la caducidad conserva las copias antiguas mientras respeten el límite de espacio y cantidad. El empaquetado se ha verificado con `wrangler deploy --dry-run`, sin publicar el Worker.
 
 Comprobar `GET /api/trash` (campo `policy`) y `PATCH /api/trash` (`{autoCleanup: true|false}`), la persistencia entre dispositivos y el historial de ejecuciones programadas del Worker. No borrar los marcadores `deleted_poems` cuyo `poem_id` no sea nulo al liberar las copias recuperables.
+
+## Publicación del Taller (2026-10-14)
+
+Se aplicaron únicamente `0014_contest_plicas.sql`, `0015_user_plica_profiles.sql` y `0016_workshop.sql` a `escandidor-db` y se registraron en `d1_migrations`. Antes y después permanecieron los 7 usuarios, 40 poemas y 1.725 versiones existentes. Las nuevas tablas de concursos y perfiles comenzaron vacías. No se importaron datos locales ni ejemplos del prototipo.
+
+La copia previa está en `%TEMP%/escandidor-db-backups/escandidor-db-before-workshop-20261014-160604.sql` (1.173.615 bytes), con SHA-256 `C8406C7B387C2B98342C44E8B44CF0D1C9270311DFECF60F44CA439103AD1135`. Se configuró `PLICA_ENCRYPTION_KEY` como secreto de producción de Pages, generado aleatoriamente, sin guardarlo en el repositorio. No rotar esa clave sin convertir antes los perfiles cifrados.
+
+Pages compila con `npm run build`, Node 22 y salida `.wrangler/pages-release`. El empaquetado incluye solo los archivos públicos, fuentes y assets; excluye bases locales, claves, prototipo, pruebas y herramientas. Las Functions se compilan desde `functions/`. El importador de producción lee páginas y PDF mediante `unpdf`, con los mismos límites de tamaño y páginas y sin OCR. El login del Taller conserva el acceso con Discord.
+
+`node scripts/verify-production.mjs` prueba la portada, acceso, guardado de poema, concursos, etiquetas, preferencias, conflictos de revisión, plica cifrada e importación. Crea una cuenta desechable y la elimina al terminar. El informe queda en `qa/production/`, fuera de Git y del paquete público.

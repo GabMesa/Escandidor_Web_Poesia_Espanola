@@ -21,21 +21,23 @@ const UNSTRESSED_MONOSYLLABLES = new Set([
   'la',
   'los',
   'las',
-  'un',
-  'una',
-  'unos',
-  'unas',
   'de',
   'a',
   'en',
   'con',
   'sin',
   'por',
-  'para',
+  'al',
+  'del',
   'y',
   'e',
   'o',
   'u',
+  'ni',
+  'si',
+  'mas',
+  'tan',
+  'aun',
   'que',
   'se',
   'me',
@@ -204,6 +206,8 @@ export function findSinalefaTriphthongs(lineAnalysis, activeBoundaries, options 
     }
 
     const words = lineAnalysis.analyses.slice(index, index + 3);
+    // Both boundaries share a syllable only when the middle word is monosyllabic.
+    if (words[1]?.syllableCount !== 1) continue;
     const vowels = [
       ...trailingVowels(words[0]),
       ...extractVowelsForSinalefa(words[1]?.original, options),
@@ -584,6 +588,7 @@ export function analyzeWord(inputWord, options = {}) {
     stressIndex,
     secondaryStressIndices,
     accentType,
+    isTonic: syllables.length > 1 || (syllables.length === 1 && !isUnstressedMonosyllable(original)),
     syllableCount: syllables.length,
     hasWrittenAccent: findAccentedVowelIndex(normalized) !== -1
   };
@@ -609,6 +614,8 @@ export function analyzeLine(line, options = {}) {
   }));
   const rawCount = analyses.reduce((total, word) => total + word.syllableCount, 0);
   const lastWord = analyses.at(-1) ?? null;
+  // At verse end, the final monosyllable carries the obligatory closing accent.
+  if (lastWord?.syllableCount === 1) lastWord.isTonic = true;
   const accentType = lastWord?.accentType ?? 'llana';
   const poeticCount = adjustPoeticCount(rawCount, accentType);
 

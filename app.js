@@ -1,8 +1,111 @@
+import {showPoemColorPicker,COLOR_INTENSITIES} from './poem-color-picker.js';
 import { applyTrashPolicy, TRASH_MAX_BYTES } from './trash-policy.js';
 import { compressPoemVersions } from './poem-compression.js';
 import { isValidPoemTitle, poemValidationError, samePoemContent, cleanEmptyPoemVersions } from './poem-policy.js';
 import { writePersistentStorage, writeDisposableStorage, loadWordCorpusCache, saveWordCorpusCache } from './browser-storage.js';
 import { sortPoemVersions, selectMarkdownEntries, buildHistoryMarkdown, buildVideoTimeline } from './poem-exports.js';
+import { groupVersionsForSelection } from './poem-version-selection.js';
+
+// The local Workshop reuses the editor's library services through the same-origin bridge.
+// Functions are evaluated only after the editor has initialized and a command arrives.
+if (window.parent !== window && new URLSearchParams(location.search).get('taller') === '1') {
+  window.addEventListener('workshop:library-command', event => {
+    const { command, respond } = event.detail || {};
+    if (!command || typeof respond !== 'function') return;
+    const originalConfirm = window.confirm;
+    try {
+      if (command.confirmed === true) window.confirm = () => true;
+      const keys = Array.isArray(command.poemKeys) ? command.poemKeys : [];
+      const key = String(command.poemKey || '');
+      const store = loadPoemMemoryStore();
+      const versions = store.poems[key] || [];
+      if (command.action === 'prepare-open') {
+        if (isCurrentDraftDirtyAgainstLoadedVersion()) saveCurrentPoemVersion({ notify: false });
+      } else if (command.action === 'open-version') {
+        const version = command.versionId && command.versionId !== 'latest'
+          ? versions.find(v => String(v.id) === String(command.versionId)) : sortPoemVersions(versions).at(-1);
+        if (!version || !loadVersionById(key, String(version.id))) throw Error('No se encontró el poema o la versión.');
+      } else if (command.action === 'rename-poem') {
+        if (!renamePoemTitleInline(key, command.value)) throw Error('No se pudo renombrar el poema.');
+      } else if (command.action === 'rename-version') {
+        if (!versions.some(v => String(v.id) === String(command.versionId))) throw Error('No se encontró esa versión.');
+        updateVersionLabelInline(key, command.versionId, command.value);
+      } else if (command.action === 'compress') {
+        compressStoredPoemVersions(keys);
+      } else if (command.action === 'delete-poems') {
+        if (!command.confirmed) throw Error('Confirmá el envío a la papelera.');
+        selectedVersionIds = new Set(keys.flatMap(k => (store.poems[k] || []).map(v => makeVersionSelectionKey(k, String(v.id)))));
+        deleteSelectedPoemVersions();
+      } else if (command.action === 'delete-version') {
+        if (!command.confirmed) throw Error('Confirmá el envío a la papelera.');
+        savedPoemName.value = key;
+        refreshSavedPoemVersionOptions(key, command.versionId);
+        savedPoemVersion.value = command.versionId;
+        deleteSelectedPoemVersion();
+      } else if (command.action === 'delete-versions') {
+        if (!command.confirmed) throw Error('Confirmá el envío a la papelera.');
+        selectedVersionIds = new Set((command.entries || []).map(entry => makeVersionSelectionKey(entry.poemKey, String(entry.versionId))));
+        deleteSelectedPoemVersions();
+      } else if (command.action === 'color-intensity') {
+        applyColorIntensity(command.value);
+      } else if (command.action === 'color') {
+        if (!versions.length || !isHexColor(command.value)) throw Error('Color o poema inválido.');
+        setPoemCustomColor(getStoredPoemTitle(key, versions), command.value);
+        if (state.currentAnalysisTitle === getStoredPoemTitle(key, versions)) applyPoemScreenTheme(state.currentAnalysisTitle);
+      } else if (command.action === 'reset-color') {
+        removePoemCustomColor(getStoredPoemTitle(key, versions));applyPoemScreenTheme(state.currentAnalysisTitle);
+      } else if (command.action === 'font') {
+        if (isCurrentDraftDirtyAgainstLoadedVersion()) saveCurrentPoemVersion({ notify: false });
+        const newest = sortPoemVersions(versions).at(-1);
+        if (!newest || !loadVersionById(key, String(newest.id))) throw Error('No se encontró el poema.');
+        applyPoemFont(command.value);
+        saveCurrentPoemVersion({ notify: false });
+      } else if (command.action === 'default-font') {
+        saveDefaultPoemFont(command.value); updateDefaultPoemFontControl();
+      } else if (command.action === 'default-color') {
+        if (!isHexColor(command.value)) throw Error('Color inválido.');
+        saveDefaultPoemColor(command.value); updateDefaultColorButton();
+      } else if (command.action === 'reset-default-color') {
+        clearDefaultPoemColor();updateDefaultColorButton();
+      } else if (command.action === 'auto-compress') {
+        state.autoCompressVersions = command.value === true; saveUiPreferences();
+        document.getElementById('autoCompressVersions').checked = state.autoCompressVersions;
+      } else if (command.action === 'cleanup') {
+        const checkbox = document.getElementById('autoCleanupTrash'); checkbox.checked = command.value === true;
+        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+      } else if (command.action === 'restore') {
+        restorePoemTrashEntry(command.title, command.groupIndex, command.trashId);
+      } else if (command.action === 'empty-trash') {
+        if (!command.confirmed) throw Error('Confirmá el vaciado de la papelera.');
+        emptyPoemTrash.click();
+      } else if (command.action === 'import-memory') {
+        if (!applicationState.auth.user) throw Error('Ingresá a tu cuenta local antes de importar.');
+        const incoming=command.memory?.poems;if(!incoming||typeof incoming!=='object'||Array.isArray(incoming))throw Error('Biblioteca inválida.');
+        const events=[];for(const [poemKey,list] of Object.entries(incoming)){if(!Array.isArray(list)||list.length>1000)throw Error('Historial inválido.');const title=getStoredPoemTitle(poemKey,list);for(const version of list){if(poemValidationError(title,version.poemText))throw Error('Hay una versión inválida en la biblioteca.');}const existing=store.poems[poemKey]||[];for(const version of sortPoemVersions(list)){if(!existing.some(v=>v.id===version.id)){const next={...version,poemTitle:title};existing.push(next);if(next.kind!=='autosave')events.push({poemKey,title,version:next});}}store.poems[poemKey]=existing;}
+        if(!savePoemMemoryStore(store))throw Error('No se pudo guardar la biblioteca importada.');
+        for(const event of events)dispatchPoemSaved(event.poemKey,event.title,event.version);refreshSavedPoemNameOptions();window.dispatchEvent(new CustomEvent('escandidor:library-changed'));
+      } else if (command.action === 'import') {
+        if (!parsePoemsFromMarkdown(command.text).length) throw Error('El archivo debe tener títulos con # y texto debajo.');
+        importPoemsFromMarkdown(command.text);
+      } else if (command.action === 'sync') {
+        if (!applicationState.auth.user) throw Error('Iniciá sesión para comparar y sincronizar con la nube.');
+        document.getElementById('loadDataFromServer').click();
+      } else if (command.action !== 'snapshot') {
+        throw Error('Acción de biblioteca desconocida.');
+      }
+      renderSavedVersionList(savedPoemName?.value || '', savedPoemVersion?.value || '');
+      respond({ ok: true, settings: {
+        autoCompress: state.autoCompressVersions,
+        autoCleanup: trashAutoCleanupEnabled(),
+        defaultFont: loadDefaultPoemFont(), defaultColor: loadDefaultPoemColor(),
+        fonts: [...document.getElementById('defaultPoemFont').options].map(o => ({ value: o.value, label: o.textContent })),
+        colors: loadPoemColors(),
+        trashUsedBytes: boundedLocalTrash(loadPoemMemoryStore().trash).usedBytes,
+      }});
+    } catch (error) { respond({ ok: false, error: error.message }); }
+    finally { window.confirm = originalConfirm; }
+  });
+}
 import { createPoemVideoExporter } from './poem-video.js';
 import {
   analyzePoem,
@@ -76,11 +179,6 @@ const versionManagerModal = document.getElementById('versionManagerModal');
 const closeVersionManager = document.getElementById('closeVersionManager');
 const versionManagerStatus = document.getElementById('versionManagerStatus');
 const versionSearchInput = document.getElementById('versionSearchInput');
-const colorPickerModal = document.getElementById('colorPickerModal');
-const colorPickerSwatches = document.getElementById('colorPickerSwatches');
-const colorPickerCustom = document.getElementById('colorPickerCustom');
-const colorPickerPreview = document.getElementById('colorPickerPreview');
-const colorPickerAccept = document.getElementById('colorPickerAccept');
 const selectAllVersions = document.getElementById('selectAllVersions');
 const downloadSelectedMd = document.getElementById('downloadSelectedMd');
 const downloadSelectedPdf = document.getElementById('downloadSelectedPdf');
@@ -142,21 +240,7 @@ const LOCAL_DEFAULT_POEM_COLOR_KEY = 'escandador.defaultPoemColor.v1';
 const LOCAL_DEFAULT_POEM_FONT_KEY = 'escandador.defaultPoemFont.v1';
 const LOCAL_LAST_WORKED_POEM_KEY = 'escandador.lastWorkedPoem.v1';
 const POEM_COLOR_COUNT = 6;
-const COLOR_PICKER_PALETTE = [
-  // Flexoki: pastel, light, medium, vivid, deep, and neutral shades.
-  '#F89A8A', '#F9AE77', '#ECCB60', '#BEC97E', '#87D3C3', '#92BFDB', '#C4B9E0', '#F4A4C2',
-  '#E8705F', '#EC8B49', '#DFB431', '#A0AF54', '#5ABDAC', '#66A0C8', '#A699D0', '#E47DA8',
-  '#D14D41', '#DA702C', '#D0A215', '#879A39', '#3AA99F', '#4385BE', '#8B7EC8', '#CE5D97',
-  '#AF3029', '#9D4310', '#664D01', '#536907', '#1C6C66', '#205EA6', '#5E409D', '#A02F6F',
-  '#6C201C', '#71320D', '#503D02', '#3D4C07', '#164F4A', '#163B66', '#3C2A62', '#641F46',
-  '#E6E4D9', '#CECDC3', '#B7B5AC', '#9F9D96', '#6F6E69', '#575653', '#403E3C', '#100F0F'
-];
 const COLOR_INTENSITY_KEY = 'escandador.colorIntensity.v1';
-const COLOR_INTENSITIES = {
-  soft: { surface: 12, strong: 20, highlight: 12, border: 60 },
-  medium: { surface: 20, strong: 28, highlight: 22, border: 75 },
-  strong: { surface: 28, strong: 36, highlight: 32, border: 90 }
-};
 
 function loadColorIntensity() {
   try {
@@ -428,7 +512,7 @@ function getPoemActionTextColor(hex) {
 function applyPoemScreenTheme(poemTitle) {
   const normalizedTitle = normalizePoemTitle(poemTitle);
   const stored = normalizedTitle ? loadPoemColors()[normalizedTitle] : '';
-  const colorHex = isHexColor(stored) ? String(stored).trim() : '';
+  const colorHex = isHexColor(stored) ? String(stored).trim() : normalizedTitle && document.documentElement.classList.contains('in-workshop') ? getPoemColorHex(0) : '';
 
   if (colorHex) {
     document.documentElement.style.setProperty('--poem-color', colorHex);
@@ -756,147 +840,11 @@ function openRhymeColorSelector(button) {
 
 window.openRhymeColorSelector = openRhymeColorSelector;
 
-let colorPickerState = {
-  selected: '',
-  onAccept: null,
-  onDefault: null,
-  showDefaultAction: false,
-  keyHandler: null
-};
-
-function renderColorPickerSwatches(selectedHex) {
-  if (!colorPickerSwatches) {
-    return;
-  }
-
-  colorPickerSwatches.innerHTML = '';
-  const normalizedSelected = String(selectedHex ?? '').trim().toLowerCase();
-
-  for (const color of COLOR_PICKER_PALETTE) {
-    const swatch = document.createElement('button');
-    swatch.type = 'button';
-    swatch.className = 'color-picker-swatch';
-    swatch.style.background = color;
-    swatch.dataset.color = color;
-    swatch.title = color;
-    swatch.setAttribute('role', 'option');
-    swatch.setAttribute('aria-label', color);
-    if (color.toLowerCase() === normalizedSelected) {
-      swatch.classList.add('is-selected');
-      swatch.setAttribute('aria-selected', 'true');
-    }
-    colorPickerSwatches.appendChild(swatch);
-  }
-
-  if (colorPickerState.showDefaultAction) {
-    const defaultSwatch = document.createElement('button');
-    defaultSwatch.type = 'button';
-    defaultSwatch.className = 'color-picker-swatch color-picker-swatch-default';
-    defaultSwatch.dataset.action = 'default';
-    defaultSwatch.title = 'Por defecto';
-    defaultSwatch.setAttribute('role', 'option');
-    defaultSwatch.setAttribute('aria-label', 'Por defecto');
-    defaultSwatch.textContent = 'Por defecto';
-    colorPickerSwatches.appendChild(defaultSwatch);
-  }
+function openColorPicker(options) {
+  const doc=window.parent!==window && document.documentElement.classList.contains('in-workshop')?parent.document:document;
+  showPoemColorPicker({...options,onAccept:(color,intensity)=>{applyColorIntensity(intensity);options.onAccept?.(color);}},doc);
 }
-
-function setColorPickerSelection(colorHex) {
-  const normalized = isHexColor(colorHex) ? colorHex.trim() : colorPickerState.selected;
-  colorPickerState.selected = normalized;
-
-  if (colorPickerCustom) {
-    colorPickerCustom.value = normalized;
-  }
-
-  if (colorPickerPreview) {
-    colorPickerPreview.style.background = normalized;
-    colorPickerPreview.textContent = normalized.toUpperCase();
-    colorPickerPreview.style.color = getReadableTextColor(normalized);
-  }
-
-  const sample = document.getElementById('colorPickerSample');
-  const intensity = COLOR_INTENSITIES[document.getElementById('colorPickerIntensity').value];
-  sample.style.background = `color-mix(in srgb, ${normalized} ${intensity.highlight}%, var(--surface))`;
-  sample.style.borderColor = `color-mix(in srgb, ${normalized} ${intensity.border}%, var(--line))`;
-
-  if (colorPickerSwatches) {
-    const lower = normalized.toLowerCase();
-    colorPickerSwatches.querySelectorAll('.color-picker-swatch').forEach((swatch) => {
-      const isMatch = String(swatch.dataset.color ?? '').toLowerCase() === lower;
-      swatch.classList.toggle('is-selected', isMatch);
-      swatch.setAttribute('aria-selected', isMatch ? 'true' : 'false');
-    });
-  }
-}
-
-function closeColorPicker() {
-  if (!colorPickerModal) {
-    return;
-  }
-
-  colorPickerModal.classList.remove('is-open');
-  colorPickerModal.setAttribute('aria-hidden', 'true');
-  colorPickerState.onAccept = null;
-  colorPickerState.onDefault = null;
-  colorPickerState.showDefaultAction = false;
-
-  if (colorPickerState.keyHandler) {
-    document.removeEventListener('keydown', colorPickerState.keyHandler);
-    colorPickerState.keyHandler = null;
-  }
-}
-
-function openColorPicker({ title, current, onAccept, onDefault, showDefaultAction = false }) {
-  if (!colorPickerModal) {
-    return;
-  }
-
-  const startColor = isHexColor(current) ? current.trim() : '#205EA6';
-  const titleEl = document.getElementById('colorPickerTitle');
-  if (titleEl && title) {
-    titleEl.textContent = title;
-  }
-
-  colorPickerState.onAccept = typeof onAccept === 'function' ? onAccept : null;
-  colorPickerState.onDefault = typeof onDefault === 'function' ? onDefault : null;
-  colorPickerState.showDefaultAction = Boolean(showDefaultAction);
-  document.getElementById('colorPickerIntensity').value = loadColorIntensity();
-  renderColorPickerSwatches(startColor);
-  setColorPickerSelection(startColor);
-
-  colorPickerModal.classList.add('is-open');
-  colorPickerModal.setAttribute('aria-hidden', 'false');
-
-  colorPickerState.keyHandler = (event) => {
-    if (event.key === 'Escape') {
-      closeColorPicker();
-    } else if (event.key === 'Enter') {
-      confirmColorPicker();
-    }
-  };
-  document.addEventListener('keydown', colorPickerState.keyHandler);
-}
-
-function applyDefaultColorPicker() {
-  const applyDefault = colorPickerState.onDefault;
-  closeColorPicker();
-  if (applyDefault) {
-    applyDefault();
-  }
-}
-
-function confirmColorPicker() {
-  const intensity = document.getElementById('colorPickerIntensity').value;
-  applyColorIntensity(intensity);
-  try { localStorage.setItem(COLOR_INTENSITY_KEY, intensity); } catch { /* Keep the choice for this session. */ }
-  const accept = colorPickerState.onAccept;
-  const color = colorPickerState.selected;
-  closeColorPicker();
-  if (accept && isHexColor(color)) {
-    accept(color);
-  }
-}
+window.addEventListener('poem-color-intensity',event=>applyColorIntensity(event.detail));
 
 function normalizeSearchText(value) {
   return String(value ?? '')
@@ -3233,16 +3181,10 @@ function updateVersionManagerStatus() {
 }
 
 function openVersionManagerModal() {
-  if (!versionManagerModal || !managerShell) {
-    return;
-  }
-
-  managerShell.open = true;
-  versionManagerModal.classList.add('is-open');
-  updateDefaultColorButton();
-  updateVersionManagerStatus();
-  renderSavedVersionList(savedPoemName?.value ?? '', savedPoemVersion?.value ?? '');
-  versionSearchInput?.focus();
+  if (isCurrentDraftDirtyAgainstLoadedVersion()) saveCurrentPoemVersion({ notify: false });
+  if (window.parent !== window && new URLSearchParams(location.search).get('taller') === '1') {
+    window.parent.postMessage({ type: 'workshop:library', poemKey: savedPoemName?.value || '' }, location.origin);
+  } else location.assign('prototipo/?view=library');
 }
 
 function closeVersionManagerModal() {
@@ -3568,14 +3510,8 @@ function refreshSavedPoemVersionOptions(poemKey, preferredVersionId = '') {
   if (metadataChanged) {
     savePoemMemoryStore(store);
   }
-  const ranked = [...versions].sort((a, b) => {
-    const left = new Date(a.savedAt ?? 0).getTime();
-    const right = new Date(b.savedAt ?? 0).getTime();
-    return right - left;
-  });
-
   savedPoemVersion.innerHTML = '';
-  if (!ranked.length) {
+  if (!versions.length) {
     savedPoemVersion.innerHTML = '<option value="">Sin versiones</option>';
     savedPoemVersion.disabled = true;
     renderSavedVersionList(poemKey, preferredVersionId);
@@ -3583,17 +3519,22 @@ function refreshSavedPoemVersionOptions(poemKey, preferredVersionId = '') {
     return;
   }
 
-  ranked.forEach((entry, index) => {
-    const option = document.createElement('option');
-    option.value = String(entry.id ?? '');
-    option.textContent = `${getVersionLabel(entry, index, ranked.length)} · ${formatVersionTimestamp(entry.savedAt)}`;
-    savedPoemVersion.appendChild(option);
-  });
+  for (const group of groupVersionsForSelection(versions)) {
+    const optgroup = document.createElement('optgroup');
+    optgroup.label = group.label;
+    group.versions.forEach((entry, index) => {
+      const option = document.createElement('option');
+      option.value = String(entry.id ?? '');
+      option.textContent = `${getVersionLabel(entry, index, versions.length)} · ${formatVersionTimestamp(entry.savedAt)}`;
+      optgroup.appendChild(option);
+    });
+    savedPoemVersion.appendChild(optgroup);
+  }
 
   savedPoemVersion.disabled = false;
-  if (preferredVersionId && ranked.some((item) => String(item.id) === preferredVersionId)) {
-    savedPoemVersion.value = preferredVersionId;
-  }
+  const selectedId = preferredVersionId && versions.some(item => String(item.id) === String(preferredVersionId))
+    ? preferredVersionId : sortPoemVersions(versions).at(-1).id;
+  savedPoemVersion.value = String(selectedId);
 
   renderSavedVersionList(poemKey, preferredVersionId);
   syncQuickVersionLabelInput();
@@ -5507,7 +5448,7 @@ function getDisplayStressIndices(wordAnalysis) {
     return indices;
   }
 
-  if (wordAnalysis.accentType !== 'monosílaba' && Number.isInteger(wordAnalysis.stressIndex)) {
+  if (wordHasMainStress(wordAnalysis) && Number.isInteger(wordAnalysis.stressIndex)) {
     indices.add(wordAnalysis.stressIndex);
   }
 
@@ -5835,6 +5776,7 @@ function getInlineHemistichBoundaries(lineAnalysis) {
 }
 
 function wordHasMainStress(wordAnalysis) {
+  if (typeof wordAnalysis.isTonic === 'boolean') return wordAnalysis.isTonic;
   if (wordAnalysis.syllableCount !== 1) {
     return true;
   }
@@ -6256,17 +6198,21 @@ function renderSinalefaChainLabel(runtime, startIndex, endIndex) {
   }
 
   chainParts.push(leftWord.syllables.at(-1));
+  let hasStress = wordHasMainStress(leftWord) && leftWord.stressIndex === leftWord.syllables.length - 1;
 
   for (let index = startIndex; index <= endIndex; index += 1) {
     const rightWord = runtime?.lineAnalysis?.analyses?.[index + 1];
     const rightSyllable = rightWord?.syllables?.[0] ?? '';
     if (rightSyllable) {
+      hasStress ||= wordHasMainStress(rightWord) && rightWord.stressIndex === 0;
+      const separator = runtime.lineAnalysis.separators[index] ?? ' ';
+      if (/\S/.test(separator)) chainParts.push(separator);
       chainParts.push(rightSyllable);
     }
   }
 
   const joined = chainParts.map((item) => escapeHtml(item)).join('');
-  return `(${joined})`;
+  return hasStress ? `<strong>${joined}</strong>` : joined;
 }
 
 function renderRhyme(runtime) {
@@ -6303,10 +6249,6 @@ function renderRhyme(runtime) {
 function formatWordInline(wordAnalysis) {
   if (!wordAnalysis.syllables.length) {
     return escapeHtml(wordAnalysis.original);
-  }
-
-  if (wordAnalysis.accentType === 'monosílaba') {
-    return wordAnalysis.syllables.map((syllable) => escapeHtml(syllable)).join('-');
   }
 
   const displayStressIndices = getDisplayStressIndices(wordAnalysis);
@@ -6400,17 +6342,20 @@ function renderSinalefaMarker(boundary, lineIndex) {
     runtime.lineAnalysis,
     runtime.activeBoundaries,
     { rioplatenseY: state.rioplatenseY }
-  ).some((triphthong) => boundary.index >= triphthong.start && boundary.index <= triphthong.end);
+  ).some((triphthong) => triphthong.valid &&
+    triphthong.start <= boundary.chainEnd && triphthong.end >= boundary.chainStart);
   const chainWords = boundary.active && boundary.chainLength > 1
     ? runtime.lineAnalysis.analyses.slice(boundary.chainStart, boundary.chainEnd + 2)
     : [];
   const hasInvalidTriphthong = boundary.active && getInvalidSinalefaTriphthongs(runtime)
     .some((triphthong) => triphthong.start >= boundary.chainStart && triphthong.end <= boundary.chainEnd);
-  const inactiveLabel = `(${(leftStress ? `<strong>${escapeHtml(leftSyllable)}</strong>` : escapeHtml(leftSyllable))} ${(rightStress ? `<strong>${escapeHtml(rightSyllable)}</strong>` : escapeHtml(rightSyllable))})`;
+  const separator = runtime.lineAnalysis.separators[boundary.index] ?? ' ';
+  const joinedSeparator = /\S/.test(separator) ? escapeHtml(separator) : '';
+  const inactiveLabel = `${(leftStress ? `<strong>${escapeHtml(leftSyllable)}</strong>` : escapeHtml(leftSyllable))}${escapeHtml(separator)}${(rightStress ? `<strong>${escapeHtml(rightSyllable)}</strong>` : escapeHtml(rightSyllable))}`;
   const label = boundary.active && boundary.chainLength > 1
     ? renderSinalefaChainLabel(runtime, boundary.chainStart, boundary.chainEnd)
     : boundary.active
-      ? `(${(mergedTonic || leftStress) ? `<strong>${escapeHtml(leftSyllable)}</strong>` : escapeHtml(leftSyllable)}${(mergedTonic || rightStress) ? `<strong>${escapeHtml(rightSyllable)}</strong>` : escapeHtml(rightSyllable)})`
+      ? `${(mergedTonic || leftStress) ? `<strong>${escapeHtml(leftSyllable)}</strong>` : escapeHtml(leftSyllable)}${joinedSeparator}${(mergedTonic || rightStress) ? `<strong>${escapeHtml(rightSyllable)}</strong>` : escapeHtml(rightSyllable)}`
       : inactiveLabel;
 
   const classes = [
@@ -6465,7 +6410,8 @@ function renderAnnotatedLine(runtime) {
     const separator = lineAnalysis.separators[index] ?? ' ';
     const noSlash = hemistichBoundaries.includes(index) ? separator.replace(/\//g, '') : separator;
 
-    chunks.push(escapeHtml(noSlash));
+    // Candidate syllables are rendered inside the marker, together with their punctuation.
+    chunks.push(boundary?.candidate && !boundary.blockedByHemistich ? ' ' : escapeHtml(noSlash));
 
     if (hemistichBoundaries.includes(index)) {
       chunks.push('<span class="hemistich-marker"> / </span>');
@@ -7141,8 +7087,8 @@ async function recognizePoemImage(file) {
   }
 }
 
-poemInput.value = SAMPLE_POEM;
-state.sinalefaOverrides['5:1'] = false;
+poemInput.value = new URLSearchParams(location.search).get('real')==='1'?'':SAMPLE_POEM;
+if(new URLSearchParams(location.search).get('real')!=='1')state.sinalefaOverrides['5:1'] = false;
 poemInput.addEventListener('input', () => {
   const remappedSettings = remapPoemLineSettings(previousPoemText, poemInput.value, state);
   state.sinalefaOverrides = remappedSettings.sinalefaOverrides;
@@ -7433,38 +7379,11 @@ selectedLookupWord?.addEventListener('keydown', (event) => {
   openOpenDataRhymesFromConfig();
 });
 
-colorPickerSwatches?.addEventListener('click', (event) => {
-  const swatch = event.target instanceof HTMLElement ? event.target.closest('.color-picker-swatch') : null;
-  if (!swatch) {
-    return;
-  }
-  if (swatch.dataset.action === 'default') {
-    applyDefaultColorPicker();
-    return;
-  }
-  setColorPickerSelection(swatch.dataset.color ?? '');
-});
-
-document.getElementById('colorPickerIntensity')?.addEventListener('change', () => {
-  setColorPickerSelection(colorPickerState.selected);
-});
-
-colorPickerCustom?.addEventListener('input', () => {
-  setColorPickerSelection(colorPickerCustom.value ?? '');
-});
-
-colorPickerAccept?.addEventListener('click', () => {
-  confirmColorPicker();
-});
-
-colorPickerModal?.addEventListener('click', (event) => {
-  const target = event.target;
-  if (target instanceof HTMLElement && target.closest('[data-close-color-picker]')) {
-    closeColorPicker();
-  }
-});
 openVersionManager?.addEventListener('click', () => {
   openVersionManagerModal();
+});
+for (const link of document.querySelectorAll('[data-open-library]')) link.addEventListener('click', event => {
+  event.preventDefault();openVersionManagerModal();
 });
 versionSearchInput?.addEventListener('input', () => {
   renderSavedVersionList(savedPoemName?.value ?? '', savedPoemVersion?.value ?? '');

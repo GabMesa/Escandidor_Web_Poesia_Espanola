@@ -1,0 +1,11 @@
+import { readdir, writeFile } from 'node:fs/promises';
+const root = 'qa/prototipo';
+const files = (await readdir(root)).filter(name => /^\d{2}-/.test(name) && name.endsWith('.png') && Number(name.slice(0, 2)) <= 28);
+for (const name of (await readdir(`${root}/sinalefas`)).filter(name => /^0[1-6]-/.test(name) && name.endsWith('.png') && name !== '05-movil.png')) files.push(`sinalefas/${name}`);
+const escape = text => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;');
+const cards = files.map(file => {
+  const title = file.split('/').at(-1).replace(/^\d+-/, '').replace(/\.png$/, '').replaceAll('-', ' ');
+  return `<figure><a href="${escape(file)}" target="_blank"><img src="${escape(file)}" alt="${escape(title)}" loading="lazy"></a><figcaption>${escape(title)}</figcaption></figure>`;
+}).join('\n');
+await writeFile(`${root}/galeria.html`, `<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Prototipo final · Mesa de Poesía</title><style>body{margin:0;background:#f4f1e8;color:#292d28;font:17px system-ui}main{max-width:1300px;margin:auto;padding:32px}h1{font:42px Georgia}p{line-height:1.6}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px}figure{margin:0;padding:12px;background:#fff;border:1px solid #ddd;border-radius:12px}img{width:100%;height:300px;object-fit:contain;background:#f4f1e8}figcaption{padding:12px;text-transform:capitalize}a{color:#205ea6}</style><main><h1>Mesa de Poesía · Prototipo final</h1><p>${files.length} capturas reales. Abrí cualquier imagen para verla completa. Incluye biblioteca, etiquetas, versiones, papelera, concursos, exportaciones, plica, recordatorios, colores y móvil, además de los casos corregidos de sinalefa, puntuación y monosílabos.</p><p>Correcciones: el grupo «tiáyes» conserva la identificación del triptongo interno «i-á-y»; el punto queda en «ra. y» al alternar la sinalefa; los monosílabos tónicos se resaltan aunque no lleven tilde. Las uniones forzadas sobre acento versal siguen mostrando su aviso.</p><div class="grid">${cards}</div></main></html>`);
+console.log(`${files.length} screenshots: ${root}/galeria.html`);

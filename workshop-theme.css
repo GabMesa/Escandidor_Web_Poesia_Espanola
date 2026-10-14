@@ -1,0 +1,30 @@
+/* The open poem sets the workshop palette across every tab and dialog. */
+.working-poem {
+  --action: var(--working-poem-color);
+  --accent: var(--working-poem-color);
+  --surface: color-mix(in srgb, var(--working-poem-color) var(--color-surface, 12%), #faf8f2);
+  --surface-2: color-mix(in srgb, var(--working-poem-color) 20%, #faf8f2);
+  --bg: color-mix(in srgb, var(--working-poem-color) 8%, #f3f0e7);
+  --line: color-mix(in srgb, var(--working-poem-color) 35%, #dcded2);
+}
+.working-poem .primary,
+.working-poem .preview-tabs .active,
+.working-poem .chip.active:not([data-tag]),
+.working-poem #toast {
+  background: var(--action);
+  border-color: var(--action);
+  color: var(--working-poem-ink, #fff);
+}
+.working-poem .sidebar nav button.active,
+.working-poem .library-overview button.active,
+.working-poem .library-bulk,
+.working-poem .review-help,
+.working-poem .notice:not(.warm),
+.working-poem .date-tile,
+.working-poem .reminder-icon,
+.working-poem .chip:not(.active):not([data-tag]) {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--text);
+}
+.working-poem .paper-stage { background: var(--surface-2); }

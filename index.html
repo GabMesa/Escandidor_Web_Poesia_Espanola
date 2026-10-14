@@ -1,50 +1,106 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Escandidor de poesía: medir versos y analizar rimas gratis | Mesa de Poesía</title>
-  <meta name="description" content="Cuenta sílabas métricas, separa versos y analiza acentos, sinalefas y rimas en español con Escandidor. Una herramienta gratuita para escribir y revisar poesía." />
-  <meta name="robots" content="index, follow, max-image-preview:large" />
-  <link rel="canonical" href="https://mesa-de-poesia.pages.dev/" />
-  <link rel="icon" href="favicon.ico" />
-  <meta name="theme-color" content="#E6E4D9" />
-  <meta property="og:type" content="website" />
-  <meta property="og:locale" content="es_ES" />
-  <meta property="og:site_name" content="Mesa de Poesía" />
-  <meta property="og:title" content="Escandidor de poesía | Mesa de Poesía" />
-  <meta property="og:description" content="Un espacio para escribir poesía en español. Mide versos, explora sus acentos y compara sus rimas con Escandidor." />
-  <meta property="og:url" content="https://mesa-de-poesia.pages.dev/" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Escandidor de poesía | Mesa de Poesía" />
-  <meta name="twitter:description" content="Mide versos y analiza sílabas, acentos y rimas en español. Gratis, desde tu navegador." />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mesa de Poesía · Tu mesa de trabajo para escribir poemas</title>
+  <meta name="description" content="Escribí y revisá poesía en español. Medí versos y rimas, organizá poemas y versiones, prepará concursos, exportá documentos y seguí tus fechas en Mesa de Poesía.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://mesa-de-poesia.pages.dev/">
+  <link rel="icon" href="favicon.ico">
+  <meta name="theme-color" content="#E6E4D9">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:site_name" content="Mesa de Poesía">
+  <meta property="og:title" content="Mesa de Poesía · Tu poema, sobre la mesa">
+  <meta property="og:description" content="Un lugar para escribir, medir, revisar y guardar tus poemas. Con biblioteca, versiones, concursos, exportaciones y recordatorios.">
+  <meta property="og:url" content="https://mesa-de-poesia.pages.dev/">
+  <meta property="og:image" content="https://mesa-de-poesia.pages.dev/assets/social-preview.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Mesa de Poesía, un taller para trabajar tus poemas.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Mesa de Poesía · Tu mesa de trabajo para escribir poemas">
+  <meta name="twitter:description" content="Escritura, métrica, biblioteca, concursos y entregas: todas las herramientas alrededor de tu poema.">
+  <meta name="twitter:image" content="https://mesa-de-poesia.pages.dev/assets/social-preview.png">
   <script src="theme-init.js"></script>
-  <link rel="stylesheet" href="landing.css" />
+  <link rel="stylesheet" href="landing.css">
+  <link rel="stylesheet" href="identity.css">
+  <script src="theme.js" defer></script>
   <script type="application/ld+json">
   {"@context":"https://schema.org","@graph":[
     {"@type":"WebSite","@id":"https://mesa-de-poesia.pages.dev/#website","name":"Mesa de Poesía","url":"https://mesa-de-poesia.pages.dev/","inLanguage":"es"},
-    {"@type":"WebPage","@id":"https://mesa-de-poesia.pages.dev/#page","url":"https://mesa-de-poesia.pages.dev/","name":"Escandidor de poesía: medir versos y analizar rimas gratis","description":"Herramienta gratuita para analizar la métrica y la rima de poesía en español.","inLanguage":"es","isPartOf":{"@id":"https://mesa-de-poesia.pages.dev/#website"},"mainEntity":{"@id":"https://mesa-de-poesia.pages.dev/escandidor#escandidor"}},
-    {"@type":"WebApplication","@id":"https://mesa-de-poesia.pages.dev/escandidor#escandidor","name":"Escandidor","url":"https://mesa-de-poesia.pages.dev/escandidor","applicationCategory":"EducationalApplication","operatingSystem":"Navegador web","inLanguage":"es","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":["Conteo de sílabas métricas","Análisis de acentos y rimas","Ajuste de sinalefas","Hemistiquios por conteo","Guardado de versiones de poemas"]}
+    {"@type":"WebPage","@id":"https://mesa-de-poesia.pages.dev/#page","url":"https://mesa-de-poesia.pages.dev/","name":"Mesa de Poesía · Tu mesa de trabajo para escribir poemas","description":"Un taller de escritura, métrica, biblioteca y preparación de entregas de poesía en español.","inLanguage":"es","isPartOf":{"@id":"https://mesa-de-poesia.pages.dev/#website"},"mainEntity":{"@id":"https://mesa-de-poesia.pages.dev/escandidor#escandidor"}},
+    {"@type":"WebApplication","@id":"https://mesa-de-poesia.pages.dev/escandidor#escandidor","name":"Mesa de Poesía","url":"https://mesa-de-poesia.pages.dev/escandidor","applicationCategory":"EducationalApplication","operatingSystem":"Navegador web","inLanguage":"es","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":["Escritura de poemas, dictado y foto a texto","Análisis de sílabas métricas, acentos y rimas","Ajuste de sinalefas, sinéresis y hemistiquios","Biblioteca con etiquetas, colores e historial de versiones","Importación de Markdown y exportación de PDF, DOCX y Markdown","Video de la evolución de un poema","Organización de concursos y selección de versiones","Preparación de portadas y plicas","Recordatorios y descarga de calendarios ICS"]}
   ]}
   </script>
-    <meta property="og:image" content="https://mesa-de-poesia.pages.dev/assets/social-preview.png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Mesa de Poesía: encuentra el ritmo de tus versos con Escandidor." />
-    <meta name="twitter:image" content="https://mesa-de-poesia.pages.dev/assets/social-preview.png" />
-  <link rel="stylesheet" href="identity.css" />
-  <script src="theme.js" defer></script>
 </head>
 <body class="landing-page">
 <a class="skip" href="#contenido">Saltar al contenido</a>
 <header class="publication-header">
   <nav class="publication-nav" aria-label="Navegación principal">
     <a class="publication-brand" href="index.html">Mesa de Poesía<span aria-hidden="true">.</span></a>
-    <div class="publication-links"><a href="index.html" aria-current="page">Inicio</a><a href="escandidor.html" >Escandidor</a><a href="apoyar.html" class="nav-support" >Apoyar el proyecto ↗</a><button type="button" class="theme-toggle" data-theme-toggle aria-label="Cambiar a modo oscuro" aria-pressed="false">Modo oscuro</button></div>
+    <div class="publication-links"><a href="index.html" aria-current="page">Inicio</a><a href="escandidor.html">Abrir mi mesa</a><a href="apoyar.html" class="nav-support">Apoyar el proyecto ↗</a><button type="button" class="theme-toggle" data-theme-toggle aria-label="Cambiar a modo oscuro" aria-pressed="false">Modo oscuro</button></div>
   </nav>
   <div class="newspaper-masthead">Mesa de Poesía</div>
-  <div class="edition-line"><span>Un taller de poesía en español</span><span>Métrica · Ritmo · Rima</span></div>
+  <div class="edition-line"><span>Un taller de poesía en español</span><span>Escribir · Revisar · Conservar · Compartir</span></div>
 </header>
-<main id="contenido"><section class="container split hero newspaper-hero"><div><p class="label">Escandidor de poesía</p><h1 id="intro-title">Las palabras son tuyas.<br><em>Encuentra su ritmo.</em></h1><p class="copy">Cuenta sílabas métricas, encuentra los acentos y compara las rimas de tu poema. Una herramienta para escribir y revisar poesía en español.</p><div class="actions"><a class="cta" href="escandidor.html">Analizar mi poema <span aria-hidden="true">↗</span></a><a class="secondary-link" href="#funciones">Cómo funciona</a></div><p class="note">Gratis · En español · Sin cuenta para analizar</p></div><figure class="poem-column"><p class="label">Un verso bajo la lupa</p><p class="poem">La <strong>lu</strong>na <strong>bri</strong>lla sobre el <strong>mar</strong>.<br>La <strong>no</strong>che <strong>guar</strong>da su can<strong>tar</strong>.</p><figcaption class="annotation">9 sílabas métricas por verso.<br>mar / cantar → rima consonante.<br>Ejemplo ilustrativo: final agudo, +1.</figcaption></figure></section><section id="funciones" class="container features" aria-label="Funciones del escandidor"><article><p class="label">01 / La medida</p><h3>Cuenta tus sílabas</h3><p>Revisa la separación silábica, ajusta las sinalefas y define cortes de hemistiquio para cada conteo.</p></article><article><p class="label">02 / El ritmo</p><h3>Encuentra los acentos</h3><p>Compara las posiciones tónicas con tus patrones de acento versal. Prueba alternativas para el mismo metro.</p></article><article><p class="label">03 / La voz</p><h3>Explora tus rimas</h3><p>Trabaja con rima consonante o asonante y guarda versiones mientras revisas tu poema.</p></article></section><section class="container metric-primer" aria-labelledby="metric-guide-title"><p class="label">Cuaderno de métrica</p><div class="primer-layout"><h2 id="metric-guide-title">Medir un verso<br>es leerlo de nuevo.</h2><div><p>La medida de un verso depende de su pronunciación, de las licencias métricas y del acento de su última palabra. Escandidor te muestra esas decisiones para que puedas probar distintas lecturas.</p><p>Trabaja con sinalefas, sinéresis y cortes de hemistiquio; combina patrones de acento y compara rimas consonantes y asonantes.</p><a class="secondary-link" href="escandidor.html">Lleva tu poema al taller ↗</a></div></div></section><section class="section container faq" aria-labelledby="preguntas"><div><p class="label">Antes de escribir</p><h2 id="preguntas" style="margin-top:14px">Preguntas frecuentes</h2></div><div><details><summary>¿Qué hace un escandidor de poesía?</summary><p>Separa los versos en sílabas y ayuda a reconocer su medida y sus acentos. También puedes comprobar las rimas y ajustar la lectura.</p></details><details><summary>¿Cómo se cuentan las sílabas métricas?</summary><p>Se considera la pronunciación y las licencias métricas. Un final agudo suma una sílaba, uno llano mantiene el conteo y uno esdrújulo resta una.</p></details><details><summary>¿Necesito una cuenta?</summary><p>No necesitas registrarte para analizar poemas y guardarlos en este navegador. Una cuenta permite también guardar tu biblioteca en la nube.</p></details></div></section><section class="container support"><div><h2>Ayuda a mantener la mesa abierta.</h2><p>Tu aportación voluntaria sostiene el servicio y el desarrollo de nuevas herramientas para escribir poesía.</p></div><a class="cta" href="apoyar.html">Apoyar el proyecto ↗</a></section></main><footer class="container footer"><span>Mesa de Poesía · Un espacio para escribir.</span><nav aria-label="Enlaces del pie"><a href="escandidor.html">Escandidor</a><a href="apoyar.html">Donaciones</a><a href="privacidad.html">Privacidad</a><a href="agradecimientos.html">Agradecimientos</a></nav></footer>
+<main id="contenido">
+  <section class="container split hero newspaper-hero" aria-labelledby="intro-title">
+    <div>
+      <p class="label">Tu mesa de trabajo de poesía</p>
+      <h1 id="intro-title">Tu poema,<br><em>sobre la mesa.</em></h1>
+      <p class="copy">Como en la mesa de un carpintero, tené a mano lo que necesitás para trabajar: espacio para el borrador, herramientas para darle forma y un lugar para conservar cada versión.</p>
+      <p class="copy hero-followup">Escribí, medí y revisá tus versos. Ordená tu biblioteca, prepará tus concursos y llevá cada poema hasta su entrega.</p>
+      <div class="actions"><a class="cta" href="escandidor.html">Abrir mi mesa <span aria-hidden="true">↗</span></a><a class="secondary-link" href="#funciones">Recorrer las herramientas</a></div>
+      <p class="note">Gratis · En español · Podés escribir sin cuenta</p>
+    </div>
+    <figure class="poem-column workbench-sheet">
+      <p class="label">Todo alrededor de tu poema</p>
+      <p class="poem">Con <strong>diez</strong> ca<strong>ño</strong>nes por <strong>ban</strong>da,<br><strong>Vien</strong>to en <strong>po</strong>pa, a <strong>to</strong>da <strong>ve</strong>la,</p>
+      <figcaption class="annotation"><cite>Canción del pirata</cite> · José de Espronceda<br>Dos versos octosílabos · Sinalefas en «viento en» y «popa, a»<br><a class="secondary-link" href="https://www.cervantesvirtual.com/obra-visor/cancion-del-pirata-1220118/html/2551680d-ec63-42cb-91a5-1008fe6261b7_2.html" target="_blank" rel="noopener noreferrer">Leer el poema completo ↗</a></figcaption>
+      <dl class="bench-tools">
+        <div><dt>Escandidor</dt><dd>La medida, los acentos y la rima.</dd></div>
+        <div><dt>Biblioteca</dt><dd>Tus poemas y su historia.</dd></div>
+        <div><dt>Concursos</dt><dd>Las bases, el formato y la entrega.</dd></div>
+        <div><dt>Recordatorios</dt><dd>Las fechas que querés tener a mano.</dd></div>
+      </dl>
+    </figure>
+  </section>
+
+  <section id="funciones" class="container tool-section" aria-labelledby="tools-title">
+    <div class="tools-heading"><p class="label">Las herramientas de tu mesa</p><h2 id="tools-title">Del primer verso a la entrega.</h2><p>Cada tarea tiene su lugar. Tu poema sigue siendo el centro.</p></div>
+    <div class="features workshop-features">
+      <article><p class="label">01 / Escribir</p><h3>Dale lugar al borrador.</h3><p>Escribí en el editor, dictá tus versos o pasá una foto a texto para revisarlo. Consultá definiciones y palabras que riman. Elegí fuente, tamaño y color: el poema abierto le da su tono a todo el taller.</p></article>
+      <article><p class="label">02 / Medir y revisar</p><h3>Probá cómo suena.</h3><p>Escandidor separa las sílabas y analiza el conteo métrico, los acentos y las rimas consonantes o asonantes. Ajustá sinalefas y sinéresis, marcá hemistiquios y trabajá con formas poéticas y patrones de acento.</p></article>
+      <article><p class="label">03 / Conservar</p><h3>Guardá también el camino.</h3><p>Organizá poemas con etiquetas, colores, búsqueda y filtros. Revisá, renombrá y abrí sus versiones; descargá una, varias o el historial. Importá Markdown, comprimí versiones y recuperá trabajo desde la papelera.</p></article>
+      <article><p class="label">04 / Preparar concursos</p><h3>Tené las bases a mano.</h3><p>Agregá una convocatoria por URL de Escritores.org o completala a mano. Revisá requisitos y fechas, asociá poemas y elegí entre seguir su última versión o fijar una. Registrá el envío y conservá una copia de lo entregado.</p></article>
+      <article><p class="label">05 / Dar salida</p><h3>Prepará cada presentación.</h3><p>Descargá poemas en Markdown, PDF o DOCX y creá un video de su evolución. Para concursos, configurá fuente, hoja, márgenes, citas, portada y numeración; prepará una plica separada con tus datos reutilizables.</p></article>
+      <article><p class="label">06 / Seguir las fechas</p><h3>Dejá los pendientes a la vista.</h3><p>Consultá cierres, fechas previstas del fallo y enlaces de resultados que hayas confirmado. Activá avisos del navegador mientras el taller esté abierto o descargá eventos para tu calendario. Podés quitar un concurso de la agenda y retomarlo después.</p></article>
+    </div>
+  </section>
+
+  <section class="container metric-primer" aria-labelledby="workbench-title">
+    <p class="label">El oficio está en tus manos</p>
+    <div class="primer-layout">
+      <h2 id="workbench-title">Una mesa para trabajar.<br>Un poema que sigue<br>siendo tuyo.</h2>
+      <div><p>Un carpintero vuelve a medir, prueba un encaje y guarda una pieza antes de seguir. Acá podés volver al verso, ensayar otra lectura y recuperar una versión anterior sin perder el recorrido.</p><p>El análisis pone las decisiones a la vista. Vos elegís la sinalefa, el ritmo y la palabra. La biblioteca conserva el trabajo; Concursos y Recordatorios ayudan a preparar lo que viene después.</p><a class="secondary-link" href="escandidor.html">Poné tu primer poema sobre la mesa ↗</a></div>
+    </div>
+  </section>
+
+  <section class="section container faq" aria-labelledby="preguntas">
+    <div><p class="label">Antes de sentarte a escribir</p><h2 id="preguntas">Lo que conviene saber.</h2></div>
+    <div>
+      <details><summary>¿Puedo trabajar sin una cuenta?</summary><p>Sí. Podés escribir, analizar y guardar poemas en este navegador. Una cuenta permite conservar tu biblioteca, concursos, etiquetas y preferencias en el servicio del taller. Descargá copias de tu trabajo cuando las necesites.</p></details>
+      <details><summary>¿El análisis decide cómo tiene que ser mi poema?</summary><p>Te muestra la medida, los acentos y las rimas para ayudarte a revisar. La lectura depende de la pronunciación y de las licencias métricas: podés ajustar las uniones y probar alternativas. La decisión poética sigue siendo tuya.</p></details>
+      <details><summary>¿Qué se conserva de las versiones y las entregas?</summary><p>La biblioteca guarda el historial del poema. En un concurso podés seguir la última versión o fijar una concreta. Cuando registrás un envío, se conserva una copia de lo entregado aunque después sigas editando.</p></details>
+      <details><summary>¿La app presenta el poema al concurso por mí?</summary><p>La app organiza la preparación: selección, formato, documentos y registro de entrega. Revisá siempre las bases y enviá los archivos por el medio que pida el organizador. Los datos importados pueden necesitar correcciones.</p></details>
+      <details><summary>¿Los recordatorios funcionan con la app cerrada?</summary><p>Los avisos del navegador requieren permiso y que el taller esté abierto. Podés descargar un evento e importarlo en Google Calendar u otro calendario para usar sus alarmas. Una fecha prevista del fallo se muestra por separado de un resultado publicado.</p></details>
+      <details><summary>¿Qué tengo que revisar antes de descargar o enviar?</summary><p>Comprobá la versión elegida, la fuente, la paginación y las exigencias del concurso. La vista previa es orientativa. La plica puede incluir una declaración sobre IA que vos revisás y editás; guardarla no firma el documento.</p></details>
+    </div>
+  </section>
+  <section class="container support"><div><h2>Ayudá a mantener la mesa abierta.</h2><p>Tu aportación voluntaria sostiene el servicio y el desarrollo de las herramientas que acompañan tu escritura.</p></div><a class="cta" href="apoyar.html">Apoyar el proyecto ↗</a></section>
+</main>
+<footer class="container footer"><span>Mesa de Poesía · Un lugar para trabajar tus poemas.</span><nav aria-label="Enlaces del pie"><a href="escandidor.html">Abrir mi mesa</a><a href="#funciones">Herramientas</a><a href="apoyar.html">Donaciones</a><a href="privacidad.html">Privacidad</a><a href="agradecimientos.html">Agradecimientos</a></nav></footer>
 </body>
 </html>

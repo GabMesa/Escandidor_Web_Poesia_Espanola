@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="es">
   <head>
+    <script>if(window.parent===window)location.replace((location.port==='8793'?'prototipo/':'taller/')+'?view=editor');else document.documentElement.classList.add('in-workshop');</script>
     <script src="theme-init.js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -58,8 +59,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;700&amp;family=Atkinson+Hyperlegible:wght@400;700&amp;family=Bebas+Neue&amp;family=Bungee&amp;family=Caveat:wght@400;700&amp;family=Cinzel:wght@400;700&amp;family=Cormorant+Garamond:wght@400;600;700&amp;family=EB+Garamond:wght@400;600;700&amp;family=Josefin+Sans:wght@400;600;700&amp;family=Lexend:wght@400;600;700&amp;family=Libre+Baskerville:wght@400;700&amp;family=Lora:wght@400;600;700&amp;family=Merriweather:wght@400;700&amp;family=Montserrat:wght@400;600;700&amp;family=Nunito:wght@400;600;700&amp;family=Pacifico&amp;family=Permanent+Marker&amp;family=Playfair+Display:wght@400;600;700&amp;family=Source+Sans+3:wght@400;600;700&amp;family=UnifrakturCook:wght@700&amp;display=swap"
-      rel="stylesheet"
+      id="editorFontSheet"
+      rel="preload"
+      as="style"
     />
+    <script src="font-loader.js"></script>
     <link rel="stylesheet" href="styles.css" />
     <style>
       .lookup-rhyme-list li {
@@ -130,6 +134,7 @@
     <meta property="og:image:alt" content="Mesa de Poesía: encuentra el ritmo de tus versos con Escandidor." />
     <meta name="twitter:image" content="https://mesa-de-poesia.pages.dev/assets/social-preview.png" />
       <link rel="stylesheet" href="identity.css" />
+    <link rel="stylesheet" href="workshop-editor.css">
     <script src="theme.js" defer></script>
   </head>
   <body class="editor-page">
@@ -137,7 +142,7 @@
     <header class="publication-header">
   <nav class="publication-nav" aria-label="Navegación principal">
     <a class="publication-brand" href="index.html">Mesa de Poesía<span aria-hidden="true">.</span></a>
-    <div class="publication-links"><a href="index.html" >Inicio</a><a href="escandidor.html" aria-current="page">Escandidor</a><a href="apoyar.html" class="nav-support" >Apoyar el proyecto ↗</a><button type="button" class="theme-toggle" data-theme-toggle aria-label="Cambiar a modo oscuro" aria-pressed="false">Modo oscuro</button></div>
+    <div class="publication-links"><a href="index.html" >Inicio</a><a href="escandidor.html" aria-current="page">Escandidor</a><a data-open-library href="prototipo/?view=library">Biblioteca y archivos</a><a href="apoyar.html" class="nav-support" >Apoyar el proyecto ↗</a><button type="button" class="theme-toggle" data-theme-toggle aria-label="Cambiar a modo oscuro" aria-pressed="false">Modo oscuro</button></div>
   </nav>
 
   <div class="edition-line"><span>Un taller de poesía en español</span><span>Métrica · Ritmo · Rima</span></div>
@@ -384,7 +389,12 @@
           </div>
         </details>
 
-        <details
+        <section class="control-card" id="libraryLauncher">
+          <h2>Biblioteca y archivos</h2>
+          <p>Poemas, versiones, etiquetas, descargas y papelera.</p>
+          <a id="openWorkshopLibrary" data-open-library class="secondary" href="prototipo/?view=library">Abrir Biblioteca →</a>
+        </section>
+        <details hidden
           id="managerShell"
           class="control-card config-shell manager-shell"
         >
@@ -1139,5 +1149,6 @@
     <script type="module" src="app.js"></script>
     <script type="module" src="auth.js"></script>
     <script type="module" src="support-reminder.js"></script>
+    <script type="module" src="editor-bridge.js"></script>
   </body>
 </html>

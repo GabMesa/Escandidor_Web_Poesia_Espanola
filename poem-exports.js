@@ -1,7 +1,8 @@
+export function poemTimestamp(value){const date=String(value??'');return Date.parse(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(date)?date.replace(' ','T')+'Z':date);}
 ﻿export function sortPoemVersions(versions) {
   return [...versions].sort((a, b) => {
-    const left = Date.parse(a.savedAt);
-    const right = Date.parse(b.savedAt);
+    const left = poemTimestamp(a.savedAt);
+    const right = poemTimestamp(b.savedAt);
     if (Number.isFinite(left) && Number.isFinite(right) && left !== right) return left - right;
     return (Number(a.versionNumber) || 0) - (Number(b.versionNumber) || 0);
   });

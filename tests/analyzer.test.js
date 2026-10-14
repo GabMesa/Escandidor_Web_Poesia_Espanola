@@ -193,3 +193,38 @@ test('requires a more open middle vowel in joined three-vowel groups', () => {
   );
   assert.deepEqual(findAutomaticTriphthongBreaks(comaYHaga, comaYHagaBoundaries), [1]);
 });
+
+test('recognizes the accented triphthong inside butiá y es and its joined chain', () => {
+  const line = analyzeLine('butiá y es');
+  const boundaries = line.boundaries.map(boundary => ({ ...boundary, active: true }));
+  assert.deepEqual(line.analyses[0].syllables, ['bu', 'tiá']);
+  assert.deepEqual(findSinalefaTriphthongs(line, boundaries).map(({ vowels, valid }) => ({ vowels, valid })),
+    [{ vowels: ['i', 'á', 'y'], valid: true }]);
+  assert.deepEqual(findAutomaticTriphthongBreaks(line, boundaries), []);
+  boundaries[0].active = false;
+  assert.deepEqual(findSinalefaTriphthongs(line, boundaries), []);
+});
+
+test('does not combine different syllables of a middle word into a triphthong', () => {
+  const line = analyzeLine('mi ala y');
+  const boundaries = line.boundaries.map(boundary => ({ ...boundary, active: true }));
+  assert.deepEqual(findSinalefaTriphthongs(line, boundaries), []);
+});
+
+test('distinguishes tonic monosyllables from articles, clitics, conjunctions and contractions', () => {
+  for (const word of ['el', 'tu', 'mi', 'te', 'se', 'de', 'si', 'mas', 'ni', 'al', 'del', 'tan', 'aun']) {
+    assert.equal(analyzeWord(word).isTonic, false, word);
+  }
+  for (const word of ['él', 'tú', 'mí', 'té', 'sé', 'dé', 'sí', 'más', 'qué', 'quién', 'ti', 'yo', 'vos', 'es', 'fue', 'dio', 'vio', 'sol', 'mar', 'no', 'un']) {
+    assert.equal(analyzeWord(word).isTonic, true, word);
+  }
+});
+
+test('keeps the closing monosyllabic accent and final metric adjustment', () => {
+  const line = analyzeLine('El sol y el mar');
+  assert.deepEqual(line.analyses.map(word => word.isTonic), [false, true, false, false, true]);
+  assert.equal(line.rawCount, 5);
+  assert.equal(line.poeticCount, 6);
+  assert.equal(analyzeLine('la palabra y').analyses.at(-1).isTonic, true);
+  assert.equal(analyzeWord('y').isTonic, false);
+});

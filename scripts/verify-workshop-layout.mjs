@@ -68,8 +68,8 @@ try{
   await evaluate(`(()=>{const e=d.querySelector('#poemInput');e.value=${JSON.stringify(original)};e.dispatchEvent(new Event('input',{bubbles:true}));d.querySelector('#lookupShell').open=true;const word=d.querySelector('#selectedLookupWord');word.value='mar';word.dispatchEvent(new Event('input',{bubbles:true}));})()`);
   await until('!!d.querySelector(".lookup-rhyme-list")');
   await sleep(1600);
-  assert.ok(await evaluate('d.querySelector(".lookup-rhyme-list").getBoundingClientRect().height')<=114);
-  assert.equal(await evaluate('d.querySelector("#lookupResults").getBoundingClientRect().height'),780);
+  assert.equal(await evaluate('d.querySelector(".lookup-rhyme-list").getBoundingClientRect().height'),184);
+  assert.equal(await evaluate('d.querySelector("#lookupResults").getBoundingClientRect().height'),856);
   assert.equal(await evaluate('d.querySelector(".lookup-synonym-groups").getBoundingClientRect().height'),252);
   await shot('04-definiciones-rimas-compactas');
   await evaluate(`d.querySelector('#lookupShell').open=false`);

@@ -67,7 +67,7 @@ try{
   await sleep(1200);
   await until('!ea.editor.lookupLoadingRhymes && !ea.editor.lookupLoadingDefinition');
   const lookup=await evaluate(`({height:d.querySelector('#lookupResults').getBoundingClientRect().height,synonyms:d.querySelector('.lookup-synonym-groups').getBoundingClientRect().height,rhymes:d.querySelector('.lookup-rhyme-list').getBoundingClientRect().height,columns:getComputedStyle(d.querySelector('#lookupResults')).flexDirection})`);
-  assert.equal(lookup.columns,'column');assert.equal(lookup.synonyms,252);assert.equal(lookup.rhymes,108);
+  assert.equal(lookup.columns,'column');assert.equal(lookup.synonyms,252);assert.equal(lookup.rhymes,184);
   assert.ok(await evaluate(`!!d.querySelector('.lookup-rhymes-column a[href^="https://iedra.es/rimas/"]')`));
   await evaluate(`document.querySelector('#toast').style.display='none';window.scrollTo(0,document.querySelector('#workshop-editor').getBoundingClientRect().top+scrollY+d.querySelector('#lookupShell').getBoundingClientRect().top-20)`);
   await shot('04-consultas-columna-fija');

@@ -8,7 +8,7 @@ export async function openWorkshopStore(){
  if(user){const r=await fetch('/api/workshop',{cache:'no-store'});const result=await r.json();if(!r.ok)throw Error(result.error);data=result.data;revision=result.revision;}
  else try{data=JSON.parse(localStorage.getItem(key))||data;}catch{}
  const runtime=applicationState.runtime.workshopPersistence={user,key,revision,queue:Promise.resolve(),pending:null,error:null};
- const status=()=>{const node=document.querySelector('#workshop-save-status');if(node)node.textContent=runtime.error?'Pendiente de guardar: '+runtime.error.message:runtime.pending?'Guardando…':user?'Guardado en tu cuenta':'Sin cuenta · poemas en este navegador';};
+ const status=()=>{const node=document.querySelector('#workshop-save-status');if(node){const detail=runtime.error?'Pendiente de guardar: '+runtime.error.message:runtime.pending?'Guardando…':user?'Guardado en tu cuenta':'Sin cuenta · poemas en este navegador';node.textContent=runtime.error?'Pendiente':runtime.pending?'Guardando…':user?'Guardado':'Local';node.title=detail;node.setAttribute('aria-label',detail);node.dataset.state=runtime.error?'error':runtime.pending?'saving':user?'saved':'local';}};
  async function flush(){
   if(!user||!runtime.pending)return;const snapshot=runtime.pending;
   try{const r=await fetch('/api/workshop',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision:runtime.revision,data:snapshot})});const result=await r.json();if(!r.ok)throw Error(result.error||'No se pudo guardar.');runtime.revision=result.revision;runtime.error=null;if(runtime.pending===snapshot){runtime.pending=null;localStorage.removeItem(key+':pending');}}

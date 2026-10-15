@@ -1,5 +1,9 @@
 /* Keep the workspace close to the viewport edges and its tools compact. */
-.topbar { min-height: 48px; height: auto; margin: 0 14px; padding: 8px 0; gap: 12px; }
+.topbar { display:grid; grid-template-columns:auto minmax(0,1fr) auto auto; min-height:48px; height:auto; margin:0 14px; padding:7px 0; gap:12px; }
+.topbar .brand { grid-column:1; grid-row:1; }
+.topbar .workshop-public-links { grid-column:2; grid-row:1; }
+.topbar .theme-toggle { grid-column:3; grid-row:1; }
+.topbar #workshop-account { grid-column:4; grid-row:1; }
 .brand { font-size: 21px; white-space: nowrap; }
 .topbar .edition { display: none; }
 .topbar .theme-toggle { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:36px; padding:6px 10px; font-size:11px; white-space:nowrap; }
@@ -18,11 +22,32 @@ body > .workspace,:root[data-theme] body > .workspace { max-width: none; grid-te
 .editor-workspace-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
 .editor-workspace-heading h1 { font: 400 20px/1.2 Georgia, serif; margin: 0; }
 .editor-workspace-heading button { padding: 6px 10px; font-size: 11px; }
-#workshop-account { gap: 6px; }
+#workshop-account { gap:6px; flex-wrap:nowrap; max-width:none; border-left:1px solid var(--line); padding-left:12px; }
+#workshop-account button,#workshop-account summary { min-height:32px; border-radius:5px; }
+#workshop-account svg { width:16px; height:16px; flex:0 0 16px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+#workshop-account .header-save { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; background:var(--action); border-color:var(--action); color:var(--working-poem-ink,var(--on-action)); font-weight:600; }
+#workshop-account .header-backup { display:inline-flex; align-items:center; justify-content:center; width:32px; padding:6px; background:transparent; }
+#workshop-account .header-backup:hover { background:var(--surface-2); }
+#workshop-save-status { display:inline-flex; align-items:center; gap:6px; max-width:104px; overflow:hidden; white-space:nowrap; font-size:10px; color:var(--muted); margin-right:4px; }
+#workshop-save-status::before { content:''; width:5px; height:5px; flex:0 0 5px; border-radius:50%; background:var(--success); }
+#workshop-save-status[data-state='local']::before { background:var(--muted); }
+#workshop-save-status[data-state='saving']::before { background:var(--warning); }
+#workshop-save-status[data-state='error']::before { background:var(--danger); }
+.workshop-user-menu { position:relative; }
+.workshop-user-menu>summary { display:flex; align-items:center; gap:7px; padding:3px 6px; cursor:pointer; list-style:none; border:1px solid transparent; }
+.workshop-user-menu>summary::-webkit-details-marker { display:none; }
+.workshop-user-menu>summary:hover,.workshop-user-menu[open]>summary { border-color:var(--line); background:var(--surface-2); }
+.header-avatar { display:grid; place-items:center; width:24px; height:24px; flex:0 0 24px; border:1px solid var(--line); border-radius:50%; background:var(--surface); font-size:11px; font-weight:650; }
+.header-username { max-width:110px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:12px; }
+.header-account-panel { position:absolute; right:0; top:calc(100% + 8px); z-index:90; min-width:215px; max-width:calc(100vw - 24px); padding:14px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--text); box-shadow:0 8px 24px #0002; }
+.header-account-panel .eyebrow { font-size:9px; margin-bottom:4px; }
+.header-account-panel>strong { display:block; font-size:13px; overflow-wrap:anywhere; margin-bottom:12px; }
+#workshop-account .header-account-panel button { display:flex; align-items:center; gap:8px; width:100%; padding:8px; text-align:left; background:transparent; border:0; }
+#workshop-account .header-account-panel button:hover { background:var(--surface-2); }
 #workshop-auth-form .discord-login { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 16px; min-height: 44px; border: 1px solid #5865f2; background: #5865f2; color: #fff; border-radius: 6px; text-decoration: none; font-weight: 650; }
 #workshop-auth-form .discord-login:hover { background: #4752c4; }
 .discord-logo { flex: 0 0 24px; width: 24px; height: 20px; fill: currentColor; }
-.workshop-public-links { display:flex; align-items:center; gap:16px; margin-left:auto; font-size:12px; }
+.workshop-public-links { display:flex; align-items:center; justify-content:flex-end; gap:16px; margin-left:0; font-size:11px; }
 .workshop-public-links a { text-decoration:none; }
 .workshop-public-links a:hover { text-decoration:underline; }
 .workshop-footer { margin:20px 14px 0; padding:18px 0 24px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
@@ -39,13 +64,25 @@ body > .workspace,:root[data-theme] body > .workspace { max-width: none; grid-te
 .workshop-credit-details { margin:16px 0 0; font-size:11px; }
 #toast { left:auto; right:16px; bottom:16px; transform:none; max-width:min(440px,calc(100vw - 32px)); z-index:100; overflow-wrap:anywhere; }
 @media (max-width:1100px) {
-  .topbar { flex-wrap:wrap; }
-  .topbar #workshop-account { max-width:none; flex:1 1 100%; }
+  .topbar { column-gap:10px; }
   .workshop-credit-groups { grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
 }
+@media (max-width:980px) {
+  .topbar { grid-template-columns:minmax(0,1fr) auto; gap:6px 10px; }
+  .topbar .theme-toggle { grid-column:2; grid-row:1; justify-self:end; }
+  .topbar .workshop-public-links { grid-column:1; grid-row:2; justify-content:flex-start; }
+  .topbar #workshop-account { grid-column:2; grid-row:2; border-left:0; padding-left:0; }
+}
 @media (max-width: 760px) {
-  .topbar { margin: 0 10px; gap: 8px; }
-  .topbar #workshop-account { flex: 1 1 100%; }
+  .topbar { grid-template-columns:minmax(0,1fr) auto; margin:0 10px; gap:6px 10px; }
+  .topbar .brand { grid-column:1; grid-row:1; }
+  .topbar .theme-toggle { grid-column:2; grid-row:1; justify-self:end; }
+  .topbar .workshop-public-links { grid-column:1; grid-row:2; }
+  .topbar #workshop-account { grid-column:2; grid-row:2; border-left:0; padding-left:0; }
+  #workshop-account button,#workshop-account summary { min-height:34px; }
+  #workshop-save-status { width:6px; max-width:6px; font-size:0; gap:0; margin:0 2px 0 0; }
+  .workshop-user-menu>summary { padding:4px; }
+  .workshop-user-menu>summary>.header-username,.workshop-user-menu>summary>svg { display:none; }
   body > .workspace, .sidebar-collapsed body > .workspace,:root[data-theme] body > .workspace,:root.sidebar-collapsed[data-theme] body > .workspace { display: block; padding: 10px; }
   .sidebar { margin-bottom: 12px; }
   .sidebar .sidebar-heading { display:none; }
@@ -54,7 +91,7 @@ body > .workspace,:root[data-theme] body > .workspace { max-width: none; grid-te
   .sidebar nav .nav-label,.sidebar-collapsed .sidebar nav .nav-label { display:block; font-size:10px; line-height:1.2; }
   .sidebar nav .nav-count { display:none; }
   .page-heading h1 { font-size: 27px; }
-  .workshop-public-links { flex:1 1 100%; margin-left:0; gap:14px; font-size:11px; }
+  .workshop-public-links { flex-wrap:wrap; justify-content:flex-start; margin-left:0; gap:4px 10px; font-size:10px; }
   .workshop-footer { margin:12px 10px 0; }
   .workshop-footer nav { gap:10px 16px; }
   .workshop-credit-groups { grid-template-columns:1fr; gap:14px; }

@@ -67,6 +67,11 @@ async function synchronizePoems() {
   return activeSync;
 }
 applicationState.runtime.syncPoemsNow = synchronizePoems;
+applicationState.runtime.syncImportedPoems = async (details,onProgress) => {
+  let uploaded=0;
+  await cloudSync.syncImportedVersions(details,progress=>{uploaded=progress.completed;onProgress(progress);});
+  return {uploaded,pending:details.length-uploaded,error:uploaded<details.length?applicationState.sync.error?.message||'Sincronización pendiente.':''};
+};
 const refreshInBackground = () => {
   if (applicationState.auth.user && applicationState.runtime.authInitialized && !document.hidden) synchronizePoems().catch(() => {});
 };

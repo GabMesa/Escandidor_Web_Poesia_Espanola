@@ -8,10 +8,12 @@ import {compressPoemVersions} from '../poem-compression.js';
 import {downloadFile,safeName,buildDocx,printDocument} from './document-export.js';
 import {tagCatalog,tagMarkup,tagStyle} from './tag-library.js';
 import {downloadLibraryPdf} from './library-pdf.js';
+import {createPoemImportDialog} from './poem-import-dialog.js';
 const versionKey=(poemId,versionId)=>JSON.stringify([poemId,String(versionId)]);
 const label=v=>v.label||`Versión ${v.versionNumber||1}`;
 const date=v=>v.savedAt?new Date(v.savedAt).toLocaleDateString('es-UY',{day:'numeric',month:'short'}):'Sin fecha';
 export function createLibrary({state,allPoems,persist,showDialog,toast,command,openEditor,render}){
+  const importer=createPoemImportDialog({allPoems,showDialog,command,render,toast});
   const tags=values=>values.map(t=>tagMarkup(state.data,t)).join('');
   const ui=state.library;
   ui.checkedVersions??=[];
@@ -107,7 +109,7 @@ export function createLibrary({state,allPoems,persist,showDialog,toast,command,o
     if(target.id==='library-version'){ui.versionId=target.value;render();return true;}
     if(target.hasAttribute('data-lib-all')){const ids=[...document.querySelectorAll('[data-check-poem]')].map(e=>e.dataset.checkPoem);state.checked=target.checked?[...new Set([...state.checked,...ids])]:state.checked.filter(id=>!ids.includes(id));render();return true;}
     if(target.id==='library-cleanup'){try{await command({action:'cleanup',value:target.checked});render();}catch(e){toast(e.message);}return true;}
-    if(target.id==='library-import-file'){const file=target.files[0];if(!file)return true;try{if(file.size>2000000)throw Error('El archivo supera 2 MB.');const result=await command({action:'import',text:await file.text()});render();toast(`${result.importedCount} ${result.importedCount===1?'poema importado':'poemas importados'} a Biblioteca.`);}catch(e){toast(e.message);}finally{target.value='';}return true;}return false;
+    if(target.id==='library-import-file'){const file=target.files[0];if(!file)return true;try{await importer.open(file);}catch(e){toast(e.message);}finally{target.value='';}return true;}return false;
   }
   async function submit(form){
     if(!form.id.startsWith('library-'))return false;const data=new FormData(form);
@@ -119,5 +121,5 @@ export function createLibrary({state,allPoems,persist,showDialog,toast,command,o
       document.querySelector('#modal').close();render();toast('Biblioteca actualizada.');
     }catch(e){toast(e.message);}return true;
   }
-  return {renderHtml,click,change,submit};
+  return {renderHtml,click,change,submit,importFile:importer.open};
 }

@@ -27,7 +27,7 @@ if(window.parent!==window && new URLSearchParams(location.search).get('taller')=
     const message=event.data;if(message?.type==='workshop:view'){setView(message.view);return;}
     if(message?.type==='workshop:library-command'){
       if(['import','font'].includes(message.command?.action))applicationState.runtime.workshopSourceId='';
-      window.dispatchEvent(new CustomEvent('workshop:library-command',{detail:{command:message.command,respond:result=>send('workshop:library-result',{requestId:message.requestId,...result})}}));return;
+      window.dispatchEvent(new CustomEvent('workshop:library-command',{detail:{command:message.command,progress:progress=>send('workshop:library-progress',{requestId:message.requestId,progress}),respond:result=>send('workshop:library-result',{requestId:message.requestId,...result})}}));return;
     }
     if(message?.type!=='workshop:open')return;
     let prepared=false;

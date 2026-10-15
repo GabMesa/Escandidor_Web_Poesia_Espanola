@@ -2,6 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createCloudSync } from '../cloud-sync.js';
 
+test('import progress confirms actual uploads and preserves the remaining selection after a cut',async()=>{
+ const storage=new MemoryStorage(),state={user:null,queue:Promise.resolve()},seen=[];let offline=false;
+ const sync=createCloudSync({storage,state,request:async()=>{if(offline)throw Error('Sin conexión');offline=true;return jsonResponse({poem:{id:81,version:1}});}});
+ sync.setUser({id:13});
+ await sync.syncImportedVersions([1,2,3].map(n=>({poemKey:'p'+n,title:'Poema '+n,version:version('import-'+n,n,'Verso '+n)})),p=>seen.push(p));
+ assert.deepEqual(seen.map(p=>p.completed),[0,1,1]);assert.equal(sync.pendingCount(),2);assert.equal(state.error.message,'Sin conexión');
+ assert.equal(seen.at(-1).title,'Poema 2');
+});
+
 test('distinct stable versions with identical text survive repeated downloads and receive remote metadata',async()=>{
  const storage=new MemoryStorage();let font='lora';
  const sync=createCloudSync({storage,request:async(path)=>path==='/api/trash'?jsonResponse({trash:[],deletedPoemIds:[]}):jsonResponse({poems:[{id:45,title:'Repetición',settings:{},versions:[1,2].map(n=>({version:n,content:'Mismo texto',versionName:'Revisión '+n,sync:{id:'stable-'+n,kind:'manual',versionNumber:n,savedAt:new Date(2026,0,n).toISOString(),settings:{poemFont:font}}}))}]})});

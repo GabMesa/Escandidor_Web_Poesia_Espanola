@@ -435,6 +435,24 @@ export function createCloudSync({
       });
     },
 
+    syncImportedVersions(details,onProgress=()=>{}) {
+      if(!user)return Promise.resolve();
+      const ownerId=user.id;
+      // Persist every operation before the first request so a closed tab or
+      // interrupted connection can resume the entire confirmed selection.
+      const operations=details.map(detail=>addPending('save',detail));
+      return enqueue(async()=>{
+        for(let index=0;index<operations.length;index++){
+          if(user?.id!==ownerId)throw Error('Cambió la cuenta durante la importación.');
+          const operation=operations[index];
+          onProgress({completed:index,total:operations.length,title:operation.detail.title,index:index+1});
+          await syncOne(operation.detail);
+          removePending(operation.id,ownerId);
+          onProgress({completed:index+1,total:operations.length,title:operation.detail.title,index:index+1});
+        }
+      });
+    },
+
     deleteSavedVersions({ poemKey, title, versionIds = [], wholePoem = false }) {
       if (!user || !title) return Promise.resolve();
       const detail = { poemKey, title, versionIds, wholePoem };

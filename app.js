@@ -7,16 +7,18 @@ import { writePersistentStorage, writeDisposableStorage, loadWordCorpusCache, sa
 import { sortPoemVersions, selectMarkdownEntries, buildHistoryMarkdown, buildVideoTimeline } from './poem-exports.js';
 import { groupVersionsForSelection } from './poem-version-selection.js';
 import { parsePoemsFromMarkdown } from './poem-markdown-import.js';
+import {appendPoemImport,importTitleKey} from './poem-import-plan.js';
 import { parseRhymeSchemes, validateStanzaRhymeSchemes } from './rhyme-scheme.js';
 
 // The local Workshop reuses the editor's library services through the same-origin bridge.
 // Functions are evaluated only after the editor has initialized and a command arrives.
 if (window.parent !== window && new URLSearchParams(location.search).get('taller') === '1') {
   window.addEventListener('workshop:library-command', async event => {
-    const { command, respond } = event.detail || {};
+    const { command, respond, progress=()=>{} } = event.detail || {};
     if (!command || typeof respond !== 'function') return;
     const originalConfirm = window.confirm;
     let importedCount = 0;
+    let importResult;
     try {
       if (command.confirmed === true) window.confirm = () => true;
       const keys = Array.isArray(command.poemKeys) ? command.poemKeys : [];
@@ -95,6 +97,9 @@ if (window.parent !== window && new URLSearchParams(location.search).get('taller
         refreshSavedPoemNameOptions();window.dispatchEvent(new CustomEvent('escandidor:library-changed'));
       } else if (command.action === 'import') {
         importedCount = importPoemsFromMarkdown(command.text, { openFirst: false });
+      } else if (command.action === 'import-planned') {
+        importResult=await importPlannedPoems(command.entries,progress);
+        importedCount=importResult.importedCount;
       } else if (command.action === 'save' || command.action === 'sync') {
         if (command.action === 'save' || isCurrentDraftDirtyAgainstLoadedVersion()) saveCurrentPoemVersion({ notify: false });
         const beforeSync = getSnapshotSignature(buildCurrentSnapshot());
@@ -109,7 +114,7 @@ if (window.parent !== window && new URLSearchParams(location.search).get('taller
         throw Error('Acción de biblioteca desconocida.');
       }
       renderSavedVersionList(savedPoemName?.value || '', savedPoemVersion?.value || '');
-      respond({ ok: true, importedCount, loadedPoemKey: state.loadedVersionTitle, loadedVersionId: state.loadedVersionId, settings: {
+      respond({ ok: true, importedCount, importResult, loadedPoemKey: state.loadedVersionTitle, loadedVersionId: state.loadedVersionId, settings: {
         autoCompress: state.autoCompressVersions,
         autoCleanup: trashAutoCleanupEnabled(),
         defaultFont: loadDefaultPoemFont(), defaultColor: loadDefaultPoemColor(),
@@ -4487,6 +4492,37 @@ function deleteSelectedPoemEntry() {
   updateVersionManagerStatus();
 }
 
+async function importPlannedPoems(entries,progress){
+  if(!Array.isArray(entries)||!entries.length||entries.length>10000)throw Error('Seleccioná al menos un poema para importar.');
+  const initial=loadPoemMemoryStore();
+  // Validate the whole choice before touching the existing library.
+  for(const entry of entries){
+    const error=poemValidationError(entry.title,entry.text);if(error)throw Error(error);
+    if(entry.targetKey){const versions=initial.poems[entry.targetKey];if(!versions?.length||importTitleKey(getStoredPoemTitle(entry.targetKey,versions))!==importTitleKey(entry.title))throw Error('Cambió un poema elegido. Volvé a revisar la importación.');}
+  }
+  const count=entries.length,server=!!applicationState.auth.user,total=server?count*2:count,details=[];
+  let unchanged=0;
+  for(let index=0;index<count;index++){
+    const entry=entries[index];progress({stage:'local',completed:index,total,title:entry.title,index:index+1,count});
+    const memory=loadPoemMemoryStore();
+    const result=appendPoemImport(memory,entry,{
+      createKey:createLocalPoemKey,
+      createVersion:({title,text,latest,versionNumber})=>({
+        id:crypto.randomUUID(),savedAt:new Date().toISOString(),poemText:text,poemTitle:title,versionNumber,kind:'manual',label:'',sinalefaOverrides:{},lineOverrides:{},
+        settings:latest?.settings?structuredClone(latest.settings):{poemFont:normalizePoemFont(loadDefaultPoemFont()),poeticForm:'custom',syllablePattern:'',stressPatterns:{},hemistichPatterns:{},hemistichSplit:'',hemistichVerses:'',assonanceRange:5,rhymeMode:'asonante',rhymeScheme:'',repeatRhymeScheme:false,rhymeSchemeSharedRhymes:false,distinguishSZInRhyme:false,rioplatenseY:true}
+      })
+    });
+    if(result.changed){if(!savePoemMemoryStore(memory))throw Error('No se pudo guardar el poema importado.');await poemStorage.flush?.();}
+    else unchanged++;
+    details.push(result);
+    progress({stage:'local',completed:index+1,total,title:entry.title,index:index+1,count});
+    await new Promise(resolve=>setTimeout(resolve,0));
+  }
+  window.dispatchEvent(new CustomEvent('escandidor:library-changed',{detail:{preserveDraft:true}}));
+  const sync=server?await applicationState.runtime.syncImportedPoems(details,p=>progress({stage:'server',completed:count+p.completed,total,title:p.title,index:p.index,count})):null;
+  return {importedCount:count-unchanged,unchanged,selectedCount:count,sync};
+}
+
 function importPoemsFromMarkdown(markdown, { openFirst = true } = {}) {
   const parsed = parsePoemsFromMarkdown(markdown);
   if (!parsed.length) {
@@ -7310,6 +7346,9 @@ importPoemsFile?.addEventListener('change', async () => {
 
   try {
     const text = await file.text();
+    if(window.parent!==window&&new URLSearchParams(location.search).get('real')==='1'){
+      window.parent.postMessage({type:'workshop:import-markdown',text,filename:file.name},location.origin);return;
+    }
     const count = importPoemsFromMarkdown(text);
     showToast(`${count} ${count === 1 ? 'poema importado' : 'poemas importados'}.`, 'success');
   } catch (error) {

@@ -22,11 +22,11 @@ const sidebarToggle=document.querySelector('#sidebar-toggle');
 function setSidebarCollapsed(collapsed){document.documentElement.classList.toggle('sidebar-collapsed',collapsed);sidebarToggle.setAttribute('aria-expanded',String(!collapsed));const label=collapsed?'Expandir barra lateral':'Contraer barra lateral';sidebarToggle.setAttribute('aria-label',label);sidebarToggle.title=label;try{localStorage.setItem('escandador.workshopSidebar.v1',collapsed?'collapsed':'expanded');}catch{}}
 let savedSidebar=false;try{savedSidebar=localStorage.getItem('escandador.workshopSidebar.v1')==='collapsed';}catch{}setSidebarCollapsed(savedSidebar);
 sidebarToggle.addEventListener('click',()=>setSidebarCollapsed(!document.documentElement.classList.contains('sidebar-collapsed')));
-function libraryCommand(command){return new Promise((resolve,reject)=>{
+function libraryCommand(command,onProgress){return new Promise((resolve,reject)=>{
   if(!state.editorReady){reject(Error('El Taller está cargando. Probá nuevamente en un momento.'));return;}
   command=structuredClone(command);const actualVersion=(key,id)=>allPoems().find(p=>p.sourceKey===key)?.versions.find(v=>v.id===id)?.sourceVersionId||id;if(command.versionId)command.versionId=actualVersion(command.poemKey,command.versionId);if(command.entries)command.entries=command.entries.map(e=>({...e,versionId:actualVersion(e.poemKey,e.versionId)}));
-  const requestId=crypto.randomUUID();const timeout=setTimeout(()=>{delete state.library.pending[requestId];reject(Error('No se pudo completar la acción de Biblioteca.'));},['sync','save','import-memory','import'].includes(command.action)?600000:10000);
-  state.library.pending[requestId]={resolve,reject,timeout,command};document.querySelector('#workshop-editor').contentWindow.postMessage({type:'workshop:library-command',requestId,command},location.origin);
+  const requestId=crypto.randomUUID();const timeout=setTimeout(()=>{delete state.library.pending[requestId];reject(Error('No se pudo completar la acción de Biblioteca.'));},['sync','save','import-memory','import','import-planned'].includes(command.action)?600000:10000);
+  state.library.pending[requestId]={resolve,reject,timeout,command,onProgress};document.querySelector('#workshop-editor').contentWindow.postMessage({type:'workshop:library-command',requestId,command},location.origin);
 });}
 const library=createLibrary({state,allPoems,persist,showDialog,toast,command:libraryCommand,openEditor,render});
 const reminderStorage={getItem:key=>localStorage.getItem(key+':'+(workshopStore.user?.id||'guest')),setItem:(key,value)=>localStorage.setItem(key+':'+(workshopStore.user?.id||'guest'),value)};
@@ -138,7 +138,7 @@ document.addEventListener('click',async event=>{
   const lib=event.target.closest('[data-lib]');if(lib){await library.click(lib);return;}
   const view=event.target.closest('[data-view]');if(view){state.openingEditorId=null;state.pendingOpen=null;main.removeAttribute('aria-busy');state.view=view.dataset.view;render();return;}
   const button=event.target.closest('[data-action]');if(!button)return;const action=button.dataset.action;
-  if(action==='close'){modal.close();return;}
+  if(action==='close'){if(!modal.dataset.importing)modal.close();return;}
   if(action==='enable-notifications'){try{await reminderNotifications.enable();toast(reminderNotifications.status().enabled?'Avisos activados en este navegador.':'No se activaron los avisos. Podés seguir consultándolos aquí.');}catch(e){toast(e.message);}renderReminders();return;}
   if(action==='disable-notifications'){reminderNotifications.disable();renderReminders();toast('Avisos del navegador desactivados.');return;}
   if(action==='import'&&!workshopStore.user){authDialog();return;}
@@ -214,10 +214,12 @@ document.addEventListener('submit',async event=>{
   if(form.id==='results-form'){const value=String(data.get('url'));if(!safeLink(value)){toast('Usá un enlace HTTP o HTTPS válido.');return;}currentContest().resultsUrl=value;currentContest().resultsConfirmedAt=new Date().toISOString();if(persist()){modal.close();render();toast('Resultados publicados: enlace confirmado y guardado.');}return;}
 });
 window.addEventListener('storage',e=>{if(e.key===LIBRARY_KEY)render();if(e.key===workshopStore.key)toast('El taller cambió en otra pestaña. Recargá para ver los cambios antes de editar.');});
-modal.addEventListener('click',event=>{if(event.target!==modal)return;const r=modal.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)modal.close();});
-window.addEventListener('message',event=>{
+modal.addEventListener('click',event=>{if(event.target!==modal||modal.dataset.importing)return;const r=modal.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)modal.close();});
+window.addEventListener('message',async event=>{
   if(event.origin!==location.origin||event.source!==document.querySelector('#workshop-editor').contentWindow)return;
   const message=event.data;
+  if(message?.type==='workshop:import-markdown'){try{await library.importFile(new File([String(message.text||'')],String(message.filename||'poemario.md'),{type:'text/markdown'}));}catch(error){toast(error.message);}return;}
+  if(message?.type==='workshop:library-progress'){state.library.pending[message.requestId]?.onProgress?.(message.progress);return;}
   if(message?.type==='workshop:toast'){toast(message.message);return;}
   if(message?.type==='workshop:resize'){if(Number.isFinite(message.height)&&message.height>0)document.querySelector('#workshop-editor').style.height=Math.ceil(message.height)+'px';return;}
   if(message?.type==='workshop:sync-status'){state.cloudSync={status:message.status,message:message.message};workshopStore.status();return;}

@@ -34,7 +34,7 @@ try{
   await until(`d.querySelector('#savedPoemName')?.options.length>0`);
   await evaluate(`(()=>{const s=d.querySelector('#savedPoemName');s.value='Canción del pirata';s.dispatchEvent(new Event('change',{bubbles:true}));})()`);
   await until(`d.querySelector('#poemInput').value.includes('Con diez cañones')`);
-  assert.equal(await evaluate('document.querySelectorAll(".workshop-public-links a").length'),2);
+  assert.equal(await evaluate('document.querySelectorAll(".sidebar-resources a").length'),5);
   assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);
   await shot('01-taller-cabecera');
   await evaluate(`(()=>{const e=d.querySelector('#poemInput');e.value='Me aúlla en';e.dispatchEvent(new Event('input',{bubbles:true}));const t=d.querySelector('#poemTitle');t.value='Prueba de sinalefas';t.dispatchEvent(new Event('input',{bubbles:true}));})()`);

@@ -3,7 +3,7 @@ import {spawn} from 'node:child_process';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {WebSocket} from 'ws';
 const base=process.env.WORKSHOP_QA_ORIGIN||'http://localhost:8794';
-const out='qa/cabecera-taller/'+(base.startsWith('https:')?'produccion':'local');
+const out='qa/sidebar-recursos/'+(base.startsWith('https:')?'produccion':'local');
 await mkdir(out,{recursive:true});
 const browser=spawn('C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',['--headless=new','--disable-gpu','--no-first-run','--remote-debugging-port=9251',`--user-data-dir=${process.cwd()}\\.wrangler\\header-qa-browser`,'about:blank'],{stdio:'ignore',windowsHide:true});
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));let socket,send,created=false;const checks=[],errors=[];
@@ -23,7 +23,7 @@ try{
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:950,deviceScaleFactor:1,mobile:false});
  await send('Page.navigate',{url:base+'/taller/?view=editor'});await ready();
  await evaluate(`localStorage.setItem('mesa.colorTheme','light')`);await reload();
- await dimensions(1440);await shot('01-escritorio-sin-cuenta');await dimensions(390);await shot('02-movil-sin-cuenta');
+ await dimensions(1440);assert.equal(await evaluate('document.querySelectorAll(".topbar .workshop-public-links").length'),0);assert.equal(await evaluate('document.querySelectorAll(".sidebar-resources a").length'),5);assert.equal(await evaluate('document.querySelector(".sidebar-resources").open'),true);await shot('01-escritorio-sin-cuenta');await dimensions(390);assert.equal(await evaluate('document.querySelector(".sidebar-resources").open'),false);await shot('02-movil-sin-cuenta');
  await click('[data-account=login]');assert.equal(await evaluate('document.querySelector("#modal").open'),true);await click('#modal [data-action=close]');
  const name='Taller'+String(Date.now()).slice(-7);
  const status=await evaluate(`fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:${JSON.stringify(name)},email:${JSON.stringify(name+'@example.test')},password:'HeaderQA123!'})}).then(r=>r.status)`);assert.equal(status,200);created=true;
@@ -42,16 +42,16 @@ try{
  assert.equal(await evaluate('location.pathname'),'/');
  await send('Page.navigate',{url:base+'/taller/?view=editor'});await ready();
  await dimensions(390);await shot('05-movil-con-cuenta');
- await click('.workshop-user-menu>summary');await shot('06-menu-cuenta-movil');await click('.workshop-public-links a');
+ await click('.workshop-user-menu>summary');await shot('06-menu-cuenta-movil');await click('.sidebar-resources>summary');await shot('09-recursos-movil');await click('.sidebar-resources a[href="/agradecimientos.html"]');
  await until('document.readyState==="complete" && location.pathname.includes("agradecimientos")');
  await send('Page.navigate',{url:base+'/taller/?view=editor'});await ready();
- await dimensions(320);await dimensions(900);await dimensions(1024);
+ await dimensions(320);await dimensions(900);await dimensions(1024);await click('#sidebar-toggle');assert.equal(await evaluate('getComputedStyle(document.querySelector(".sidebar-resources")).display'),'none');await click('#sidebar-toggle');
  await click('[data-theme-toggle]');await until('document.documentElement.dataset.theme==="dark"');await dimensions(1440);await shot('07-escritorio-oscuro');await dimensions(390);await shot('08-movil-oscuro');
  await click('.workshop-user-menu>summary');await click('.topbar .theme-toggle');assert.equal(await evaluate('document.querySelector(".workshop-user-menu").open'),false);
  const stateResponse=await evaluate('fetch("/api/state").then(r=>r.status)');assert.equal(stateResponse,200);
  assert.equal(errors.length,0,JSON.stringify(errors));
  await writeFile(out+'/verificacion.json',JSON.stringify({checkedAt:new Date().toISOString(),dimensions:checks,anonymousAndSignedIn:true,accountMenu:true,escapeAndOutsideClick:true,themeToggle:true,saveAndBackupAccessible:true,linksAccessible:true,consoleErrors:0},null,2));
- await writeFile(out+'/galeria.html',`<!doctype html><meta charset="utf-8"><title>Cabecera del Taller</title><style>body{font:16px system-ui;background:#e6e4d9;margin:20px}img{display:block;max-width:100%;margin:16px 0 30px}</style><h1>Cabecera del Taller</h1>${['01-escritorio-sin-cuenta','02-movil-sin-cuenta','03-escritorio-con-cuenta','04-menu-cuenta','05-movil-con-cuenta','06-menu-cuenta-movil','07-escritorio-oscuro','08-movil-oscuro'].map(name=>`<h2>${name.slice(3).replaceAll('-',' ')}</h2><img src="${name}.png">`).join('')}`);
+ await writeFile(out+'/galeria.html',`<!doctype html><meta charset="utf-8"><title>Comunidad y recursos del Taller</title><style>body{font:16px system-ui;background:#e6e4d9;margin:20px}img{display:block;max-width:100%;margin:16px 0 30px}</style><h1>Comunidad y recursos del Taller</h1>${['01-escritorio-sin-cuenta','02-movil-sin-cuenta','03-escritorio-con-cuenta','04-menu-cuenta','05-movil-con-cuenta','06-menu-cuenta-movil','07-escritorio-oscuro','08-movil-oscuro','09-recursos-movil'].map(name=>`<h2>${name.slice(3).replaceAll('-',' ')}</h2><img src="${name}.png">`).join('')}`);
  console.log('Verified compact header, signed in/out, account menu, theme and responsive widths: '+JSON.stringify(checks));
 }finally{
  if(created&&send){try{const r=await send('Runtime.evaluate',{expression:`fetch('${base}/api/auth/account',{method:'DELETE',credentials:'include'}).then(r=>r.status)`,awaitPromise:true,returnByValue:true});assert.equal(r.result.value,200);console.log('Temporary QA account deleted.');}catch(e){console.error('QA cleanup failed:',e.message);process.exitCode=1;}}

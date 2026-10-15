@@ -71,14 +71,14 @@ body > .workspace,:root[data-theme] body > .workspace { max-width: none; grid-te
   .topbar { grid-template-columns:minmax(0,1fr) auto; gap:6px 10px; }
   .topbar .theme-toggle { grid-column:2; grid-row:1; justify-self:end; }
   .topbar .workshop-public-links { grid-column:1; grid-row:2; justify-content:flex-start; }
-  .topbar #workshop-account { grid-column:2; grid-row:2; border-left:0; padding-left:0; }
+  .topbar #workshop-account { grid-column:1 / -1; grid-row:2; justify-self:end; border-left:0; padding-left:0; }
 }
 @media (max-width: 760px) {
   .topbar { grid-template-columns:minmax(0,1fr) auto; margin:0 10px; gap:6px 10px; }
   .topbar .brand { grid-column:1; grid-row:1; }
   .topbar .theme-toggle { grid-column:2; grid-row:1; justify-self:end; }
   .topbar .workshop-public-links { grid-column:1; grid-row:2; }
-  .topbar #workshop-account { grid-column:2; grid-row:2; border-left:0; padding-left:0; }
+  .topbar #workshop-account { grid-column:1 / -1; grid-row:2; justify-self:end; border-left:0; padding-left:0; }
   #workshop-account button,#workshop-account summary { min-height:34px; }
   #workshop-save-status { width:6px; max-width:6px; font-size:0; gap:0; margin:0 2px 0 0; }
   .workshop-user-menu>summary { padding:4px; }
@@ -95,4 +95,24 @@ body > .workspace,:root[data-theme] body > .workspace { max-width: none; grid-te
   .workshop-footer { margin:12px 10px 0; }
   .workshop-footer nav { gap:10px 16px; }
   .workshop-credit-groups { grid-template-columns:1fr; gap:14px; }
+}
+
+/* Secondary links stay together, away from the poem controls. */
+.sidebar-resources { margin-top:28px; border-top:1px solid var(--line); padding-top:16px; font-size:11px; line-height:1.5; }
+.sidebar-resources>summary { color:var(--muted); font-size:10px; font-weight:600; cursor:pointer; list-style:none; }
+.sidebar-resources>summary::-webkit-details-marker { display:none; }
+.sidebar-resources>summary::after { content:'+'; float:right; margin-left:4px; }
+.sidebar-resources[open]>summary::after { content:'−'; }
+.sidebar-resource-links,.sidebar-project-links { display:grid; gap:2px; margin-top:8px; }
+.sidebar-project-links { border-top:1px solid var(--line); padding-top:8px; }
+.sidebar-resources a { display:flex; align-items:baseline; gap:4px; padding:6px 0; color:var(--muted); text-decoration:none; overflow-wrap:anywhere; }
+.sidebar-resources a>span { flex:0 0 auto; }
+.sidebar-resources a:hover { color:var(--text); text-decoration:underline; text-underline-offset:3px; }
+.sidebar-resources a:focus-visible,.sidebar-resources>summary:focus-visible { outline:2px solid var(--action); outline-offset:3px; border-radius:2px; }
+.sidebar-collapsed .sidebar-resources { display:none; }
+@media (max-width:760px) {
+  .sidebar .sidebar-resources,.sidebar-collapsed .sidebar .sidebar-resources { display:block; margin-top:8px; padding-top:0; border-top:0; }
+  .sidebar-resources>summary { padding:8px 10px; border:1px solid var(--line); border-radius:5px; font-size:11px; }
+  .sidebar-resource-links,.sidebar-project-links { padding-left:10px; padding-right:10px; }
+  .sidebar-resources a { padding:10px 0; font-size:12px; }
 }

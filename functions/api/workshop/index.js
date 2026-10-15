@@ -5,7 +5,6 @@ const contestFields=['id','name','organizer','country','deadline','deadlineTime'
 export async function onRequestGet({request,env}){
  const {user,error}=await requireUser(request,env);if(error)return error;
  const db=env.escandidor_db;
- await db.prepare('INSERT OR IGNORE INTO workshop_revisions(user_id) VALUES(?)').bind(user.id).run();
  const [rev,contests,tags,assignments,prefs]=await db.batch([
   db.prepare('SELECT revision FROM workshop_revisions WHERE user_id=?').bind(user.id),
   db.prepare('SELECT data_json FROM contests WHERE user_id=?').bind(user.id),
@@ -14,7 +13,7 @@ export async function onRequestGet({request,env}){
   db.prepare('SELECT data_json FROM workshop_preferences WHERE user_id=?').bind(user.id)
  ]);
  const localTags={};for(const row of assignments.results)(localTags[row.poem_key]??=[]).push(row.tag_name);
- return reply({ok:true,revision:rev.results[0].revision,data:{schemaVersion:1,poems:[],contests:contests.results.map(r=>JSON.parse(r.data_json)),tagCatalog:tags.results.map(r=>r.name),tagColors:Object.fromEntries(tags.results.map(r=>[r.name,r.color])),localTags,preferences:JSON.parse(prefs.results[0]?.data_json||'{}')}});
+ return reply({ok:true,revision:rev.results[0]?.revision??0,data:{schemaVersion:1,poems:[],contests:contests.results.map(r=>JSON.parse(r.data_json)),tagCatalog:tags.results.map(r=>r.name),tagColors:Object.fromEntries(tags.results.map(r=>[r.name,r.color])),localTags,preferences:JSON.parse(prefs.results[0]?.data_json||'{}')}});
 }
 export async function onRequestPut({request,env}){
  const {user,error}=await requireUser(request,env);if(error)return error;
@@ -33,14 +32,31 @@ export async function onRequestPut({request,env}){
  if(inputPrefs.appearance){const p=inputPrefs.appearance;if(!/^#[\da-f]{6}$/i.test(p.color||'')||!['poem','workshop','all'].includes(p.scope)||typeof p.newPoems!=='boolean'||(p.since&&!Number.isFinite(Date.parse(p.since))))return errorResponse('Apariencia inválida.',400);cleanPrefs.appearance=visualPreferences(p);}
  const storedPrefs=JSON.stringify(cleanPrefs);
  const db=env.escandidor_db,token=crypto.randomUUID();
- await db.prepare('INSERT OR IGNORE INTO workshop_revisions(user_id) VALUES(?)').bind(user.id).run();
+ if(revision===0)await db.prepare('INSERT OR IGNORE INTO workshop_revisions(user_id) VALUES(?)').bind(user.id).run();
  const gate='EXISTS(SELECT 1 FROM workshop_revisions WHERE user_id=? AND mutation_token=?)';
  const commands=[db.prepare('UPDATE workshop_revisions SET revision=revision+1,mutation_token=? WHERE user_id=? AND revision=?').bind(token,user.id,revision)];
- for(const table of ['poem_tag_assignments','poem_tags','contests','workshop_preferences'])commands.push(db.prepare(`DELETE FROM ${table} WHERE user_id=? AND ${gate}`).bind(user.id,user.id,token));
- for(const c of contests)commands.push(db.prepare(`INSERT INTO contests SELECT ?,?,? WHERE ${gate}`).bind(user.id,c.id,JSON.stringify(c),user.id,token));
- for(const tag of tags)commands.push(db.prepare(`INSERT INTO poem_tags SELECT ?,?,? WHERE ${gate}`).bind(user.id,tag,data.tagColors[tag],user.id,token));
- for(const a of assignments)commands.push(db.prepare(`INSERT INTO poem_tag_assignments SELECT ?,?,? WHERE ${gate}`).bind(user.id,a.key,a.tag,user.id,token));
- commands.push(db.prepare(`INSERT INTO workshop_preferences SELECT ?,? WHERE ${gate}`).bind(user.id,storedPrefs,user.id,token));
+ const contestRows=JSON.stringify(contests.map(c=>({id:c.id,data:JSON.stringify(c)})));
+ const tagRows=JSON.stringify(tags.map(name=>({name,color:data.tagColors[name]})));
+ const assignmentRows=JSON.stringify(assignments);
+ // Preserve unchanged rows, including their indexes and foreign keys. JSON
+ // tables also keep statement and parameter counts bounded for large libraries.
+ commands.push(db.prepare(`DELETE FROM poem_tag_assignments WHERE user_id=? AND ${gate}
+   AND (poem_key,tag_name) NOT IN(SELECT json_extract(value,'$.key'),json_extract(value,'$.tag') FROM json_each(?))`).bind(user.id,user.id,token,assignmentRows));
+ commands.push(db.prepare(`DELETE FROM poem_tags WHERE user_id=? AND ${gate}
+   AND name NOT IN(SELECT json_extract(value,'$.name') FROM json_each(?))`).bind(user.id,user.id,token,tagRows));
+ commands.push(db.prepare(`DELETE FROM contests WHERE user_id=? AND ${gate}
+   AND contest_key NOT IN(SELECT json_extract(value,'$.id') FROM json_each(?))`).bind(user.id,user.id,token,contestRows));
+ commands.push(db.prepare(`INSERT INTO contests(user_id,contest_key,data_json)
+   SELECT ?,json_extract(value,'$.id'),json_extract(value,'$.data') FROM json_each(?) WHERE ${gate}
+   ON CONFLICT(user_id,contest_key) DO UPDATE SET data_json=excluded.data_json WHERE contests.data_json IS NOT excluded.data_json`).bind(user.id,contestRows,user.id,token));
+ commands.push(db.prepare(`INSERT INTO poem_tags(user_id,name,color)
+   SELECT ?,json_extract(value,'$.name'),json_extract(value,'$.color') FROM json_each(?) WHERE ${gate}
+   ON CONFLICT(user_id,name) DO UPDATE SET color=excluded.color WHERE poem_tags.color IS NOT excluded.color`).bind(user.id,tagRows,user.id,token));
+ commands.push(db.prepare(`INSERT INTO poem_tag_assignments(user_id,poem_key,tag_name)
+   SELECT ?,json_extract(value,'$.key'),json_extract(value,'$.tag') FROM json_each(?) WHERE ${gate}
+   ON CONFLICT(user_id,poem_key,tag_name) DO NOTHING`).bind(user.id,assignmentRows,user.id,token));
+ commands.push(db.prepare(`INSERT INTO workshop_preferences(user_id,data_json) SELECT ?,? WHERE ${gate}
+   ON CONFLICT(user_id) DO UPDATE SET data_json=excluded.data_json WHERE workshop_preferences.data_json IS NOT excluded.data_json`).bind(user.id,storedPrefs,user.id,token));
  const results=await db.batch(commands);
  if(!results[0].meta.changes)return reply({ok:false,error:'El taller cambió en otra pestaña. Recargá antes de guardar para conservar ambas versiones.'},409);
  return reply({ok:true,revision:revision+1});

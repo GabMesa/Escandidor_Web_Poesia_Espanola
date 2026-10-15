@@ -17,7 +17,13 @@ export async function openWorkshopStore(){
   const detail=error?'Pendiente de guardar: '+error:waiting?'Sincronizando poemas y taller…':user?'Guardado en tu cuenta':'Sin cuenta · poemas en este navegador';
   node.textContent=error?'Pendiente':waiting?'Guardando…':user?'Guardado':'Local';node.title=detail;node.setAttribute('aria-label',detail);node.dataset.state=error?'error':waiting?'saving':user?'saved':'local';
  };
- async function flush(){
+ let flushing=null;
+ function flush(){
+  if(flushing)return flushing;
+  flushing=flushSnapshot().finally(()=>{flushing=null;});
+  return flushing;
+ }
+ async function flushSnapshot(){
   if(!user||!runtime.pending)return;const snapshot=runtime.pending;
   try{
    let upload=snapshot;
@@ -41,6 +47,7 @@ export async function openWorkshopStore(){
  }
  function save(value){
   localStorage.setItem(key,JSON.stringify(value));
+  if(user&&!runtime.error&&JSON.stringify(value)===JSON.stringify(runtime.pending||runtime.baseline)){status();return;}
   if(user){runtime.pending=structuredClone(value);localStorage.setItem(key+':pending',JSON.stringify({revision:runtime.revision,data:value}));runtime.queue=runtime.queue.catch(()=>{}).then(flush);runtime.queue.catch(()=>{});}status();
  }
  async function settle(){await runtime.queue.catch(()=>{});await flush();}

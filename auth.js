@@ -60,11 +60,11 @@ const cloudSync = createCloudSync({
 });
 
 let activeSync;
-async function synchronizePoems() {
+async function synchronizePoems({force = true} = {}) {
   if (!applicationState.auth.user) throw Error('Iniciá sesión para sincronizar.');
   if (activeSync) return activeSync;
   activeSync = (async () => {
-    await cloudSync.loadFromServer();
+    await cloudSync.loadFromServer({force});
     await cloudSync.whenIdle();
     if (applicationState.sync.error || cloudSync.pendingCount()) throw applicationState.sync.error || Error('Quedan guardados pendientes de subir.');
   })().finally(() => { activeSync = null; });
@@ -76,10 +76,14 @@ applicationState.runtime.syncImportedPoems = async (details,onProgress) => {
   await cloudSync.syncImportedVersions(details,progress=>{uploaded=progress.completed;onProgress(progress);});
   return {uploaded,pending:details.length-uploaded,error:uploaded<details.length?applicationState.sync.error?.message||'Sincronización pendiente.':''};
 };
+let lastBackgroundRefresh = 0;
 const refreshInBackground = () => {
-  if (applicationState.auth.user && applicationState.runtime.authInitialized && !document.hidden) synchronizePoems().catch(() => {});
+  if (applicationState.auth.user && applicationState.runtime.authInitialized && !document.hidden && Date.now()-lastBackgroundRefresh >= 25_000) {
+    lastBackgroundRefresh = Date.now();
+    synchronizePoems({force:false}).catch(() => {});
+  }
 };
-window.addEventListener('online', refreshInBackground);
+window.addEventListener('online', () => {lastBackgroundRefresh=0;refreshInBackground();});
 window.addEventListener('focus', refreshInBackground);
 document.addEventListener('visibilitychange', refreshInBackground);
 window.setInterval(refreshInBackground, 30_000);
@@ -333,7 +337,7 @@ apiRequest('/api/auth/me')
     cloudSaveStatus.classList.add('is-error');
   });
 
-window.setInterval(checkCurrentSession, 10_000);
+window.setInterval(checkCurrentSession, 60_000);
 
 const authError = new URL(window.location.href).searchParams.get('auth_error');
 if (authError) {

@@ -101,18 +101,50 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     assert.equal(firstRegistration.response.status, 200);
     assert.equal(firstRegistration.payload.user.role, 'user');
     let firstCookie = cookieFrom(firstRegistration.response);
+    assert.equal((await jsonRequest(baseUrl,'/api/sync-status')).response.status,401);
+    const syncRevision=async()=>{
+      const result=await jsonRequest(baseUrl,'/api/sync-status',{cookie:firstCookie});
+      assert.equal(result.response.status,200,JSON.stringify(result.payload));
+      assert.equal(result.response.headers.get('cache-control'),'no-store');
+      return result.payload.revision;
+    };
+    const emptyRevision=await syncRevision();assert.equal(await syncRevision(),emptyRevision);
     const workshop=await jsonRequest(baseUrl,'/api/workshop',{cookie:firstCookie});
     const appearance={color:'#205EA6',scope:'workshop',newPoems:true,since:'2026-10-15T12:00:00Z'};
     const workshopData={...workshop.payload.data,preferences:{...workshop.payload.data.preferences,appearance}};
     const savedAppearance=await jsonRequest(baseUrl,'/api/workshop',{method:'PUT',cookie:firstCookie,body:{revision:workshop.payload.revision,data:workshopData}});
     assert.equal(savedAppearance.response.status,200,JSON.stringify(savedAppearance.payload));
     assert.deepEqual((await jsonRequest(baseUrl,'/api/workshop',{cookie:firstCookie})).payload.data.preferences.appearance,appearance);
+    // Audit actual SQLite mutations: changing preferences must leave contests,
+    // tags and assignments intact, and stale writers must change nothing.
+    const taggedData={...workshopData,tagCatalog:['río','campo'],tagColors:{'río':'#205EA6','campo':'#879A39'},localTags:{'poem:qa':['río','campo']},contests:[{id:'write-qa',name:'Concurso',selections:[],snapshots:[],profile:{}}]};
+    const seeded=await jsonRequest(baseUrl,'/api/workshop',{method:'PUT',cookie:firstCookie,body:{revision:savedAppearance.payload.revision,data:taggedData}});
+    assert.equal(seeded.response.status,200,JSON.stringify(seeded.payload));
+    const auditedTables=['contests','poem_tags','poem_tag_assignments'];
+    const auditTriggers=auditedTables.flatMap(table=>['INSERT','UPDATE','DELETE'].map(op=>`qa_${table}_${op}`));
+    runWrangler(['d1','execute','escandidor-db','--local','--persist-to',persistence,'--command',
+      'CREATE TABLE qa_workshop_writes(name TEXT);'+auditedTables.flatMap(table=>['INSERT','UPDATE','DELETE'].map(op=>`CREATE TRIGGER qa_${table}_${op} AFTER ${op} ON ${table} BEGIN INSERT INTO qa_workshop_writes VALUES('${table}'); END;`)).join('')]);
+    const prefOnly={...taggedData,preferences:{...taggedData.preferences,appearance:{...appearance,color:'#879A39'}}};
+    const changedPrefs=await jsonRequest(baseUrl,'/api/workshop',{method:'PUT',cookie:firstCookie,body:{revision:seeded.payload.revision,data:prefOnly}});
+    assert.equal(changedPrefs.response.status,200,JSON.stringify(changedPrefs.payload));
+    const unchanged=await jsonRequest(baseUrl,'/api/workshop',{method:'PUT',cookie:firstCookie,body:{revision:changedPrefs.payload.revision,data:prefOnly}});
+    assert.equal(unchanged.response.status,200,JSON.stringify(unchanged.payload));
+    assert.equal((await jsonRequest(baseUrl,'/api/workshop',{method:'PUT',cookie:firstCookie,body:{revision:seeded.payload.revision,data:workshopData}})).response.status,409);
+    const audited=JSON.parse(runWrangler(['d1','execute','escandidor-db','--local','--persist-to',persistence,'--json','--command',
+      'SELECT COUNT(*) AS writes FROM qa_workshop_writes;'+auditTriggers.map(name=>`DROP TRIGGER ${name};`).join('')+'DROP TABLE qa_workshop_writes;']));
+    assert.equal(audited[0].results[0].writes,0);
+    const removedTags={...prefOnly,tagCatalog:['campo'],localTags:{'poem:qa':['campo']},contests:[]};
+    assert.equal((await jsonRequest(baseUrl,'/api/workshop',{method:'PUT',cookie:firstCookie,body:{revision:unchanged.payload.revision,data:removedTags}})).response.status,200);
+    const afterRemoval=(await jsonRequest(baseUrl,'/api/workshop',{cookie:firstCookie})).payload.data;
+    assert.deepEqual(afterRemoval.tagCatalog,['campo']);assert.deepEqual(afterRemoval.localTags,{'poem:qa':['campo']});assert.deepEqual(afterRemoval.contests,[]);
     const pinnedPayload={title:'Versión fijada por un concurso',content:'Un verso conservado.',sync:{id:'contest-pinned',versionNumber:1},settings:{poemFont:'atkinson'}};
     const pinnedPoem=await jsonRequest(baseUrl,'/api/poems',{method:'POST',cookie:firstCookie,body:pinnedPayload});
     const pinnedId=pinnedPoem.payload.poem.id;
+    const createdRevision=await syncRevision();assert.notEqual(createdRevision,emptyRevision);
     const pinBatch=await jsonRequest(baseUrl,`/api/poems/${pinnedId}/versions`,{method:'POST',cookie:firstCookie,body:{versions:['middle','latest','final'].map((id,index)=>({...pinnedPayload,content:index%2===0?'Otra alternativa conservada.':pinnedPayload.content,sync:{id:'contest-'+id,versionNumber:index+2}}))}});
     assert.equal(pinBatch.response.status,200,JSON.stringify(pinBatch.payload));
     assert.equal(pinBatch.payload.uploaded?.length,3,JSON.stringify(pinBatch.payload));
+    const batchRevision=await syncRevision();assert.notEqual(batchRevision,createdRevision);
     const pinWorkshop=await jsonRequest(baseUrl,'/api/workshop',{cookie:firstCookie});
     const pinData={...pinWorkshop.payload.data,contests:[{id:'pin-qa',name:'Concurso de prueba',selections:[{poemId:'poem:'+pinnedId,versionId:`cloud-${pinnedId}-1`}],snapshots:[],profile:{}}]};
     assert.equal((await jsonRequest(baseUrl,'/api/workshop',{method:'PUT',cookie:firstCookie,body:{revision:pinWorkshop.payload.revision,data:pinData}})).response.status,200);
@@ -120,7 +152,9 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     assert.equal(pinnedCompression.payload.removed,1,JSON.stringify({compression:pinnedCompression.payload,history:(await jsonRequest(baseUrl,'/api/poems',{cookie:firstCookie})).payload.poems.find(p=>p.id===pinnedId)}));
     const pinnedHistory=(await jsonRequest(baseUrl,'/api/poems',{cookie:firstCookie})).payload.poems.find(p=>p.id===pinnedId).versions;
     assert.deepEqual(pinnedHistory.map(v=>v.sync.id),['contest-pinned','contest-latest','contest-final']);
+    const compressedRevision=await syncRevision();assert.notEqual(compressedRevision,batchRevision);
     await jsonRequest(baseUrl,`/api/poems/${pinnedId}`,{method:'DELETE',cookie:firstCookie});
+    assert.notEqual(await syncRevision(),compressedRevision);
     runWrangler(['d1','execute','escandidor-db','--local','--persist-to',persistence,'--command',`DELETE FROM deleted_poems WHERE poem_id=${Number(pinnedId)};DELETE FROM contests WHERE contest_key='pin-qa';`]);
     assert.equal((await jsonRequest(baseUrl, '/api/contests/import', { method: 'POST', body: { url: 'https://example.com/' } })).response.status, 401);
     assert.equal((await jsonRequest(baseUrl, '/api/contests/import', { method: 'POST', cookie: firstCookie, body: { url: 'http://127.0.0.1/' } })).response.status, 422);

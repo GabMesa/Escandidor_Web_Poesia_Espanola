@@ -1,7 +1,56 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createCloudSync } from '../cloud-sync.js';
+import { createCloudSync as createRevisionCloudSync } from '../cloud-sync.js';
 import { compressPoemVersions } from '../poem-compression.js';
+
+// Legacy fixtures model a server without revision support. Revision-aware
+// requests and invalidation are exercised separately below.
+function createCloudSync(options) {
+  return createRevisionCloudSync({...options,request:(path,...args)=>path==='/api/sync-status'
+    ? Promise.resolve(jsonResponse({ok:true})) : options.request(path,...args)});
+}
+
+test('unchanged 5000-version libraries avoid all history and trash reads; remote edits, local drafts and refresh invalidate the snapshot',async()=>{
+ const storage=new MemoryStorage(),calls=[];let revision='1',content='Original';
+ const sync=createRevisionCloudSync({storage,request:async(path,options={})=>{
+  calls.push(path);
+  if(path==='/api/sync-status')return jsonResponse({revision});
+  if(path==='/api/trash')return jsonResponse({trash:[],deletedPoemIds:[]});
+  if(options.method)return jsonResponse({poem:{id:11,version:2}});
+  const after=Number(new URL(path,'https://example.test').searchParams.get('afterVersion'))||0;
+  const versions=Array.from({length:Math.min(200,5000-after)},(_,i)=>({version:after+i+1,content:after+i===0?content:'Verso '+(after+i),sync:{id:after+i===0?'one':'version-'+(after+i)}}));
+  return jsonResponse({poems:[{id:11,title:'Luna',versions}],nextCursor:after+200<5000?{poemId:11,version:after+200}:null});
+ }});
+ sync.setUser({id:93});await sync.loadFromServer();
+ assert.equal(JSON.parse(storage.getItem('escandador.poemMemory.v1')).poems['server:11'].length,5000);
+ assert.equal(calls.filter(path=>path.startsWith('/api/poems?')).length,25);calls.length=0;
+ for(let i=0;i<120;i++)await sync.loadFromServer();
+ assert.equal(calls.length,120);assert.ok(calls.every(path=>path==='/api/sync-status'));
+ content='Cambio del otro dispositivo';revision='2';calls.length=0;await sync.loadFromServer();
+ assert.ok(calls.some(path=>path.startsWith('/api/poems?')));
+ assert.equal(JSON.parse(storage.getItem('escandador.poemMemory.v1')).poems['server:11'][0].poemText,content);
+ calls.length=0;await sync.loadFromServer({force:true});assert.ok(calls.includes('/api/trash'));
+ const memory=JSON.parse(storage.getItem('escandador.poemMemory.v1'));memory.poems['server:11'].push({...version('offline',2,'Borrador sin subir'),poemTitle:'Luna'});
+ storage.setItem('escandador.poemMemory.v1',JSON.stringify(memory));calls.length=0;await sync.loadFromServer();
+ assert.ok(calls.includes('/api/poems/11'));
+ calls.length=0;sync.setUser(null);sync.setUser({id:93});await sync.loadFromServer();assert.ok(calls.includes('/api/trash'));
+});
+
+test('revision checks retry pending uploads and never hide network failures',async()=>{
+ const storage=new MemoryStorage(),state={user:null,queue:Promise.resolve()};let offline=false,uploads=0,reads=0;
+ const sync=createRevisionCloudSync({storage,state,request:async(path,options={})=>{
+  if(offline)return jsonResponse({error:'Sin conexión'},503);
+  if(options.method){uploads++;return jsonResponse({poem:{id:11,version:1}});}
+  if(path==='/api/sync-status')return jsonResponse({revision:'stable'});
+  if(path==='/api/trash')return jsonResponse({trash:[]});
+  reads++;return jsonResponse({poems:[]});
+ }});
+ sync.setUser({id:94});await sync.loadFromServer();offline=true;
+ await sync.syncSavedVersion({poemKey:'luna',title:'Luna',version:version('one',1,'Luna primera')});
+ await sync.loadFromServer();assert.ok(state.error);assert.equal(sync.pendingCount(),1);
+ offline=false;await sync.loadFromServer();assert.equal(uploads,1);assert.equal(sync.pendingCount(),0);assert.equal(state.error,null);
+ assert.equal(reads,1);
+});
 
 test('merged server poems and multiple local keys converge to one poem without losing an offline revision',async()=>{
  const storage=new MemoryStorage(),writes=[];

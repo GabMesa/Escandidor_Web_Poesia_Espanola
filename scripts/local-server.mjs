@@ -20,6 +20,7 @@ if(syncProbe.status!==0)migrate('migrations/0017_poem_version_sync.sql');
 migrate('migrations/0018_compressed_versions.sql');
 const identityProbe=spawnSync(process.execPath,[wrangler,'d1','execute','escandidor-local','--config','wrangler.local.jsonc','--local','--persist-to',storage,'--command','SELECT title_key FROM poems LIMIT 0'],{cwd:root,env,windowsHide:true,encoding:'utf8'});
 if(identityProbe.status!==0)migrate('migrations/0019_poem_identity.sql');
+migrate('migrations/0020_library_revisions.sql');
 const runtime=resolve(storage,'runtime');await mkdir(runtime,{recursive:true});const config=JSON.parse(await readFile(resolve(root,'wrangler.local.jsonc'),'utf8'));config.pages_build_output_dir=root;await writeFile(resolve(runtime,'wrangler.jsonc'),JSON.stringify(config));try{await access(resolve(runtime,'functions'));}catch{await symlink(resolve(root,'functions'),resolve(runtime,'functions'),'junction');}
 const probe=spawnSync('python',[resolve(root,'scripts/local-database-profile.py'),resolve(storage,'v3/d1/miniflare-D1DatabaseObject')],{windowsHide:true,encoding:'utf8'});if(probe.status!==0)throw Error('No se pudo verificar la base cifrada local.');const profileStatus=JSON.parse(probe.stdout);
 const secret=await localPlicaKey({allowCreate:profileStatus.count===0});if(profileStatus.profile)await decryptPlica(profileStatus.profile.encrypted,secret,profileStatus.profile.owner,webcrypto);

@@ -84,6 +84,7 @@ export function createCloudSync({
 } = {}) {
   let user = state.user;
   let queue = state.queue;
+  let lastRemoteRevision = null, lastSyncedMemory = null, lastCompressionPreference = null;
 
   function mapKey() {
     return `${CLOUD_MAP_PREFIX}:${user?.id ?? 'anonymous'}`;
@@ -451,6 +452,8 @@ export function createCloudSync({
         return;
       }
       preserveActiveMemory();
+      lastRemoteRevision = null;
+      lastSyncedMemory = null;
       const nextOwner = next ? String(next.id) : 'anonymous';
       const nextKey = next ? userMemoryKey(next.id) : ANONYMOUS_MEMORY_KEY;
       activateMemory(readMemory(nextKey), nextOwner);
@@ -519,7 +522,7 @@ export function createCloudSync({
       });
     },
 
-    loadFromServer() {
+    loadFromServer({force = false} = {}) {
       if (!user) return Promise.resolve();
       return enqueue(async () => {
         // Replay in order before fetching so compressed versions are not reimported.
@@ -548,6 +551,19 @@ export function createCloudSync({
           }
         }
         if(completed.size)saveOutbox(loadOutbox(syncOwner).filter(op=>!completed.has(op.id)),syncOwner);
+        let remoteRevision = null;
+        try {
+          const result = await api('/api/sync-status');
+          if (typeof result.revision === 'string') remoteRevision = result.revision;
+        } catch (error) {
+          // Compatibility while a deployment is rolling out. Other failures
+          // must retain the error and retry instead of claiming to be synced.
+          if (error.status !== 404) throw error;
+        }
+        if (user?.id !== syncOwner) return;
+        if (!force && remoteRevision !== null && remoteRevision === lastRemoteRevision
+          && storage.getItem(POEM_MEMORY_KEY) === lastSyncedMemory && !loadOutbox(syncOwner).length
+          && shouldAutoCompress() === lastCompressionPreference) return;
         preserveActiveMemory();
         const beforeDownload=readMemory(POEM_MEMORY_KEY);
         let remote = await downloadLibrary();
@@ -720,6 +736,9 @@ export function createCloudSync({
         saveMap(map);
         writePersistentStorage(storage, userMemoryKey(user.id), JSON.stringify(memory));
         activateMemory(memory, String(user.id), true);
+        lastRemoteRevision = remoteRevision;
+        lastSyncedMemory = storage.getItem(POEM_MEMORY_KEY);
+        lastCompressionPreference = shouldAutoCompress();
         onTrash(remoteTrash.trash || []);
       });
     },

@@ -33,7 +33,7 @@ try{
  await ev(`document.querySelector('[data-action=open-contest-poem][data-id="local:local:a"]').click()`);await until(`app.workshop.view==='editor'&&!app.workshop.openingEditorId`);
  await ev(`window.originalColors=JSON.stringify(app.workshop.data.preferences.poemColors);window.originalText=JSON.stringify(JSON.parse(storage.getItem('escandador.poemMemory.v1')).poems);`);
  const setAppearance=async scope=>{
-  await ev(`document.querySelector('[data-action=appearance-preferences]').click();const form=document.querySelector('#visual-preferences-form');form.elements.color.value='#205EA6';form.elements.scope.value='${scope}';`);
+  await ev(`document.querySelector('[data-action=appearance-preferences]').click();document.querySelector('[data-appearance-pick]').click();document.querySelector('.shared-color-picker [data-color="#205EA6"]').click();document.querySelector('.shared-color-picker [data-picker=accept]').click();const form=document.querySelector('#visual-preferences-form');form.elements.scope.value='${scope}';`);
   if(scope==='workshop'){await shot('02-preferencias');}
   await ev(`document.querySelector('#visual-preferences-form').requestSubmit()`);await until(`!document.querySelector('#modal').open`);
  };
@@ -41,7 +41,7 @@ try{
  assert.equal(await ev(`document.documentElement.style.getPropertyValue('--working-poem-color')`),'#205EA6');
  assert.equal(await ev(`document.querySelector('#workshop-editor').contentDocument.documentElement.style.getPropertyValue('--poem-color')`),'#A02F6F');
  await setAppearance('all');assert.equal(await ev(`document.querySelector('#workshop-editor').contentDocument.documentElement.style.getPropertyValue('--poem-color')`),'#205EA6');
- await ev(`document.querySelector('[data-view=library]').click();document.querySelector('[data-theme-toggle]').click()`);await shot('03-biblioteca-azul-oscuro');
+ await ev(`document.querySelector('[data-view=library]').click();window.setMesaTheme('dark')`);await shot('03-biblioteca-azul-oscuro');
  await setAppearance('poem');assert.equal(await ev(`document.querySelector('#workshop-editor').contentDocument.documentElement.style.getPropertyValue('--poem-color')`),'#A02F6F');
  assert.equal(await ev(`JSON.stringify(app.workshop.data.preferences.poemColors)===originalColors`),true);
  assert.equal(await ev(`JSON.stringify(JSON.parse(storage.getItem('escandador.poemMemory.v1')).poems)===originalText`),true);

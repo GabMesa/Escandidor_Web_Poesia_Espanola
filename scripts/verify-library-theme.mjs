@@ -32,6 +32,11 @@ try{
  const theme=async value=>{if(await evaluate('document.documentElement.dataset.theme')!==value)await click('[data-theme-toggle]');await until(`document.documentElement.dataset.theme===${JSON.stringify(value)}`);await sleep(350);};
  const photo=async name=>{await evaluate('document.querySelector(".library-inspector").scrollIntoView({block:"start"})');await shot(name);};
  await theme('dark');await inspect();await photo('01-biblioteca-oscura');
+ await evaluate('document.documentElement.classList.remove("working-poem")');
+ const bulk=await evaluate(`(()=>{const e=document.querySelector('.library-bulk'),c=document.createElement('canvas').getContext('2d');c.fillStyle=getComputedStyle(e).backgroundColor;c.fillRect(0,0,1,1);return Array.from(c.getImageData(0,0,1,1).data).slice(0,3);})()`);
+ assert.ok(Math.max(...bulk)<100,JSON.stringify(bulk));
+ await evaluate('document.querySelector(".library-bulk").scrollIntoView({block:"center"})');await shot('05-seleccionar-visibles-oscuro');
+ 
  for(const color of ['#536907','#AF3029','#205EA6']){
    await evaluate(`document.querySelector('#workshop-editor').contentWindow.postMessage({type:'workshop:library-command',requestId:'library-tint',command:{action:'color',poemKey:ea.editor.loadedVersionTitle,value:${JSON.stringify(color)}}},location.origin)`);
    await until(`getComputedStyle(document.documentElement).getPropertyValue('--working-poem-color').trim()===${JSON.stringify(color)}`);await inspect();
@@ -41,6 +46,6 @@ try{
  await dimensions(1440);await photo('04-biblioteca-clara');
  assert.equal(errors.length,0,JSON.stringify(errors));
  await writeFile(out+'/verificacion.json',JSON.stringify({checkedAt:new Date().toISOString(),checks,consoleErrors:0},null,2));
- await writeFile(out+'/galeria.html',`<!doctype html><meta charset="utf-8"><title>Biblioteca en claro y oscuro</title><style>body{font:16px system-ui;background:#e6e4d9;margin:20px}img{display:block;max-width:100%;margin:16px 0 30px}</style><h1>Biblioteca en claro y oscuro</h1>${['01-biblioteca-oscura','02-biblioteca-oscura-movil','03-biblioteca-clara-movil','04-biblioteca-clara'].map(name=>`<h2>${name.slice(3).replaceAll('-',' ')}</h2><img src="${name}.png">`).join('')}`);
+ await writeFile(out+'/galeria.html',`<!doctype html><meta charset="utf-8"><title>Biblioteca en claro y oscuro</title><style>body{font:16px system-ui;background:#e6e4d9;margin:20px}img{display:block;max-width:100%;margin:16px 0 30px}</style><h1>Biblioteca en claro y oscuro</h1>${['01-biblioteca-oscura','02-biblioteca-oscura-movil','03-biblioteca-clara-movil','04-biblioteca-clara','05-seleccionar-visibles-oscuro'].map(name=>`<h2>${name.slice(3).replaceAll('-',' ')}</h2><img src="${name}.png">`).join('')}`);
  console.log('Verified library preview and quotes: dark/light, mobile/desktop, three poem colors, contrast >= 4.5:1.');
 }finally{try{await send?.('Browser.close');}catch{}socket?.close();if(browser.exitCode===null)browser.kill();}

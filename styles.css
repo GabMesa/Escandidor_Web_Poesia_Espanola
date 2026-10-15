@@ -20,6 +20,7 @@
 
 @font-face {
   font-family: "OpenDyslexic";
+  font-display: swap;
   src: url("opendyslexic-0.92/OpenDyslexic-Regular.otf") format("opentype");
   font-weight: 400;
   font-style: normal;
@@ -27,6 +28,7 @@
 
 @font-face {
   font-family: "OpenDyslexic";
+  font-display: swap;
   src: url("opendyslexic-0.92/OpenDyslexic-Italic.otf") format("opentype");
   font-weight: 400;
   font-style: italic;
@@ -34,6 +36,7 @@
 
 @font-face {
   font-family: "OpenDyslexic";
+  font-display: swap;
   src: url("opendyslexic-0.92/OpenDyslexic-Bold.otf") format("opentype");
   font-weight: 700;
   font-style: normal;
@@ -41,6 +44,7 @@
 
 @font-face {
   font-family: "OpenDyslexic";
+  font-display: swap;
   src: url("opendyslexic-0.92/OpenDyslexic-BoldItalic.otf") format("opentype");
   font-weight: 700;
   font-style: italic;

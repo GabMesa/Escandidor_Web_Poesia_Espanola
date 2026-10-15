@@ -211,6 +211,7 @@ const selectedLookupWord = document.getElementById('selectedLookupWord');
 const lookupRaeBtn = document.getElementById('lookupRaeBtn');
 const lookupRimasBtn = document.getElementById('lookupRimasBtn');
 const lookupResults = document.getElementById('lookupResults');
+const lookupShell = document.getElementById('lookupShell');
 const lookupExcludeCurrentBtn = document.getElementById('lookupExcludeCurrentBtn');
 const lookupExcludedBar = document.getElementById('lookupExcludedBar');
 const workspace = document.querySelector('.workspace');
@@ -913,12 +914,13 @@ function queueLookupAutoFetch() {
     lookupAutoFetchTimer = null;
   }
 
-  if (!state.selectedLookupWord) {
+  if (!state.selectedLookupWord || !lookupShell?.open) {
     return;
   }
 
   lookupAutoFetchTimer = setTimeout(() => {
     lookupAutoFetchTimer = null;
+    if (!lookupShell?.open) return;
     openWiktionaryDefinition();
     openOpenDataRhymesFromConfig();
   }, LOOKUP_AUTO_FETCH_DELAY_MS);
@@ -2436,6 +2438,7 @@ function updateDefaultPoemFontControl() {
 function applyPoemFont(value = state.poemFont) {
   state.poemFont = normalizePoemFont(value);
   document.documentElement.style.setProperty('--poem-font-family', POEM_FONTS[state.poemFont]);
+  window.dispatchEvent(new CustomEvent('escandidor:poem-font', { detail: state.poemFont }));
   for (const selector of poemFontSelectors) {
     selector.value = state.poemFont;
   }
@@ -7825,6 +7828,7 @@ updateVersionManagerStatus();
 renderSavedVersionList(savedPoemName?.value ?? '', savedPoemVersion?.value ?? '');
 refreshLookupBar();
 queueLookupAutoFetch();
+lookupShell?.addEventListener('toggle', queueLookupAutoFetch);
 
 window.PoetryAnalyzer = {
   analyzePoem,

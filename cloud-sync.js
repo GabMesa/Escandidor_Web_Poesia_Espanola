@@ -269,8 +269,7 @@ export function createCloudSync({
         cloudVersion: Number(result?.syncedVersion ?? result?.poem?.version) || null,
       };
     }
-    map[stableKey] = record;
-    saveMap(map);
+    saveMap({...loadMap(),[stableKey]:record});
   }
 
   async function syncMany(details) {
@@ -290,7 +289,7 @@ export function createCloudSync({
         if(!uploaded.has(String(version.id)))throw Error('El servidor no confirmó todas las versiones del bloque.');
         record.versions[version.id]={signature:JSON.stringify(buildPayload(title,version)),stateSignature:versionSignature(title,version),cloudVersion:uploaded.get(String(version.id))};
       }
-      map[key]=record;saveMap(map);
+      saveMap({...loadMap(),[key]:record});
     }
   }
 
@@ -536,6 +535,7 @@ export function createCloudSync({
             };
           }
         }
+        const bulkUploads=[];
         for (const [poemKey, versions] of Object.entries(memory.poems)) {
           if (!Array.isArray(versions) || !versions.length) continue;
           const title = String(versions[0]?.poemTitle || 'Sin título');
@@ -547,9 +547,7 @@ export function createCloudSync({
           );
           const unsent=versions.filter(version=>!record.versions[String(version.id)]&&!knownSignatures.has(versionSignature(title,version)));
           if(unsent.length>=20){
-            await syncMany(unsent.map(version=>({poemKey,title,version})));
-            if(user?.id!==syncOwner)return;
-            map[poemKey]=loadMap()[poemKey];
+            bulkUploads.push({poemKey,details:unsent.map(version=>({poemKey,title,version}))});
             continue;
           }
           for (const version of unsent) {
@@ -578,6 +576,18 @@ export function createCloudSync({
             saveMap(map);
           }
           map[poemKey] = record;
+        }
+        if(bulkUploads.length){
+          saveMap(map);
+          // Different poems can transfer independently. Keep each poem's
+          // checkpoints ordered, and wait for every worker before a retry.
+          for(let offset=0;offset<bulkUploads.length;offset+=4){
+            const batch=bulkUploads.slice(offset,offset+4);
+            const results=await Promise.allSettled(batch.map(job=>syncMany(job.details)));
+            if(user?.id!==syncOwner)return;
+            const current=loadMap();for(const job of batch)if(current[job.poemKey])map[job.poemKey]=current[job.poemKey];
+            const failure=results.find(result=>result.status==='rejected');if(failure)throw failure.reason;
+          }
         }
         for (const entry of remoteTrash.trash || []) {
           const existingGroups = memory.trash[entry.title] ||= [];

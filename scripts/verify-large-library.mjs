@@ -3,10 +3,11 @@ import {spawn} from 'node:child_process';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {WebSocket} from 'ws';
 const base=process.env.WORKSHOP_QA_ORIGIN||'http://localhost:8794';
-const browser=spawn('C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',['--headless=new','--disable-gpu','--no-first-run','--remote-debugging-port=9259',`--user-data-dir=${process.cwd()}\\.wrangler\\large-library-qa`,'about:blank'],{stdio:'ignore',windowsHide:true});
+const port=base.startsWith('https:')?9262:9259,profile=base.startsWith('https:')?'production':'local';
+const browser=spawn('C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',['--headless=new','--disable-gpu','--no-first-run',`--remote-debugging-port=${port}`,`--user-data-dir=${process.cwd()}\\.wrangler\\large-library-qa-${profile}`,'about:blank'],{stdio:'ignore',windowsHide:true});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));let socket,send,created=false;
 try{
- let targets;for(let i=0;i<50;i++){try{targets=await fetch('http://127.0.0.1:9259/json').then(r=>r.json());break;}catch{await sleep(200);}}
+ let targets;for(let i=0;i<50;i++){try{targets=await fetch(`http://127.0.0.1:${port}/json`).then(r=>r.json());break;}catch{await sleep(200);}}
  socket=new WebSocket(targets.find(t=>t.type==='page').webSocketDebuggerUrl);await new Promise(r=>socket.once('open',r));
  let id=0;const pending=new Map();socket.on('message',raw=>{const m=JSON.parse(raw);if(pending.has(m.id)){pending.get(m.id)(m);pending.delete(m.id);}});
  send=(method,params={})=>new Promise((ok,fail)=>{const key=++id;pending.set(key,m=>m.error?fail(Error(JSON.stringify(m.error))):ok(m.result));socket.send(JSON.stringify({id:key,method,params}));});

@@ -28,6 +28,7 @@ body > .workspace,:root[data-theme] body > .workspace { max-width: none; grid-te
 #workshop-account .header-save { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; background:var(--action); border-color:var(--action); color:var(--working-poem-ink,var(--on-action)); font-weight:600; }
 #workshop-account .header-backup { display:inline-flex; align-items:center; justify-content:center; width:32px; padding:6px; background:transparent; }
 #workshop-account .header-backup:hover { background:var(--surface-2); }
+#workshop-account .header-refresh { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; background:transparent; }
 #workshop-save-status { display:inline-flex; align-items:center; gap:6px; max-width:104px; overflow:hidden; white-space:nowrap; font-size:10px; color:var(--muted); margin-right:4px; }
 #workshop-save-status::before { content:''; width:5px; height:5px; flex:0 0 5px; border-radius:50%; background:var(--success); }
 #workshop-save-status[data-state='local']::before { background:var(--muted); }

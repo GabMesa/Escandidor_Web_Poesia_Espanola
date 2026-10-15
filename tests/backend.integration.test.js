@@ -462,6 +462,29 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
       { method: 'DELETE', cookie: firstCookie },
     );
     assert.equal(removeSameTitleNewPoem.response.status, 200);
+    const syncPayload = { title:'Sincronización entre dispositivos',content:'Autoguardado 43',versionName:'v43',
+      settings:{poemFont:'lora',rhymeScheme:'abba'},sync:{id:'device-a-43',versionNumber:43,kind:'autosave',savedAt:'2026-10-15T02:00:00Z'} };
+    const syncedPoem = await jsonRequest(baseUrl,'/api/poems',{method:'POST',cookie:firstCookie,body:syncPayload});
+    assert.equal(syncedPoem.response.status,201);
+    const syncId = syncedPoem.payload.poem.id;
+    const duplicatePost = await jsonRequest(baseUrl,'/api/poems',{method:'POST',cookie:firstCookie,body:syncPayload});
+    assert.equal(duplicatePost.payload.poem.id,syncId);
+    const concurrent = await Promise.all(['a','b'].map(device=>jsonRequest(baseUrl,`/api/poems/${syncId}`,{
+      method:'PUT',cookie:firstCookie,body:{...syncPayload,content:`Cambio del dispositivo ${device}`,settings:{poemFont:'atkinson'},
+        sync:{...syncPayload.sync,id:`device-${device}-44`,versionNumber:44}}})));
+    for(const result of concurrent)assert.equal(result.response.status,200,JSON.stringify(result.payload));
+    const retry = await jsonRequest(baseUrl,`/api/poems/${syncId}`,{method:'PUT',cookie:firstCookie,body:{...syncPayload,
+      content:'Cambio del dispositivo a',settings:{poemFont:'atkinson'},sync:{...syncPayload.sync,id:'device-a-44',versionNumber:44}}});
+    assert.equal(retry.payload.syncedVersion,concurrent[0].payload.syncedVersion);
+    const syncedList = await jsonRequest(baseUrl,'/api/poems',{cookie:firstCookie});
+    const history = syncedList.payload.poems.find(p=>p.id===syncId).versions;
+    assert.equal(history.length,3);
+    assert.equal(history[0].sync.versionNumber,43);
+    assert.equal(history[0].sync.kind,'autosave');
+    assert.equal(history[0].sync.settings.poemFont,'lora');
+    assert.equal(history[1].sync.settings.poemFont,'atkinson');
+    assert.equal((await jsonRequest(baseUrl,`/api/poems/${syncId}`,{method:'DELETE',cookie:firstCookie})).response.status,200);
+
   } finally {
     if (server) stopProcess(server);
   }

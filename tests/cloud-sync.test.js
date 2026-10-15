@@ -2,6 +2,55 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createCloudSync } from '../cloud-sync.js';
 
+test('a save arriving during a download survives and is uploaded afterward', async () => {
+  let release, started;
+  const gate = new Promise(r => { release = r; });
+  const fetching = new Promise(r => { started = r; });
+  const storage = new MemoryStorage();
+  const writes = [];
+  const sync = createCloudSync({ storage, request: async (path, options = {}) => {
+    if (path === '/api/poems' && !options.method) {
+      started(); await gate;
+      return jsonResponse({poems:[]});
+    }
+    if (path === '/api/trash') return jsonResponse({trash:[],deletedPoemIds:[]});
+    writes.push(JSON.parse(options.body));
+    return jsonResponse({poem:{id:81,version:writes.length}});
+  }});
+  sync.setUser({id:19});
+  const downloading = sync.loadFromServer();
+  await fetching;
+  const latest = {...version('during-download',43,'El texto escrito mientras llegaba la nube.'),kind:'autosave',poemTitle:'Mi poema'};
+  storage.setItem('escandador.poemMemory.v1',JSON.stringify({schemaVersion:2,poems:{'local:poem':[latest]},trash:{}}));
+  const saving = sync.syncSavedVersion({poemKey:'local:poem',title:'Mi poema',version:latest});
+  release(); await downloading; await saving;
+  const memory = JSON.parse(storage.getItem('escandador.poemMemory.v1'));
+  assert.equal(memory.poems['local:poem'][0].poemText,latest.poemText);
+  assert.equal(writes.length,1);
+  assert.equal(writes[0].sync.versionNumber,43);
+  assert.equal(writes[0].sync.kind,'autosave');
+});
+
+test('a successful later save cannot hide an earlier failed upload', async () => {
+  let offline = true;
+  const storage = new MemoryStorage(), state = {user:null,queue:Promise.resolve()}, statuses=[];
+  const sync = createCloudSync({storage,state,onStatus:status=>statuses.push(status),request:async()=>{
+    if(offline)throw Error('Sin conexión');
+    return jsonResponse({poem:{id:81,version:1}});
+  }});
+  sync.setUser({id:20});
+  await sync.syncSavedVersion({title:'Mi poema',version:version('offline',1,'Primera versión')});
+  offline=false;
+  await sync.syncSavedVersion({title:'Mi poema',version:version('online',2,'Segunda versión')});
+  assert.equal(sync.pendingCount(),1);
+  assert.equal(statuses.at(-1),'error');
+  assert.ok(state.error);
+  await sync.retryPending();
+  assert.equal(sync.pendingCount(),0);
+  assert.equal(statuses.at(-1),'ready');
+  assert.equal(state.error,null);
+});
+
 class MemoryStorage {
   constructor(values = {}) {
     this.values = new Map(Object.entries(values));
@@ -257,11 +306,11 @@ test('deletes a stale local poem when the server trash marks its cloud ID', asyn
   assert.deepEqual(memory.trash, {});
 });
 
-test('keeps autosaves local instead of creating backend version spam', async () => {
+test('uploads autosaves automatically and deduplicates retries', async () => {
   let requests = 0;
   const sync = createCloudSync({
     storage: new MemoryStorage(),
-    request: async () => { requests += 1; return jsonResponse({}); },
+    request: async () => { requests += 1; return jsonResponse({poem:{id:91,version:1}}); },
   });
   sync.setUser({ id: 2 });
 
@@ -270,7 +319,9 @@ test('keeps autosaves local instead of creating backend version spam', async () 
     version: { ...version('auto-1', 1, 'Cambio'), kind: 'autosave' },
   });
 
-  assert.equal(requests, 0);
+  assert.equal(requests, 1);
+  await sync.syncSavedVersion({title:'Borrador',version:{...version('auto-1',1,'Cambio'),kind:'autosave'}});
+  assert.equal(requests,1);
 });
 
 test('promotes an offline autosave once when the account reconnects', async () => {

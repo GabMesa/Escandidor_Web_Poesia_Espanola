@@ -32,6 +32,7 @@ function buildPayload(title, version) {
     settings,
     fontFamily: String(settings.poemFont ?? 'atkinson'),
     colorIndex: null,
+    sync: { id: String(version.id ?? ''), versionNumber: Number(version.versionNumber) || 1, kind: version.kind === 'autosave' ? 'autosave' : 'manual', savedAt: version.savedAt },
   };
 }
 
@@ -51,9 +52,9 @@ function versionSignature(title, version) {
 }
 
 function mergeUniqueVersions(title, remoteVersions, localVersions) {
-  const signatures = new Set(remoteVersions.map((version) => versionSignature(title, version)));
-  const merged = [...remoteVersions];
-  for (const version of localVersions) {
+  const signatures = new Set(localVersions.map(version => versionSignature(title, version)));
+  const merged = [...localVersions];
+  for (const version of remoteVersions) {
     const signature = versionSignature(title, version);
     if (signatures.has(signature)) continue;
     signatures.add(signature);
@@ -157,13 +158,14 @@ export function createCloudSync({
     }
   }
 
-  function activateMemory(memory, owner) {
+  function activateMemory(memory, owner, preserveDraft = false) {
     const normalized = {
       schemaVersion: 2,
       poems: memory?.poems && typeof memory.poems === 'object' ? memory.poems : {},
       trash: memory?.trash && typeof memory.trash === 'object' ? memory.trash : {},
     };
     const previousOwner = storage.getItem(ACTIVE_OWNER_KEY);
+    if (preserveDraft && previousOwner === owner && storage.getItem(POEM_MEMORY_KEY) === JSON.stringify(normalized)) return;
     writePersistentStorage(storage, ACTIVE_OWNER_KEY, owner);
     try {
       writePersistentStorage(storage, POEM_MEMORY_KEY, JSON.stringify(normalized));
@@ -172,7 +174,7 @@ export function createCloudSync({
       else storage.setItem(ACTIVE_OWNER_KEY, previousOwner);
       throw error;
     }
-    onLibrary(normalized);
+    onLibrary(normalized, { preserveDraft });
   }
 
   function preserveActiveMemory() {
@@ -182,22 +184,24 @@ export function createCloudSync({
   }
 
   function localVersion(poem, version) {
-    const settings = poem.settings && typeof poem.settings === 'object' ? { ...poem.settings } : {};
-    settings.poemFont = poem.fontFamily ?? settings.poemFont ?? 'atkinson';
+    const sourceSettings = version.sync?.settings ?? poem.settings;
+    const settings = sourceSettings && typeof sourceSettings === 'object' ? { ...sourceSettings } : {};
+    settings.poemFont = version.sync?.settings?.poemFont ?? poem.fontFamily ?? settings.poemFont ?? 'atkinson';
     const sinalefaOverrides = settings.sinalefaOverrides || {};
     const lineOverrides = settings.lineOverrides || {};
     delete settings.sinalefaOverrides;
     delete settings.lineOverrides;
     return {
-      id: `cloud-${poem.id}-${version.version}`,
+      id: version.sync?.id || `cloud-${poem.id}-${version.version}`,
       label: version.versionName,
-      versionNumber: version.version,
-      savedAt: String(version.createdAt||poem.updatedAt||'').replace(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/, '$1T$2Z'),
+      versionNumber: Number(version.sync?.versionNumber) || version.version,
+      savedAt: String(version.sync?.savedAt||version.createdAt||poem.updatedAt||'').replace(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/, '$1T$2Z'),
       poemText: version.content,
       settings,
       sinalefaOverrides,
       lineOverrides,
-      kind: 'manual',
+      kind: version.sync?.kind === 'autosave' ? 'autosave' : 'manual',
+      cloudVersion: version.version,
     };
   }
 
@@ -217,7 +221,8 @@ export function createCloudSync({
   }
 
   async function syncOne({ poemKey, title, version }) {
-    if (!user || !title || !version || version.kind === 'autosave') return;
+    if (!user || !title || !version) return;
+    const ownerId = user.id;
     const map = loadMap();
     const stableKey = String(poemKey || title);
     const record = map[stableKey] || { poemId: null, versions: {} };
@@ -231,7 +236,8 @@ export function createCloudSync({
     const requestPayload = sourcePoemId ? { ...payload, sourcePoemId } : payload;
     const signature = JSON.stringify(payload);
     const mappedVersion = record.versions[versionId];
-    if (versionId && (mappedVersion?.signature || mappedVersion) === signature) return;
+    const legacyPayload = { ...payload }; delete legacyPayload.sync;
+    if (versionId && [(signature), JSON.stringify(legacyPayload)].includes(mappedVersion?.signature || mappedVersion)) return;
 
     let result;
     if (record.poemId) {
@@ -248,11 +254,12 @@ export function createCloudSync({
       result = await api('/api/poems', { method: 'POST', body: JSON.stringify(requestPayload) });
       record.poemId = result.poem.id;
     }
+    if (user?.id !== ownerId) return;
     if (versionId) {
       record.versions[versionId] = {
         signature,
         stateSignature: versionSignature(title, version),
-        cloudVersion: Number(result?.poem?.version) || null,
+        cloudVersion: Number(result?.syncedVersion ?? result?.poem?.version) || null,
       };
     }
     map[stableKey] = record;
@@ -325,9 +332,8 @@ export function createCloudSync({
       || versionIds.some(id => cloudPoemId(id) || record?.versions?.[id]);
     if (!hasCloudVersions) return;
     // Never delete the last remote copy before the replacement has been saved.
-    // An autosave is uploaded here only when replacing an existing cloud version.
     for (const version of retainedVersions) {
-      await syncOne({ poemKey, title, version: { ...version, kind: 'manual' } });
+      await syncOne({ poemKey, title, version });
     }
     await deleteOne({ poemKey, title, versionIds, protectedVersionIds: detail.retainedVersionIds || retainedVersions.map(version => String(version.id)) });
     for (const operation of supersededSaves) removePending(operation.id, user.id);
@@ -345,8 +351,11 @@ export function createCloudSync({
       if (!ownerId || user?.id !== ownerId) return;
       onStatus('syncing', 'Guardando en nube…');
       await work();
-      onStatus('ready', 'Guardado en nube');
+      const pending = loadOutbox(ownerId).length;
+      if (!pending) state.error = null;
+      onStatus(state.error ? 'error' : pending ? 'syncing' : 'ready', state.error?.message || (pending ? 'Guardando en nube…' : 'Guardado en nube'));
     }).catch((error) => {
+      state.error = error;
       onStatus('error', error.message || 'Error de nube');
     });
     state.queue = queue;
@@ -415,13 +424,16 @@ export function createCloudSync({
       if (!user) return Promise.resolve();
       return enqueue(async () => {
         // Replay in order before fetching so compressed versions are not reimported.
-        for (const operation of loadOutbox(user.id)) {
-          await runPending(operation);
-          removePending(operation.id, user.id);
+        const syncOwner = user.id;
+        for (const operation of loadOutbox(syncOwner)) {
+          try { await runPending(operation); removePending(operation.id, syncOwner); }
+          catch (error) { state.error = error; }
+          if (user?.id !== syncOwner) return;
         }
         preserveActiveMemory();
         const remote = await api('/api/poems');
         const remoteTrash = await api('/api/trash');
+        if (user?.id !== syncOwner) return;
         if (remoteTrash.policy) onTrashPolicy(remoteTrash.policy);
         const memory = readMemory(userMemoryKey(user.id));
         memory.schemaVersion = 2;
@@ -454,7 +466,7 @@ export function createCloudSync({
             map[poemKey].versions[version.id] = {
               signature: JSON.stringify(buildPayload(poem.title, version)),
               stateSignature: versionSignature(poem.title, version),
-              cloudVersion: version.versionNumber,
+              cloudVersion: version.cloudVersion || version.versionNumber,
             };
           }
         }
@@ -482,11 +494,12 @@ export function createCloudSync({
             const result = record.poemId
               ? await api(`/api/poems/${record.poemId}`, { method: 'PUT', body: JSON.stringify(payload) })
               : await api('/api/poems', { method: 'POST', body: JSON.stringify(payload) });
+            if (user?.id !== syncOwner) return;
             record.poemId = result.poem.id;
             record.versions[String(version.id ?? `local-${nextNumber}`)] = {
               signature: JSON.stringify(buildPayload(title, version)),
               stateSignature,
-              cloudVersion: Number(result.poem.version) || nextNumber,
+              cloudVersion: Number(result.syncedVersion ?? result.poem.version) || nextNumber,
             };
             knownSignatures.add(stateSignature);
             map[poemKey] = record;
@@ -505,8 +518,18 @@ export function createCloudSync({
           });
         }
         saveMap(map);
+        // Saves made while the network requests were in flight must survive the pull.
+        if (storage.getItem(ACTIVE_OWNER_KEY) === String(user.id)) {
+          const current = readMemory(POEM_MEMORY_KEY);
+          for (const [key, versions] of Object.entries(current.poems || {})) {
+            const id = Number(map[key]?.poemId) || serverPoemId(key);
+            if (deletedPoemIds.has(id)) continue;
+            const title = String(versions[0]?.poemTitle || key);
+            memory.poems[key] = mergeUniqueVersions(title, memory.poems[key] || [], versions);
+          }
+        }
         writePersistentStorage(storage, userMemoryKey(user.id), JSON.stringify(memory));
-        activateMemory(memory, String(user.id));
+        activateMemory(memory, String(user.id), true);
         onTrash(remoteTrash.trash || []);
       });
     },

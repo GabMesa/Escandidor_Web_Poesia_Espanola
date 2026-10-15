@@ -31,6 +31,9 @@ const discardLocalPoems = document.getElementById('discardLocalPoems');
 const cloudSync = createCloudSync({
   state: applicationState.sync,
   onStatus(status, message) {
+    applicationState.sync.status = status;
+    applicationState.sync.message = message;
+    window.dispatchEvent(new CustomEvent('escandidor:sync-status', { detail: { status, message } }));
     if (!cloudSaveStatus) return;
     cloudSaveStatus.textContent = message;
     cloudSaveStatus.classList.toggle('is-syncing', status === 'syncing');
@@ -45,12 +48,32 @@ const cloudSync = createCloudSync({
       detail: { trash },
     }));
   },
-  onLibrary(memory) {
+  onLibrary(memory, options = {}) {
     window.dispatchEvent(new CustomEvent('escandidor:library-changed', {
-      detail: { memory },
+      detail: { memory, ...options },
     }));
   },
 });
+
+let activeSync;
+async function synchronizePoems() {
+  if (!applicationState.auth.user) throw Error('Iniciá sesión para sincronizar.');
+  if (activeSync) return activeSync;
+  activeSync = (async () => {
+    await cloudSync.loadFromServer();
+    await cloudSync.whenIdle();
+    if (applicationState.sync.error || cloudSync.pendingCount()) throw applicationState.sync.error || Error('Quedan guardados pendientes de subir.');
+  })().finally(() => { activeSync = null; });
+  return activeSync;
+}
+applicationState.runtime.syncPoemsNow = synchronizePoems;
+const refreshInBackground = () => {
+  if (applicationState.auth.user && applicationState.runtime.authInitialized && !document.hidden) synchronizePoems().catch(() => {});
+};
+window.addEventListener('online', refreshInBackground);
+window.addEventListener('focus', refreshInBackground);
+document.addEventListener('visibilitychange', refreshInBackground);
+window.setInterval(refreshInBackground, 30_000);
 
 async function apiRequest(path, options = {}) {
   const response = await fetch(path, {
@@ -217,8 +240,8 @@ window.addEventListener('escandidor:trash-restored', async (event) => {
 
 loadDataFromServer?.addEventListener('click', async () => {
   loadDataFromServer.disabled = true;
-  await cloudSync.loadFromServer();
-  loadDataFromServer.disabled = !applicationState.auth.user;
+  try { await synchronizePoems(); } catch (error) { cloudSaveStatus.textContent = error.message; }
+  finally { loadDataFromServer.disabled = !applicationState.auth.user; }
 });
 
 retryCloudSync.addEventListener('click', () => cloudSync.retryPending());

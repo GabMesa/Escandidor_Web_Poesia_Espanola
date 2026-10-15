@@ -12,7 +12,9 @@ if(window.parent!==window && new URLSearchParams(location.search).get('taller')=
       if(shell&&shell.getBoundingClientRect().width)send('workshop:resize',{height:Math.ceil(shell.getBoundingClientRect().height)+2});
     });
   };
-  const ready=()=>{if(new URLSearchParams(location.search).get('real')==='1'&&!applicationState.runtime.authInitialized)return;send('workshop:ready');refresh();};
+  const syncStatus=()=>send('workshop:sync-status',{status:applicationState.sync.status||'syncing',message:applicationState.sync.message||'Sincronizando poemas…'});
+  window.addEventListener('escandidor:sync-status',syncStatus);
+  const ready=()=>{if(new URLSearchParams(location.search).get('real')==='1'&&!applicationState.runtime.authInitialized)return;send('workshop:ready');syncStatus();refresh();};
   window.addEventListener('escandidor:auth-ready',ready);
   const observe=()=>{const shell=document.querySelector('.app-shell');if(shell)new ResizeObserver(refresh).observe(shell);new MutationObserver(refresh).observe(document.documentElement,{attributes:true,attributeFilter:['style']});new MutationObserver(refresh).observe(document.body,{attributes:true,attributeFilter:['class']});};
   if(document.readyState!=='loading')observe();else window.addEventListener('DOMContentLoaded',observe,{once:true});

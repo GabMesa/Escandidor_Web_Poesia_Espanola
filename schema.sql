@@ -40,7 +40,10 @@ CREATE TABLE poem_versions (
   content TEXT NOT NULL DEFAULT '',
   version INTEGER NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  client_id TEXT,
+  sync_json TEXT NOT NULL DEFAULT '{}',
   UNIQUE (poem_id, version),
+  UNIQUE (poem_id, client_id),
   FOREIGN KEY (poem_id) REFERENCES poems(id) ON DELETE CASCADE
 );
 

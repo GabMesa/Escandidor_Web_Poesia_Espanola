@@ -1,4 +1,5 @@
 import { maintainUserTrash } from '../../_lib/trash-storage.js';
+import { versionSyncMetadata } from '../../_lib/version-sync.js';
 import { poemValidationError, samePoemContent } from '../../../poem-policy.js';
 import {
   jsonResponse,
@@ -58,6 +59,7 @@ export async function onRequestPut(context) {
   settingsObject.poemFont = fontFamily;
   const settings = JSON.stringify(settingsObject);
   const colorIndex = body.colorIndex !== undefined ? body.colorIndex : existing.color_index;
+  const sync = versionSyncMetadata(body, settingsObject);
 
   await env.escandidor_db
     .prepare(
@@ -67,19 +69,28 @@ export async function onRequestPut(context) {
     .bind(title, settings, fontFamily, colorIndex, poemId, user.id)
     .run();
 
-  if ((body.versionName !== undefined || body.content !== undefined) && !samePoemContent(content, existing.content)) {
+  if (sync) {
+    await env.escandidor_db.prepare(`INSERT INTO poem_versions (poem_id,name,content,version,client_id,sync_json)
+      SELECT ?,?,?,COALESCE(MAX(version),0)+1,?,? FROM poem_versions WHERE poem_id=?
+      ON CONFLICT(poem_id,client_id) DO UPDATE SET name=excluded.name,content=excluded.content,sync_json=excluded.sync_json`)
+      .bind(poemId,versionName,content,sync.id,JSON.stringify(sync),poemId).run();
+  } else if ((body.versionName !== undefined || body.content !== undefined) && !samePoemContent(content, existing.content)) {
     await env.escandidor_db
       .prepare(
-        `INSERT INTO poem_versions (poem_id, name, content, version)
-         VALUES (?, ?, ?, ?)`
+        `INSERT INTO poem_versions (poem_id, name, content, version,client_id,sync_json)
+         SELECT ?, ?, ?, COALESCE(MAX(version),0)+1,'cloud-'||?||'-'||(COALESCE(MAX(version),0)+1),? FROM poem_versions WHERE poem_id=?`
       )
-      .bind(poemId, versionName, content, existing.version + 1)
+      .bind(poemId, versionName, content, poemId,JSON.stringify({settings:settingsObject}),poemId)
       .run();
   }
 
-  if (body.versionName !== undefined && samePoemContent(content, existing.content)) {
+  if (!sync && body.versionName !== undefined && samePoemContent(content, existing.content)) {
     await env.escandidor_db.prepare('UPDATE poem_versions SET name = ? WHERE poem_id = ? AND version = ?')
       .bind(versionName, poemId, existing.version).run();
+  }
+  if (!sync && samePoemContent(content, existing.content)) {
+    await env.escandidor_db.prepare("UPDATE poem_versions SET sync_json=json_set(sync_json,'$.settings',json(?)) WHERE poem_id=? AND version=?")
+      .bind(settings,poemId,existing.version).run();
   }
 
   const row = await env.escandidor_db
@@ -87,7 +98,8 @@ export async function onRequestPut(context) {
     .bind(poemId, user.id)
     .first();
 
-  return jsonResponse({ ok: true, poem: serializePoem(row) });
+  const synced = sync ? await env.escandidor_db.prepare('SELECT version FROM poem_versions WHERE poem_id=? AND client_id=?').bind(poemId,sync.id).first() : null;
+  return jsonResponse({ ok: true, poem: serializePoem(row), ...(synced ? { syncedVersion: synced.version } : {}) });
 }
 
 export async function onRequestDelete(context) {

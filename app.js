@@ -11,7 +11,7 @@ import { parseRhymeSchemes, validateStanzaRhymeSchemes } from './rhyme-scheme.js
 // The local Workshop reuses the editor's library services through the same-origin bridge.
 // Functions are evaluated only after the editor has initialized and a command arrives.
 if (window.parent !== window && new URLSearchParams(location.search).get('taller') === '1') {
-  window.addEventListener('workshop:library-command', event => {
+  window.addEventListener('workshop:library-command', async event => {
     const { command, respond } = event.detail || {};
     if (!command || typeof respond !== 'function') return;
     const originalConfirm = window.confirm;
@@ -87,14 +87,21 @@ if (window.parent !== window && new URLSearchParams(location.search).get('taller
       } else if (command.action === 'import-memory') {
         if (!applicationState.auth.user) throw Error('Ingresá a tu cuenta local antes de importar.');
         const incoming=command.memory?.poems;if(!incoming||typeof incoming!=='object'||Array.isArray(incoming))throw Error('Biblioteca inválida.');
-        const events=[];for(const [poemKey,list] of Object.entries(incoming)){if(!Array.isArray(list)||list.length>1000)throw Error('Historial inválido.');const title=getStoredPoemTitle(poemKey,list);for(const version of list){if(poemValidationError(title,version.poemText))throw Error('Hay una versión inválida en la biblioteca.');}const existing=store.poems[poemKey]||[];for(const version of sortPoemVersions(list)){if(!existing.some(v=>v.id===version.id)){const next={...version,poemTitle:title};existing.push(next);if(next.kind!=='autosave')events.push({poemKey,title,version:next});}}store.poems[poemKey]=existing;}
+        const events=[];for(const [poemKey,list] of Object.entries(incoming)){if(!Array.isArray(list)||list.length>1000)throw Error('Historial inválido.');const title=getStoredPoemTitle(poemKey,list);for(const version of list){if(poemValidationError(title,version.poemText))throw Error('Hay una versión inválida en la biblioteca.');}const existing=store.poems[poemKey]||[];for(const version of sortPoemVersions(list)){if(!existing.some(v=>v.id===version.id)){const next={...version,poemTitle:title};existing.push(next);events.push({poemKey,title,version:next});}}store.poems[poemKey]=existing;}
         if(!savePoemMemoryStore(store))throw Error('No se pudo guardar la biblioteca importada.');
         for(const event of events)dispatchPoemSaved(event.poemKey,event.title,event.version);refreshSavedPoemNameOptions();window.dispatchEvent(new CustomEvent('escandidor:library-changed'));
       } else if (command.action === 'import') {
         importedCount = importPoemsFromMarkdown(command.text);
-      } else if (command.action === 'sync') {
-        if (!applicationState.auth.user) throw Error('Iniciá sesión para comparar y sincronizar con la nube.');
-        document.getElementById('loadDataFromServer').click();
+      } else if (command.action === 'save' || command.action === 'sync') {
+        if (command.action === 'save' || isCurrentDraftDirtyAgainstLoadedVersion()) saveCurrentPoemVersion({ notify: false });
+        const beforeSync = getSnapshotSignature(buildCurrentSnapshot());
+        const activeKey = state.loadedVersionTitle;
+        if (applicationState.auth.user) await applicationState.runtime.syncPoemsNow();
+        else if (command.action === 'sync') throw Error('Iniciá sesión para actualizar desde el servidor.');
+        if (command.action === 'sync' && activeKey && state.loadedVersionTitle === activeKey && beforeSync === getSnapshotSignature(buildCurrentSnapshot())) {
+          const latest = sortPoemVersions(loadPoemMemoryStore().poems[activeKey] || []).at(-1);
+          if (latest) loadVersionById(activeKey, String(latest.id));
+        }
       } else if (command.action !== 'snapshot') {
         throw Error('Acción de biblioteca desconocida.');
       }
@@ -2866,7 +2873,15 @@ window.addEventListener('escandidor:trash-synced', (event) => {
   renderPoemTrash();
 });
 
-window.addEventListener('escandidor:library-changed', () => {
+window.addEventListener('escandidor:library-changed', event => {
+  if (event.detail?.preserveDraft) {
+    replaceLibraryState(loadPoemMemoryStore());
+    refreshSavedPoemNameOptions(state.loadedVersionTitle);
+    refreshSavedPoemVersionOptions(state.loadedVersionTitle, state.loadedVersionId);
+    renderSavedVersionList(state.loadedVersionTitle, state.loadedVersionId);
+    renderPoemTrash();
+    return;
+  }
   cancelPendingAutoSave();
   const loadedPoemKey = String(state.loadedVersionTitle ?? '').trim();
   const loadedVersionId = String(state.loadedVersionId ?? '').trim();
@@ -3966,9 +3981,7 @@ function saveCurrentPoemVersion(options = {}) {
   if (notify) {
     showToast('Poema guardado.', 'success');
   }
-  if (saveKind === 'manual') {
-    dispatchPoemSaved(poemKey, title, nextVersion, previousTitle !== title ? previousTitle : '');
-  }
+  dispatchPoemSaved(poemKey, title, nextVersion, previousTitle !== title ? previousTitle : '');
   for (const removed of compression.removed) selectedVersionIds.delete(makeVersionSelectionKey(poemKey, String(removed.id)));
   dispatchVersionsCompressed(poemKey, title, compression);
   return true;

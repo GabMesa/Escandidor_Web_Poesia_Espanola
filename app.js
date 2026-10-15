@@ -4786,7 +4786,7 @@ function renderAnnotatedLinePlain(runtime) {
     const cleanedSeparator = separator.replace(/\//g, '');
 
     if (boundary?.active) {
-      chunks.push(/[^\s]/.test(cleanedSeparator) ? `${cleanedSeparator}⏝` : '⏝');
+      chunks.push(`${cleanedSeparator.replace(/\s+/g, '')}⏝`);
     } else {
       chunks.push(cleanedSeparator);
     }
@@ -6129,7 +6129,7 @@ function renderSinalefaChainLabel(runtime, startIndex, endIndex) {
     if (rightSyllable) {
       hasStress ||= wordHasMainStress(rightWord) && rightWord.stressIndex === 0;
       const separator = runtime.lineAnalysis.separators[index] ?? ' ';
-      if (/\S/.test(separator)) chainParts.push(separator);
+      chainParts.push(separator.replace(/\s+/g, ''));
       chainParts.push(rightSyllable);
     }
   }
@@ -6273,7 +6273,7 @@ function renderSinalefaMarker(boundary, lineIndex) {
   const hasInvalidTriphthong = boundary.active && getInvalidSinalefaTriphthongs(runtime)
     .some((triphthong) => triphthong.start >= boundary.chainStart && triphthong.end <= boundary.chainEnd);
   const separator = runtime.lineAnalysis.separators[boundary.index] ?? ' ';
-  const joinedSeparator = /\S/.test(separator) ? escapeHtml(separator) : '';
+  const joinedSeparator = escapeHtml(separator.replace(/\s+/g, ''));
   const inactiveLabel = `${(leftStress ? `<strong>${escapeHtml(leftSyllable)}</strong>` : escapeHtml(leftSyllable))}${escapeHtml(separator)}${(rightStress ? `<strong>${escapeHtml(rightSyllable)}</strong>` : escapeHtml(rightSyllable))}`;
   const label = boundary.active && boundary.chainLength > 1
     ? renderSinalefaChainLabel(runtime, boundary.chainStart, boundary.chainEnd)

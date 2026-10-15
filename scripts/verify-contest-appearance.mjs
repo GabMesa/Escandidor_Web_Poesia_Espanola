@@ -81,6 +81,19 @@ try{
  assert.ok(await ev(`!document.querySelector('#workshop-editor').contentDocument.querySelector('#analysisTextOutput').textContent.includes('Una cita')`));
  await ev(`document.querySelector('#workshop-editor').contentDocument.querySelector('.sinalefa-toggle[data-line="3"][data-boundary="1"]').click()`);
  assert.equal(await ev(`document.querySelector('#workshop-editor').contentWindow.eval("import('/application-state.js').then(m=>Object.hasOwn(m.applicationState.editor.sinalefaOverrides,'3:1'))")`),true);
+ // Joined syllables retain punctuation but never the source word spacing.
+ for(const [text,boundary,label] of [['Allá, en',0,'llá,en'],['áspera. y',0,'ra.y'],['butiá, y es',1,'tiá,yes']]){
+  await ev(`const input=document.querySelector('#workshop-editor').contentDocument.querySelector('#poemInput');input.value=${JSON.stringify(text)};input.dispatchEvent(new Event('input',{bubbles:true}))`);
+  await until(`document.querySelector('#workshop-editor').contentDocument.querySelector('.sinalefa-toggle[data-line="0"][data-boundary="${boundary}"]')`);
+  await ev(`const d=document.querySelector('#workshop-editor').contentDocument;for(let i=0;i<=${boundary};i++){const button=d.querySelector('.sinalefa-toggle.is-inactive[data-line="0"][data-boundary="'+i+'"]');button?.click()}`);
+  assert.equal(await ev(`document.querySelector('#workshop-editor').contentDocument.querySelector('.sinalefa-toggle.is-active').textContent.replace('triptongo','')`),label);
+  assert.ok(await ev(`!document.querySelector('#workshop-editor').contentDocument.querySelector('#analysisTextOutput').textContent.includes(', ')`));
+  assert.equal(await ev(`document.querySelector('#workshop-editor').contentDocument.querySelector('#poemInput').value`),text);
+  if(boundary===0){
+   await ev(`document.querySelector('#workshop-editor').contentDocument.querySelector('.sinalefa-toggle.is-active').click()`);
+   assert.equal(await ev(`document.querySelector('#workshop-editor').contentDocument.querySelector('.sinalefa-toggle.is-inactive').textContent`),label.replace(/([,.])/, '$1 '));
+  }
+ }
  assert.equal(errors.length,0,JSON.stringify(errors));
  console.log('Verified contest search, tags, selected-first ordering, fixed-version previews, appearance scopes, unchanged poem data and mobile layout.');
 }finally{try{await send?.('Browser.close');}catch{}socket?.close();if(browser.exitCode===null)browser.kill();}

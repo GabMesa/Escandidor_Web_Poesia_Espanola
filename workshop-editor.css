@@ -50,6 +50,7 @@ html.in-workshop,.in-workshop body{height:auto;min-height:0;overflow:hidden}
 .in-workshop body .analysis-output button.syneresis-toggle{border-radius:999px;min-height:18px;height:auto;padding:0 4px;font:inherit;line-height:1.15;background:rgba(42,126,121,.09);color:#27716d}
 
 .in-workshop .analysis-output .sinalefa-toggle strong{color:inherit}
+.in-workshop .analysis-output .triphthong-mark { display:inline-block; margin-left:5px; padding:0 4px; border:1px solid currentColor; border-radius:4px; font:600 9px/1.4 var(--ui-font); vertical-align:middle; }
 :root[data-theme='dark'].in-workshop body .analysis-output button.sinalefa-toggle.is-active { color:var(--success); border-color:var(--success); }
 :root[data-theme='dark'].in-workshop body .analysis-output button.sinalefa-toggle.is-inactive { color:var(--danger); border-color:var(--danger); }
 :root[data-theme='dark'].in-workshop body .analysis-output button.sinalefa-toggle.is-warning { color:var(--warning); border-color:var(--warning); }

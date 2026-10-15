@@ -8,6 +8,11 @@ export async function onRequestGet(context) {
   const { request, env } = context;
   const { user, error } = await requireUser(request, env);
   if (error) return error;
+  const query = new URL(request.url).searchParams;
+  const paged = query.has('limit');
+  const limit = Math.max(1,Math.min(200,Number(query.get('limit'))||100));
+  const afterPoem = Math.max(0,Number(query.get('afterPoem'))||0);
+  const afterVersion = Math.max(0,Number(query.get('afterVersion'))||0);
 
   const { results } = await env.escandidor_db
     .prepare(
@@ -16,13 +21,14 @@ export async function onRequestGet(context) {
               pv.version, pv.created_at AS version_created_at, pv.sync_json
        FROM poems p JOIN poem_versions pv ON pv.poem_id = p.id
        WHERE p.user_id = ?
+         ${paged ? 'AND (p.id > ? OR (p.id = ? AND pv.version > ?))' : ''}
          AND NOT EXISTS (
            SELECT 1 FROM deleted_poems dp
            WHERE dp.user_id = p.user_id AND dp.poem_id = p.id
          )
-       ORDER BY p.updated_at DESC, pv.version ASC`
+       ${paged ? 'ORDER BY p.id ASC,pv.version ASC LIMIT ?' : 'ORDER BY p.updated_at DESC,pv.version ASC'}`
     )
-    .bind(user.id)
+    .bind(...(paged ? [user.id,afterPoem,afterPoem,afterVersion,limit] : [user.id]))
     .all();
 
   const poemsById = new Map();
@@ -44,7 +50,10 @@ export async function onRequestGet(context) {
     poem.content = row.content;
   }
 
-  return jsonResponse({ ok: true, poems: [...poemsById.values()] });
+  const last = results.at(-1);
+  return jsonResponse({ ok: true, poems: [...poemsById.values()], ...(paged ? {
+    nextCursor: results.length === limit ? {poemId:last.id,version:last.version} : null
+  } : {}) });
 }
 
 export async function onRequestPost(context) {

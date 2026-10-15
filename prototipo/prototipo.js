@@ -1,3 +1,4 @@
+import { poemStorage } from '../poem-storage.js';
 import {renderVersionSelectOptions} from '../poem-version-selection.js';
 import {applicationState} from '../application-state.js';
 import {STORAGE_KEY,LIBRARY_KEY,WRITERS_LIST,escapeHtml as h,tagsFromText,latestVersion,resolveSelection,countLines,calendarText,upcomingNotices,readEditorLibrary,seedData} from './model.js';
@@ -32,7 +33,7 @@ const icon='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="
 const dateLabel=date=>date?new Intl.DateTimeFormat('es-UY',{day:'numeric',month:'long',year:'numeric'}).format(new Date(date+'T12:00:00')):'Sin fecha exacta';
 const safeLink=value=>{try{const u=new URL(value);return ['https:','http:'].includes(u.protocol)?h(u.href):'';}catch{return '';}};
 const tagsMarkup=tags=>tags.map(t=>tagMarkup(state.data,t)).join('');
-function allPoems(){const local=readEditorLibrary(localStorage),linked=new Set(state.data.poems.map(p=>p.linkedLocalId).filter(Boolean));return [...state.data.poems.flatMap(p=>{if(!p.linkedLocalId)return [p];const actual=local.find(l=>l.id===p.linkedLocalId);return actual?[{...actual,id:p.id,sourceKey:p.linkedLocalId.slice(6),tags:p.tags}]:[];}),...local.filter(p=>!linked.has(p.id)).map(p=>({...p,sourceKey:p.id.slice(6),tags:state.data.localTags[p.id]||[]}))];}
+function allPoems(){const local=readEditorLibrary(poemStorage),linked=new Set(state.data.poems.map(p=>p.linkedLocalId).filter(Boolean));return [...state.data.poems.flatMap(p=>{if(!p.linkedLocalId)return [p];const actual=local.find(l=>l.id===p.linkedLocalId);return actual?[{...actual,id:p.id,sourceKey:p.linkedLocalId.slice(6),tags:p.tags}]:[];}),...local.filter(p=>!linked.has(p.id)).map(p=>({...p,sourceKey:p.id.slice(6),tags:state.data.localTags[p.id]||[]}))];}
 function currentContest(){return state.data.contests.find(c=>c.id===state.contestId);}
 function selectedEntries(c){return resolveSelection(allPoems(),c.selections).filter(e=>e.poem&&e.version);}
 function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state.data));reminderNotifications.check();return true;}catch{toast('No se pudo guardar: el almacenamiento del navegador está lleno.');return false;}}

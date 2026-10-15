@@ -12,7 +12,7 @@ if(window.parent!==window && new URLSearchParams(location.search).get('taller')=
       if(shell&&shell.getBoundingClientRect().width)send('workshop:resize',{height:Math.ceil(shell.getBoundingClientRect().height)+2});
     });
   };
-  const syncStatus=()=>send('workshop:sync-status',{status:applicationState.sync.status||'syncing',message:applicationState.sync.message||'Sincronizando poemas…'});
+  const syncStatus=()=>send('workshop:sync-status',{status:applicationState.editor.autoSavePending&&applicationState.sync.status==='ready'?'syncing':applicationState.sync.status||'syncing',message:applicationState.sync.message||'Sincronizando poemas…'});
   window.addEventListener('escandidor:sync-status',syncStatus);
   const ready=()=>{if(new URLSearchParams(location.search).get('real')==='1'&&!applicationState.runtime.authInitialized)return;send('workshop:ready');syncStatus();refresh();};
   window.addEventListener('escandidor:auth-ready',ready);

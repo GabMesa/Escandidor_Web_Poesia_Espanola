@@ -1,3 +1,4 @@
+import { poemStorage } from './poem-storage.js';
 import {showPoemColorPicker,COLOR_INTENSITIES} from './poem-color-picker.js';
 import { applyTrashPolicy, TRASH_MAX_BYTES } from './trash-policy.js';
 import { compressPoemVersions } from './poem-compression.js';
@@ -87,9 +88,11 @@ if (window.parent !== window && new URLSearchParams(location.search).get('taller
       } else if (command.action === 'import-memory') {
         if (!applicationState.auth.user) throw Error('Ingresá a tu cuenta local antes de importar.');
         const incoming=command.memory?.poems;if(!incoming||typeof incoming!=='object'||Array.isArray(incoming))throw Error('Biblioteca inválida.');
-        const events=[];for(const [poemKey,list] of Object.entries(incoming)){if(!Array.isArray(list)||list.length>1000)throw Error('Historial inválido.');const title=getStoredPoemTitle(poemKey,list);for(const version of list){if(poemValidationError(title,version.poemText))throw Error('Hay una versión inválida en la biblioteca.');}const existing=store.poems[poemKey]||[];for(const version of sortPoemVersions(list)){if(!existing.some(v=>v.id===version.id)){const next={...version,poemTitle:title};existing.push(next);events.push({poemKey,title,version:next});}}store.poems[poemKey]=existing;}
+        const events=[];for(const [poemKey,list] of Object.entries(incoming)){if(!Array.isArray(list)||list.length>100000)throw Error('Historial inválido.');const title=getStoredPoemTitle(poemKey,list);for(const version of list){if(poemValidationError(title,version.poemText))throw Error('Hay una versión inválida en la biblioteca.');}const existing=store.poems[poemKey]||[];for(const version of sortPoemVersions(list)){if(!existing.some(v=>v.id===version.id)){const next={...version,poemTitle:title};existing.push(next);events.push({poemKey,title,version:next});}}store.poems[poemKey]=existing;}
         if(!savePoemMemoryStore(store))throw Error('No se pudo guardar la biblioteca importada.');
-        for(const event of events)dispatchPoemSaved(event.poemKey,event.title,event.version);refreshSavedPoemNameOptions();window.dispatchEvent(new CustomEvent('escandidor:library-changed'));
+        if(events.length>=20)await applicationState.runtime.syncPoemsNow();
+        else for(const event of events)dispatchPoemSaved(event.poemKey,event.title,event.version);
+        refreshSavedPoemNameOptions();window.dispatchEvent(new CustomEvent('escandidor:library-changed'));
       } else if (command.action === 'import') {
         importedCount = importPoemsFromMarkdown(command.text);
       } else if (command.action === 'save' || command.action === 'sync') {
@@ -2558,7 +2561,7 @@ function loadPoemMemoryStore() {
   const emptyStore = { schemaVersion: 2, poems: {}, trash: {} };
 
   try {
-    const raw = localStorage.getItem(LOCAL_POEM_MEMORY_KEY);
+    const raw = poemStorage.getItem(LOCAL_POEM_MEMORY_KEY);
     if (!raw) {
       return replaceLibraryState(emptyStore);
     }
@@ -2613,7 +2616,7 @@ function loadPoemMemoryStore() {
 
     if (changed) {
       try {
-        writePersistentStorage(localStorage, LOCAL_POEM_MEMORY_KEY, JSON.stringify({ schemaVersion: 2, poems, trash }));
+        writePersistentStorage(poemStorage, LOCAL_POEM_MEMORY_KEY, JSON.stringify({ schemaVersion: 2, poems, trash }));
       } catch {
         // Ignore storage write errors on cleanup.
       }
@@ -2627,7 +2630,7 @@ function loadPoemMemoryStore() {
 
 function savePoemMemoryStore(store) {
   try {
-    writePersistentStorage(localStorage, LOCAL_POEM_MEMORY_KEY, JSON.stringify({ ...store, schemaVersion: 2 }));
+    writePersistentStorage(poemStorage, LOCAL_POEM_MEMORY_KEY, JSON.stringify({ ...store, schemaVersion: 2 }));
     return true;
   } catch {
     return false;
@@ -2759,7 +2762,7 @@ function movePoemToTrash(store, title, versionsToTrash = null) {
 }
 
 function trashPreferenceOwner() {
-  return localStorage.getItem('escandador.poemMemory.activeOwner.v1') || 'anonymous';
+  return poemStorage.getItem('escandador.poemMemory.activeOwner.v1') || 'anonymous';
 }
 
 function trashAutoCleanupEnabled() {
@@ -4354,6 +4357,8 @@ function deleteSelectedPoemVersions() {
 function cancelPendingAutoSave() {
   if (autoSaveTimer) clearTimeout(autoSaveTimer);
   autoSaveTimer = null;
+  applicationState.editor.autoSavePending = false;
+  window.dispatchEvent(new CustomEvent('escandidor:sync-status'));
 }
 
 function scheduleAutoSave() {
@@ -4362,6 +4367,8 @@ function scheduleAutoSave() {
     autoSaveTimer = null;
     saveCurrentPoemVersion({ kind: 'autosave' });
   }, AUTO_SAVE_DELAY_MS);
+  applicationState.editor.autoSavePending = true;
+  window.dispatchEvent(new CustomEvent('escandidor:sync-status'));
 }
 
 function loadSelectedPoemVersion() {
@@ -4748,7 +4755,8 @@ function buildAnalysisText(runtimes, stanzaSummary) {
       continue;
     }
 
-    output.push(`${renderAnnotatedLinePlain(runtime)} ${runtime.rhyme.label} ${runtime.countLabel}`.trim());
+    const triphthong = findSinalefaTriphthongs(runtime.lineAnalysis, runtime.activeBoundaries, { rioplatenseY: state.rioplatenseY }).some(item => item.valid);
+    output.push(`${renderAnnotatedLinePlain(runtime)} ${runtime.rhyme.label} ${runtime.countLabel}${triphthong ? ' · Triptongo' : ''}`.trim());
   }
 
   return output.join('\n').trimEnd();
@@ -6202,6 +6210,7 @@ function renderSinalefaMarker(boundary, lineIndex) {
 
   const classes = [
     'sinalefa-toggle',
+    isTriphthong ? 'is-triphthong' : '',
     boundary.active ? 'is-active' : 'is-inactive',
     boundary.active && (hasInvalidTriphthong || runtime?.versalConflictBoundaryIndices?.has(boundary.index)) ? 'is-warning' : '',
     boundary.blockedByHemistich ? 'is-locked' : ''
@@ -6221,7 +6230,7 @@ function renderSinalefaMarker(boundary, lineIndex) {
 
   const disabled = boundary.blockedByHemistich ? 'disabled' : '';
   const clickBoundary = boundary.active && boundary.chainLength > 1 ? boundary.chainEnd : boundary.index;
-  return `<button type="button" class="${classes}" data-line="${lineIndex}" data-boundary="${clickBoundary}" title="${escapeHtml(title)}" ${disabled}>${label}</button>`;
+  return `<button type="button" class="${classes}" data-line="${lineIndex}" data-boundary="${clickBoundary}" title="${escapeHtml(title)}" ${disabled}>${label}${isTriphthong ? '<span class="triphthong-mark">triptongo</span>' : ''}</button>`;
 }
 
 function renderAnnotatedLine(runtime) {

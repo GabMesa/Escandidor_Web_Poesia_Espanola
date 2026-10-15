@@ -56,10 +56,13 @@ export function upcomingNotices(contests, now=new Date()) {
   }
   return notices;
 }
+const libraryCache=new WeakMap();
 export function readEditorLibrary(storage) {
   try {
-    const data=JSON.parse(storage.getItem(LIBRARY_KEY)||'{}');
-    return Object.entries(data.poems||{}).filter(([,v])=>Array.isArray(v)&&v.length).map(([key,versions])=>({id:'local:'+key,title:versions.find(v=>v.poemTitle)?.poemTitle||key,local:true,tags:[],versions:versions.map(v=>({...v,id:String(v.id),poemText:v.poemText||''}))}));
+    const raw=storage.getItem(LIBRARY_KEY)||'{}',cached=libraryCache.get(storage);if(cached?.raw===raw)return cached.poems;
+    const data=JSON.parse(raw);
+    const poems=Object.entries(data.poems||{}).filter(([,v])=>Array.isArray(v)&&v.length).map(([key,versions])=>({id:'local:'+key,title:versions.find(v=>v.poemTitle)?.poemTitle||key,local:true,tags:[],versions:versions.map(v=>({...v,id:String(v.id),poemText:v.poemText||''}))}));
+    libraryCache.set(storage,{raw,poems});return poems;
   } catch{return [];}
 }
 export const defaultContestProfile=()=>({font:'Times New Roman',size:12,lineSpacing:1.5,paper:'A4',margin:2.5,cover:true,newPage:true,numbered:true,quoteItalic:true,pseudonym:'',workTitle:''});

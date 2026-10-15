@@ -2,6 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createCloudSync } from '../cloud-sync.js';
 
+test('distinct stable versions with identical text survive repeated downloads and receive remote metadata',async()=>{
+ const storage=new MemoryStorage();let font='lora';
+ const sync=createCloudSync({storage,request:async(path)=>path==='/api/trash'?jsonResponse({trash:[],deletedPoemIds:[]}):jsonResponse({poems:[{id:45,title:'Repetición',settings:{},versions:[1,2].map(n=>({version:n,content:'Mismo texto',versionName:'Revisión '+n,sync:{id:'stable-'+n,kind:'manual',versionNumber:n,savedAt:new Date(2026,0,n).toISOString(),settings:{poemFont:font}}}))}]})});
+ sync.setUser({id:12});await sync.loadFromServer();font='atkinson';await sync.loadFromServer();
+ const versions=JSON.parse(storage.getItem('escandador.poemMemory.v1')).poems['server:45'];
+ assert.equal(versions.length,2);assert.deepEqual(versions.map(v=>v.id),['stable-1','stable-2']);assert.ok(versions.every(v=>v.settings.poemFont==='atkinson'));
+});
+
 test('a save arriving during a download survives and is uploaded afterward', async () => {
   let release, started;
   const gate = new Promise(r => { release = r; });
@@ -9,7 +17,7 @@ test('a save arriving during a download survives and is uploaded afterward', asy
   const storage = new MemoryStorage();
   const writes = [];
   const sync = createCloudSync({ storage, request: async (path, options = {}) => {
-    if (path === '/api/poems' && !options.method) {
+    if (path.split('?')[0] === '/api/poems' && !options.method) {
       started(); await gate;
       return jsonResponse({poems:[]});
     }
@@ -84,8 +92,8 @@ test('creates one cloud poem, appends versions, and preserves all settings', asy
   const storage = new MemoryStorage();
   const request = async (path, options = {}) => {
     calls.push({ path, method: options.method || 'GET', body: options.body ? JSON.parse(options.body) : null });
-    if (path === '/api/poems' && !options.method) return jsonResponse({ ok: true, poems: [] });
-    if (path === '/api/poems' && options.method === 'POST') {
+    if (path.split('?')[0] === '/api/poems' && !options.method) return jsonResponse({ ok: true, poems: [] });
+    if (path.split('?')[0] === '/api/poems' && options.method === 'POST') {
       return jsonResponse({ ok: true, poem: { id: 41, version: 1 } }, 201);
     }
     if (path === '/api/poems/41' && options.method === 'PUT') {
@@ -168,7 +176,7 @@ test('replaces account data from the server and restores anonymous data on logou
   const calls = [];
   const request = async (path, options = {}) => {
     calls.push({ path, method: options.method || 'GET', body: options.body ? JSON.parse(options.body) : null });
-    if (path === '/api/poems' && !options.method) {
+    if (path.split('?')[0] === '/api/poems' && !options.method) {
       return jsonResponse({ ok: true, poems: [{
         id: 88,
         title: 'Servidor',
@@ -290,7 +298,7 @@ test('deletes a stale local poem when the server trash marks its cloud ID', asyn
     }),
   });
   const request = async (path) => {
-    if (path === '/api/poems') return jsonResponse({ ok: true, poems: [] });
+    if (path.split('?')[0] === '/api/poems') return jsonResponse({ ok: true, poems: [] });
     if (path === '/api/trash') {
       return jsonResponse({ ok: true, trash: [], deletedPoemIds: [73] });
     }
@@ -343,7 +351,7 @@ test('promotes an offline autosave once when the account reconnects', async () =
   });
   const writes = [];
   const request = async (path, options = {}) => {
-    if (path === '/api/poems' && !options.method) return jsonResponse({ ok: true, poems: [{
+    if (path.split('?')[0] === '/api/poems' && !options.method) return jsonResponse({ ok: true, poems: [{
       id: 81,
       title: 'Borrador recuperado',
       settings: {},
@@ -376,7 +384,7 @@ test('promotes an offline autosave once when the account reconnects', async () =
 
 test('keeps same-title server poems separate by stable poem ID', async () => {
   const request = async (path) => {
-    if (path === '/api/poems') return jsonResponse({ ok: true, poems: [
+    if (path.split('?')[0] === '/api/poems') return jsonResponse({ ok: true, poems: [
       {
         id: 11, title: 'Igual', settings: {}, versions: [
           { version: 1, versionName: 'uno', content: 'Primero', createdAt: '2026-01-01T00:00:00Z' },
@@ -414,9 +422,9 @@ test('reconciles a local-only poem as a named server version', async () => {
   const calls = [];
   const request = async (path, options = {}) => {
     calls.push({ path, method: options.method || 'GET', body: options.body ? JSON.parse(options.body) : null });
-    if (path === '/api/poems' && !options.method) return jsonResponse({ ok: true, poems: [] });
+    if (path.split('?')[0] === '/api/poems' && !options.method) return jsonResponse({ ok: true, poems: [] });
     if (path === '/api/trash') return jsonResponse({ ok: true, trash: [], deletedPoemIds: [] });
-    if (path === '/api/poems' && options.method === 'POST') {
+    if (path.split('?')[0] === '/api/poems' && options.method === 'POST') {
       return jsonResponse({ ok: true, poem: { id: 90, version: 1 } }, 201);
     }
     throw new Error(`Solicitud inesperada: ${options.method || 'GET'} ${path}`);
@@ -448,11 +456,11 @@ test('imports an anonymous poem once and remembers its cloud mapping after reloa
   let remotePoem = null;
   const request = async (path, options = {}) => {
     calls.push({ path, method: options.method || 'GET', body: options.body ? JSON.parse(options.body) : null });
-    if (path === '/api/poems' && !options.method) {
+    if (path.split('?')[0] === '/api/poems' && !options.method) {
       return jsonResponse({ ok: true, poems: remotePoem ? [remotePoem] : [] });
     }
     if (path === '/api/trash') return jsonResponse({ ok: true, trash: [], deletedPoemIds: [] });
-    if (path === '/api/poems' && options.method === 'POST') {
+    if (path.split('?')[0] === '/api/poems' && options.method === 'POST') {
       const body = JSON.parse(options.body);
       remotePoem = {
         id: 91,
@@ -518,11 +526,11 @@ test('persists each imported poem mapping before a later upload fails', async ()
   let firstRemotePoem = null;
   let failSecond = true;
   const request = async (path, options = {}) => {
-    if (path === '/api/poems' && !options.method) {
+    if (path.split('?')[0] === '/api/poems' && !options.method) {
       return jsonResponse({ ok: true, poems: firstRemotePoem ? [firstRemotePoem] : [] });
     }
     if (path === '/api/trash') return jsonResponse({ ok: true, trash: [], deletedPoemIds: [] });
-    if (path === '/api/poems' && options.method === 'POST') {
+    if (path.split('?')[0] === '/api/poems' && options.method === 'POST') {
       const body = JSON.parse(options.body);
       postTitles.push(body.title);
       if (body.title === 'Segundo' && failSecond) return jsonResponse({ error: 'Sin conexión' }, 503);

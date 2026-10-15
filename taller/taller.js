@@ -1,3 +1,4 @@
+import { poemStorage } from '../poem-storage.js';
 import {renderVersionSelectOptions} from '../poem-version-selection.js';
 import {openWorkshopStore} from './workshop-store.js';
 import {applicationState} from '../application-state.js';
@@ -24,7 +25,7 @@ sidebarToggle.addEventListener('click',()=>setSidebarCollapsed(!document.documen
 function libraryCommand(command){return new Promise((resolve,reject)=>{
   if(!state.editorReady){reject(Error('El Taller está cargando. Probá nuevamente en un momento.'));return;}
   command=structuredClone(command);const actualVersion=(key,id)=>allPoems().find(p=>p.sourceKey===key)?.versions.find(v=>v.id===id)?.sourceVersionId||id;if(command.versionId)command.versionId=actualVersion(command.poemKey,command.versionId);if(command.entries)command.entries=command.entries.map(e=>({...e,versionId:actualVersion(e.poemKey,e.versionId)}));
-  const requestId=crypto.randomUUID();const timeout=setTimeout(()=>{delete state.library.pending[requestId];reject(Error('No se pudo completar la acción de Biblioteca.'));},command.action==='sync'||command.action==='save'?120000:10000);
+  const requestId=crypto.randomUUID();const timeout=setTimeout(()=>{delete state.library.pending[requestId];reject(Error('No se pudo completar la acción de Biblioteca.'));},['sync','save','import-memory'].includes(command.action)?600000:10000);
   state.library.pending[requestId]={resolve,reject,timeout,command};document.querySelector('#workshop-editor').contentWindow.postMessage({type:'workshop:library-command',requestId,command},location.origin);
 });}
 const library=createLibrary({state,allPoems,persist,showDialog,toast,command:libraryCommand,openEditor,render});
@@ -36,8 +37,9 @@ const icon='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="
 const dateLabel=date=>date?new Intl.DateTimeFormat('es-UY',{day:'numeric',month:'long',year:'numeric'}).format(new Date(date+'T12:00:00')):'Sin fecha exacta';
 const safeLink=value=>{try{const u=new URL(value);return ['https:','http:'].includes(u.protocol)?h(u.href):'';}catch{return '';}};
 const tagsMarkup=tags=>tags.map(t=>tagMarkup(state.data,t)).join('');
-function cloudMap(){try{return JSON.parse(localStorage.getItem('escandador.cloudPoemMap.v1:'+workshopStore.user?.id)||'{}');}catch{return {};}}
-function allPoems(){if((localStorage.getItem('escandador.poemMemory.activeOwner.v1')||'anonymous')!==String(workshopStore.user?.id||'anonymous'))return [];const map=cloudMap();return readEditorLibrary(localStorage).map(p=>{const sourceKey=p.id.slice(6),record=map[sourceKey],id=record?.poemId?'poem:'+record.poemId:p.id;return {...p,id,sourceKey,color:state.data.preferences?.poemColors?.[id],tags:state.data.localTags[id]||[],versions:p.versions.map(v=>({...v,id:record?.versions?.[v.id]?.cloudVersion?'cloud-'+record.poemId+'-'+record.versions[v.id].cloudVersion:v.id,sourceVersionId:v.id}))};});}
+let cloudMapRaw,cloudMapValue;
+function cloudMap(){try{const raw=poemStorage.getItem('escandador.cloudPoemMap.v1:'+workshopStore.user?.id)||'{}';if(raw!==cloudMapRaw){cloudMapValue=JSON.parse(raw);cloudMapRaw=raw;}return cloudMapValue;}catch{return {};}}
+function allPoems(){if((poemStorage.getItem('escandador.poemMemory.activeOwner.v1')||'anonymous')!==String(workshopStore.user?.id||'anonymous'))return [];const map=cloudMap();return readEditorLibrary(poemStorage).map(p=>{const sourceKey=p.id.slice(6),record=map[sourceKey],id=record?.poemId?'poem:'+record.poemId:p.id;return {...p,id,sourceKey,color:state.data.preferences?.poemColors?.[id],tags:state.data.localTags[id]||[],versions:p.versions.map(v=>({...v,id:record?.versions?.[v.id]?.cloudVersion?'cloud-'+record.poemId+'-'+record.versions[v.id].cloudVersion:v.id,sourceVersionId:v.id}))};});}
 function migratePoemKeys(){const map=cloudMap();let changed=false;for(const [key,record] of Object.entries(map)){if(!record.poemId)continue;const old='local:'+key,next='poem:'+record.poemId;if(state.data.localTags[old]){state.data.localTags[next]=[...new Set([...(state.data.localTags[next]||[]),...state.data.localTags[old]])];delete state.data.localTags[old];changed=true;}if(state.data.preferences.poemColors?.[old]){state.data.preferences.poemColors[next]=state.data.preferences.poemColors[old];delete state.data.preferences.poemColors[old];changed=true;}for(const c of state.data.contests)for(const entry of c.selections){if(entry.poemId===old){entry.poemId=next;changed=true;}if(entry.poemId===next&&record.versions?.[entry.versionId]?.cloudVersion){entry.versionId='cloud-'+record.poemId+'-'+record.versions[entry.versionId].cloudVersion;changed=true;}}}if(changed)persist();}
 function authDialog(register=false){showDialog(register?'Crear cuenta':'Ingresar a tu cuenta',`<form id="workshop-auth-form" data-register="${register}">${register?'<label>Usuario<input name="username" required minlength="3" maxlength="40" autocomplete="username"></label>':''}<label>${register?'Correo':'Usuario o correo'}<input name="identifier" required autocomplete="username" ${register?'type="email"':''}></label><label>Contraseña<input name="password" type="password" required minlength="8" autocomplete="${register?'new-password':'current-password'}"></label><p id="account-status" class="hint" role="status"></p>${isLocalWorkshop?'':'<a class="discord-login" href="/api/auth/discord"><img class="discord-logo" src="/assets/discord.svg" alt="" width="24" height="20">Continuar con Discord</a>'}<div class="form-foot"><button type="button" data-account="${register?'login':'register'}">${register?'Ya tengo cuenta':'Crear cuenta'}</button><button type="submit" class="primary">${register?'Crear cuenta':'Ingresar'}</button></div></form>`);}
 function openPrototypeMigration(){applicationState.runtime.migrationWindow=window.open('http://localhost:8793/prototipo/migrate.html?target='+encodeURIComponent(location.origin),'workshop-migration','width=760,height=650');}
@@ -255,3 +257,5 @@ render();
 // The editor can finish before this module's dependencies load. Request readiness
 // explicitly as well as listening for its initial announcement.
 document.querySelector('#workshop-editor').contentWindow.postMessage({type:'workshop:hello'},location.origin);
+
+window.addEventListener('mesa:library-storage-changed',event=>{if(event.detail?.key==='escandador.poemMemory.v1'&&state.view==='library')renderLibrary();});

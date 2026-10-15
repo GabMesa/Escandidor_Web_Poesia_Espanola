@@ -1,3 +1,4 @@
+import { poemStorage } from './poem-storage.js';
 import { poemValidationError, hasPoemContent, cleanEmptyPoemVersions } from './poem-policy.js';
 import { writePersistentStorage } from './browser-storage.js';
 
@@ -51,13 +52,19 @@ function versionSignature(title, version) {
   return JSON.stringify({ content: payload.content, settings: payload.settings, colorIndex: payload.colorIndex });
 }
 
-function mergeUniqueVersions(title, remoteVersions, localVersions) {
-  const signatures = new Set(localVersions.map(version => versionSignature(title, version)));
+function mergeUniqueVersions(title, remoteVersions, localVersions, preferRemote = false) {
+  const ids = new Set(localVersions.map(version => String(version.id)));
+  const cloudVersions = new Set(localVersions.map(version=>version.cloudVersion).filter(Boolean));
+  const legacySignatures = new Set(localVersions.filter(version=>!version.cloudVersion).map(version => versionSignature(title, version)));
   const merged = [...localVersions];
+  const positions=new Map(localVersions.map((version,index)=>[String(version.id),index]));
   for (const version of remoteVersions) {
-    const signature = versionSignature(title, version);
-    if (signatures.has(signature)) continue;
-    signatures.add(signature);
+    if(ids.has(String(version.id))){if(preferRemote)merged[positions.get(String(version.id))]=version;continue;}
+    if(version.cloudVersion&&cloudVersions.has(version.cloudVersion))continue;
+    // Old server checkpoints had different local identities. New stable IDs
+    // preserve distinct revisions even when a poem returns to the same text.
+    if(/^cloud-\d+-\d+$/.test(version.id)&&legacySignatures.has(versionSignature(title,version)))continue;
+    ids.add(String(version.id));
     merged.push(version);
   }
   return merged.sort((left, right) => new Date(left.savedAt ?? 0) - new Date(right.savedAt ?? 0));
@@ -65,7 +72,7 @@ function mergeUniqueVersions(title, remoteVersions, localVersions) {
 
 export function createCloudSync({
   request = fetch,
-  storage = localStorage,
+  storage = poemStorage ?? globalThis.localStorage,
   state = { user: null, queue: Promise.resolve() },
   onStatus = () => {},
   onTrash = () => {},
@@ -266,6 +273,43 @@ export function createCloudSync({
     saveMap(map);
   }
 
+  async function syncMany(details) {
+    if (!details.length) return;
+    const ownerId = user?.id, {poemKey,title} = details[0];
+    const key = String(poemKey || title);
+    if (!loadMap()[key]?.poemId) await syncOne(details.shift());
+    const map = loadMap(), record = map[key];
+    if (!record?.poemId || user?.id !== ownerId) return;
+    const remaining = details.filter(({version}) => record.versions?.[version.id]?.signature !== JSON.stringify(buildPayload(title,version)));
+    for (let offset=0;offset<remaining.length;offset+=20) {
+      const batch=remaining.slice(offset,offset+20);
+      const result=await api(`/api/poems/${record.poemId}/versions`,{method:'POST',body:JSON.stringify({title,versions:batch.map(({version})=>buildPayload(title,version))})});
+      if(user?.id!==ownerId)return;
+      const uploaded=new Map(result.uploaded.map(v=>[v.id,v.cloudVersion]));
+      for(const {version} of batch){
+        if(!uploaded.has(String(version.id)))throw Error('El servidor no confirmó todas las versiones del bloque.');
+        record.versions[version.id]={signature:JSON.stringify(buildPayload(title,version)),stateSignature:versionSignature(title,version),cloudVersion:uploaded.get(String(version.id))};
+      }
+      map[key]=record;saveMap(map);
+    }
+  }
+
+  async function downloadLibrary() {
+    const poems=new Map();let cursor=null;
+    do {
+      const query=new URLSearchParams({limit:'200'});
+      if(cursor){query.set('afterPoem',cursor.poemId);query.set('afterVersion',cursor.version);}
+      const page=await api('/api/poems?'+query);
+      for(const poem of page.poems||[]){
+        const existing=poems.get(poem.id);
+        if(existing){existing.versions.push(...poem.versions);existing.version=poem.version;existing.content=poem.content;}
+        else poems.set(poem.id,poem);
+      }
+      cursor=page.nextCursor;
+    }while(cursor);
+    return {poems:[...poems.values()]};
+  }
+
   async function deleteOne({ poemKey, title, versionIds = [], wholePoem = false, protectedVersionIds = [] }) {
     const map = loadMap();
     const stableKey = String(poemKey || title);
@@ -350,7 +394,9 @@ export function createCloudSync({
     queue = queue.then(async () => {
       if (!ownerId || user?.id !== ownerId) return;
       onStatus('syncing', 'Guardando en nube…');
+      await storage.flush?.();
       await work();
+      await storage.flush?.();
       const pending = loadOutbox(ownerId).length;
       if (!pending) state.error = null;
       onStatus(state.error ? 'error' : pending ? 'syncing' : 'ready', state.error?.message || (pending ? 'Guardando en nube…' : 'Guardado en nube'));
@@ -425,13 +471,33 @@ export function createCloudSync({
       return enqueue(async () => {
         // Replay in order before fetching so compressed versions are not reimported.
         const syncOwner = user.id;
-        for (const operation of loadOutbox(syncOwner)) {
-          try { await runPending(operation); removePending(operation.id, syncOwner); }
-          catch (error) { state.error = error; }
-          if (user?.id !== syncOwner) return;
+        const operations=loadOutbox(syncOwner),completed=new Set();
+        for(let index=0;index<operations.length;){
+          const operation=operations[index];
+          if(operation.type==='save'){
+            const groups=new Map();
+            while(index<operations.length&&operations[index].type==='save'){
+              const next=operations[index++],key=String(next.detail.poemKey||next.detail.title);
+              if(!groups.has(key))groups.set(key,[]);groups.get(key).push(next);
+            }
+            for(const group of groups.values()){
+              try{
+                if(group.length>=20)await syncMany(group.map(op=>op.detail));
+                else for(const op of group)await runPending(op);
+                for(const op of group)completed.add(op.id);
+              }catch(error){state.error=error;}
+              if(user?.id!==syncOwner)return;
+            }
+          }else{
+            index++;
+            try{await runPending(operation);completed.add(operation.id);}catch(error){state.error=error;}
+            if(user?.id!==syncOwner)return;
+          }
         }
+        if(completed.size)saveOutbox(loadOutbox(syncOwner).filter(op=>!completed.has(op.id)),syncOwner);
         preserveActiveMemory();
-        const remote = await api('/api/poems');
+        const beforeDownload=readMemory(POEM_MEMORY_KEY);
+        const remote = await downloadLibrary();
         const remoteTrash = await api('/api/trash');
         if (user?.id !== syncOwner) return;
         if (remoteTrash.policy) onTrashPolicy(remoteTrash.policy);
@@ -459,7 +525,7 @@ export function createCloudSync({
             ...localVersion(poem, version), poemTitle: poem.title,
           }));
           const localVersions = Array.isArray(memory.poems[poemKey]) ? memory.poems[poemKey] : [];
-          memory.poems[poemKey] = mergeUniqueVersions(poem.title, remoteVersions, localVersions)
+          memory.poems[poemKey] = mergeUniqueVersions(poem.title, remoteVersions, localVersions, true)
             .map((version) => ({ ...version, poemTitle: poem.title }));
           map[poemKey] = { poemId: poem.id, versions: map[poemKey]?.versions || {} };
           for (const version of remoteVersions) {
@@ -477,9 +543,16 @@ export function createCloudSync({
           const record = map[poemKey] || { poemId: null, versions: {} };
           record.versions ||= {};
           const knownSignatures = new Set(
-            Object.values(record.versions).map((entry) => entry?.stateSignature).filter(Boolean)
+            Object.entries(record.versions).filter(([id])=>/^cloud-\d+-\d+$/.test(id)).map(([,entry]) => entry?.stateSignature).filter(Boolean)
           );
-          for (const version of versions) {
+          const unsent=versions.filter(version=>!record.versions[String(version.id)]&&!knownSignatures.has(versionSignature(title,version)));
+          if(unsent.length>=20){
+            await syncMany(unsent.map(version=>({poemKey,title,version})));
+            if(user?.id!==syncOwner)return;
+            map[poemKey]=loadMap()[poemKey];
+            continue;
+          }
+          for (const version of unsent) {
             const stateSignature = versionSignature(title, version);
             if (knownSignatures.has(stateSignature)) continue;
             const nextNumber = Object.keys(record.versions).length + 1;
@@ -501,7 +574,6 @@ export function createCloudSync({
               stateSignature,
               cloudVersion: Number(result.syncedVersion ?? result.poem.version) || nextNumber,
             };
-            knownSignatures.add(stateSignature);
             map[poemKey] = record;
             saveMap(map);
           }
@@ -525,7 +597,9 @@ export function createCloudSync({
             const id = Number(map[key]?.poemId) || serverPoemId(key);
             if (deletedPoemIds.has(id)) continue;
             const title = String(versions[0]?.poemTitle || key);
-            memory.poems[key] = mergeUniqueVersions(title, memory.poems[key] || [], versions);
+            const previous=new Map((beforeDownload.poems?.[key]||[]).map(version=>[String(version.id),JSON.stringify(version)]));
+            const edited=versions.filter(version=>previous.get(String(version.id))!==JSON.stringify(version));
+            memory.poems[key] = mergeUniqueVersions(title, memory.poems[key] || [], edited);
           }
         }
         writePersistentStorage(storage, userMemoryKey(user.id), JSON.stringify(memory));

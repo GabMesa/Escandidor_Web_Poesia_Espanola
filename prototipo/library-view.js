@@ -1,3 +1,4 @@
+import { poemStorage } from '../poem-storage.js';
 import {renderVersionSelectOptions} from '../poem-version-selection.js';
 import {sortPoemsByLastUpdate} from '../poem-library-order.js';
 import {showPoemColorPicker} from '../poem-color-picker.js';
@@ -18,7 +19,7 @@ export function createLibrary({state,allPoems,persist,showDialog,toast,command,o
   function selected(){return allPoems().find(p=>p.id===ui.poemId);}
   function chosen(p){return ui.versionId==='latest'?latestVersion(p):p.versions.find(v=>v.id===ui.versionId)||latestVersion(p);}
   function trashEntries(){
-    let native={};try{native=JSON.parse(localStorage.getItem('escandador.poemMemory.v1')||'{}').trash||{};}catch{}
+    let native={};try{native=JSON.parse(poemStorage.getItem('escandador.poemMemory.v1')||'{}').trash||{};}catch{}
     return [...(state.data.libraryTrash||[]).map((g,i)=>({...g,demo:true,index:i})),...Object.entries(native).flatMap(([title,groups])=>(groups||[]).map((g,i)=>({...g,title,index:i,demo:false})))];
   }
   function renderHtml(heading){
@@ -91,7 +92,7 @@ export function createLibrary({state,allPoems,persist,showDialog,toast,command,o
         else {
           await command({action:'restore',title:g.title,groupIndex:g.index,trashId:g.id});
           const versionIds=new Set(g.versions.map(v=>String(v.id)));
-          const actual=readEditorLibrary(localStorage).find(p=>p.title===g.title&&p.versions.some(v=>versionIds.has(v.id)));
+          const actual=readEditorLibrary(poemStorage).find(p=>p.title===g.title&&p.versions.some(v=>versionIds.has(v.id)));
           const recovery=(state.data.libraryRecovery||[]).find(r=>r.title===g.title&&r.versionIds.some(id=>versionIds.has(id)));
           if(actual&&recovery){const linked=state.data.poems.find(p=>p.id===recovery.poemId);if(linked)linked.linkedLocalId=actual.id;
             else {state.data.localTags[actual.id]=recovery.tags;for(const c of state.data.contests)for(const selection of c.selections)if(selection.poemId===recovery.poemId)selection.poemId=actual.id;}

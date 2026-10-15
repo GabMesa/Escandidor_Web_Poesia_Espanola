@@ -69,7 +69,7 @@ html.in-workshop,.in-workshop body{height:auto;min-height:0;overflow:hidden}
 .in-workshop #poemTitle { font-size: 21px; padding: 0; }
 .in-workshop .input-memory-bar { padding: 7px 12px; }
 .in-workshop .capture-actions { padding: 6px 12px; }
-.in-workshop #poemInput { flex: 0 0 auto; height: clamp(360px, calc(100dvh - 300px), 720px); min-height: 360px; padding: 14px; overflow: auto; resize: vertical; }
+.in-workshop #poemInput { flex: 0 0 auto; field-sizing: content; height: auto; min-height: 360px; padding: 14px; overflow: hidden; resize: none; }
 .in-workshop .analysis-text-output { min-height: 360px; padding: 10px 12px; }
 .in-workshop .word-lookup-bar { padding: 6px 10px; }
 .in-workshop .lookup-results { display:flex; flex-direction:column; height:auto; min-height:0; max-height:none; overflow:visible; padding:8px 10px; gap:10px; }
@@ -102,7 +102,7 @@ html.in-workshop,.in-workshop body{height:auto;min-height:0;overflow:hidden}
 .in-workshop .lookup-credit { grid-column: 1/-1; margin-top: 0!important; padding-top: 4px!important; font-size: 10px!important; }
 @media (max-width: 820px) {
   .in-workshop .summary-hint { max-width: none; }
-  .in-workshop #poemInput { height: 380px; min-height: 320px; }
+  .in-workshop #poemInput { min-height: 320px; }
   .in-workshop .lookup-results { grid-template-columns: minmax(0, 1fr); }
   .in-workshop .config-shell>summary { min-height: 26px; }
   .in-workshop .quick-controls { display: flex; flex-wrap: wrap; gap: 8px; }

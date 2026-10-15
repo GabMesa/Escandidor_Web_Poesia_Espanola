@@ -94,7 +94,7 @@ if (window.parent !== window && new URLSearchParams(location.search).get('taller
         else for(const event of events)dispatchPoemSaved(event.poemKey,event.title,event.version);
         refreshSavedPoemNameOptions();window.dispatchEvent(new CustomEvent('escandidor:library-changed'));
       } else if (command.action === 'import') {
-        importedCount = importPoemsFromMarkdown(command.text);
+        importedCount = importPoemsFromMarkdown(command.text, { openFirst: false });
       } else if (command.action === 'save' || command.action === 'sync') {
         if (command.action === 'save' || isCurrentDraftDirtyAgainstLoadedVersion()) saveCurrentPoemVersion({ notify: false });
         const beforeSync = getSnapshotSignature(buildCurrentSnapshot());
@@ -3211,6 +3211,7 @@ function updateSelectAllButtonLabel(totalItems) {
 }
 
 function updateVersionManagerStatus() {
+  if (document.documentElement.classList.contains('in-workshop')) return;
   const compressionButton = document.getElementById('compressPoemVersions');
   if (compressionButton) {
     const store = loadPoemMemoryStore();
@@ -3249,6 +3250,9 @@ function closeVersionManagerModal() {
 }
 
 function renderSavedVersionList(selectedPoemKey, preferredVersionId = '') {
+  // The Workshop owns its library. Rebuilding this hidden legacy tree creates
+  // thousands of unnecessary DOM nodes every time a poem is opened or saved.
+  if (document.documentElement.classList.contains('in-workshop')) return;
   updateVersionManagerStatus();
   if (!savedVersionsList) {
     return;
@@ -4483,17 +4487,16 @@ function deleteSelectedPoemEntry() {
   updateVersionManagerStatus();
 }
 
-function importPoemsFromMarkdown(markdown) {
+function importPoemsFromMarkdown(markdown, { openFirst = true } = {}) {
   const parsed = parsePoemsFromMarkdown(markdown);
   if (!parsed.length) {
     throw Error('El archivo debe tener títulos con # y texto debajo.');
   }
-  if (poemInput.value.trim() && (!state.loadedVersionTitle || isCurrentDraftDirtyAgainstLoadedVersion())) {
-    const error = poemValidationError(poemTitle?.value, poemInput.value);
-    if (error) throw Error('Antes de importar, guardá el poema abierto con un título válido.');
-    if (!saveCurrentPoemVersion({notify:false})) throw Error('No se pudo guardar el poema abierto antes de importar.');
-  }
-  cancelPendingAutoSave();
+  // Importing adds to the library. An unfinished draft, including one without
+  // a title, must neither prevent the import nor be replaced by its first poem.
+  const preserveDraft = Boolean(poemInput.value.trim() && (!state.loadedVersionTitle || isCurrentDraftDirtyAgainstLoadedVersion()));
+  const shouldOpenFirst = openFirst && !preserveDraft;
+  if (shouldOpenFirst) cancelPendingAutoSave();
 
   const store = loadPoemMemoryStore();
   const imported = [];
@@ -4540,8 +4543,8 @@ function importPoemsFromMarkdown(markdown) {
   // Every imported poem is an independent manual checkpoint, including poems
   // with the same visible title. Notify sync only after the whole local write.
   for (const entry of imported) dispatchPoemSaved(entry.poemKey,entry.title,entry.version);
-  refreshSavedPoemNameOptions(imported[0].poemKey);
-  loadVersionById(imported[0].poemKey,imported[0].version.id);
+  refreshSavedPoemNameOptions(shouldOpenFirst ? imported[0].poemKey : state.loadedVersionTitle);
+  if (shouldOpenFirst) loadVersionById(imported[0].poemKey,imported[0].version.id);
   window.dispatchEvent(new CustomEvent('escandidor:library-changed'));
   return imported.length;
 }

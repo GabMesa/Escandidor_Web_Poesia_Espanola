@@ -31,17 +31,18 @@ if(window.parent!==window && new URLSearchParams(location.search).get('taller')=
     }
     if(message?.type!=='workshop:open')return;
     let prepared=false;
-    window.dispatchEvent(new CustomEvent('workshop:library-command',{detail:{command:{action:'prepare-open'},respond:result=>{prepared=result.ok;if(!result.ok)send('workshop:error',{message:result.error});}}}));
+    window.dispatchEvent(new CustomEvent('workshop:library-command',{detail:{command:{action:'prepare-open'},respond:result=>{prepared=result.ok;if(!result.ok)send('workshop:error',{requestId:message.requestId,message:result.error});}}}));
     if(!prepared)return;
     setView('editor');applicationState.runtime.workshopSourceId=message.sourceId||'';
     if(message.poemKey){
-      window.dispatchEvent(new CustomEvent('workshop:library-command',{detail:{command:{action:'open-version',poemKey:message.poemKey,versionId:message.versionId},respond:result=>{if(result.ok){if(/^#[\da-f]{6}$/i.test(message.color||''))window.dispatchEvent(new CustomEvent('workshop:library-command',{detail:{command:{action:'color',poemKey:message.poemKey,value:message.color},respond:()=>{}}}));send('workshop:editor');}else send('workshop:error',{message:result.error});}}}));
+      window.dispatchEvent(new CustomEvent('workshop:library-command',{detail:{command:{action:'open-version',poemKey:message.poemKey,versionId:message.versionId},respond:result=>{if(result.ok){if(/^#[\da-f]{6}$/i.test(message.color||''))window.dispatchEvent(new CustomEvent('workshop:library-command',{detail:{command:{action:'color',poemKey:message.poemKey,value:message.color},respond:()=>{}}}));send('workshop:editor',{requestId:message.requestId});}else send('workshop:error',{requestId:message.requestId,message:result.error});}}}));
     }else{
       document.querySelector('#newPoemTop').click();
       applicationState.runtime.workshopSourceId=message.sourceId||'';
       if(message.title){const title=document.querySelector('#poemTitle');title.value=message.title;title.dispatchEvent(new Event('input',{bubbles:true}));const text=document.querySelector('#poemInput');text.value=message.text||'';text.dispatchEvent(new Event('input',{bubbles:true}));}
       if(/^#[\da-f]{6}$/i.test(message.color||'')){document.documentElement.style.setProperty('--poem-color',message.color);document.body.classList.add('has-poem-theme');}
       if(message.font){const font=document.querySelector('.poem-font-selector:not(#defaultPoemFont)');font.value=message.font;font.dispatchEvent(new Event('change',{bubbles:true}));}
+      send('workshop:editor',{requestId:message.requestId});
     }
   });
   document.addEventListener('click',event=>{

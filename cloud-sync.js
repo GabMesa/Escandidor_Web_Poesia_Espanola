@@ -240,9 +240,10 @@ export function createCloudSync({
     if (validationError) throw new Error(validationError);
     const sourcePoemId = Number(record.poemId) || cloudPoemId(versionId) || serverPoemId(stableKey);
     if (sourcePoemId) record.poemId = sourcePoemId;
-    const requestPayload = sourcePoemId ? { ...payload, sourcePoemId } : payload;
     const signature = JSON.stringify(payload);
     const mappedVersion = record.versions[versionId];
+    const cloudVersion=Number(mappedVersion?.cloudVersion||version.cloudVersion);
+    const requestPayload = {...payload,...(sourcePoemId?{sourcePoemId}:{}),sync:{...payload.sync,...(cloudVersion?{cloudVersion}:{})}};
     const legacyPayload = { ...payload }; delete legacyPayload.sync;
     if (versionId && [(signature), JSON.stringify(legacyPayload)].includes(mappedVersion?.signature || mappedVersion)) return;
 
@@ -267,6 +268,7 @@ export function createCloudSync({
         signature,
         stateSignature: versionSignature(title, version),
         cloudVersion: Number(result?.syncedVersion ?? result?.poem?.version) || null,
+        ...(result.compressed?{retired:true}:{}),
       };
     }
     saveMap({...loadMap(),[stableKey]:record});
@@ -282,12 +284,13 @@ export function createCloudSync({
     const remaining = details.filter(({version}) => record.versions?.[version.id]?.signature !== JSON.stringify(buildPayload(title,version)));
     for (let offset=0;offset<remaining.length;offset+=20) {
       const batch=remaining.slice(offset,offset+20);
-      const result=await api(`/api/poems/${record.poemId}/versions`,{method:'POST',body:JSON.stringify({title,versions:batch.map(({version})=>buildPayload(title,version))})});
+      const result=await api(`/api/poems/${record.poemId}/versions`,{method:'POST',body:JSON.stringify({title,versions:batch.map(({version})=>{const payload=buildPayload(title,version),cloudVersion=Number(record.versions?.[version.id]?.cloudVersion||version.cloudVersion);if(cloudVersion)payload.sync.cloudVersion=cloudVersion;return payload;})})});
       if(user?.id!==ownerId)return;
-      const uploaded=new Map(result.uploaded.map(v=>[v.id,v.cloudVersion]));
+      const uploaded=new Map(result.uploaded.map(v=>[v.id,v]));
       for(const {version} of batch){
         if(!uploaded.has(String(version.id)))throw Error('El servidor no confirmó todas las versiones del bloque.');
-        record.versions[version.id]={signature:JSON.stringify(buildPayload(title,version)),stateSignature:versionSignature(title,version),cloudVersion:uploaded.get(String(version.id))};
+        const confirmed=uploaded.get(String(version.id));
+        record.versions[version.id]={signature:JSON.stringify(buildPayload(title,version)),stateSignature:versionSignature(title,version),cloudVersion:confirmed.cloudVersion,...(confirmed.compressed?{retired:true}:{})};
       }
       saveMap({...loadMap(),[key]:record});
     }
@@ -534,10 +537,10 @@ export function createCloudSync({
           const retired=(remoteTrash.compressedVersions||[]).filter(v=>Number(v.poemId)===poemId);
           if(!retired.length)continue;
           const ids=new Set(retired.map(v=>v.clientId)),numbers=new Set(retired.map(v=>Number(v.version))),localIds=new Set();
-          for(const version of versions){const cloud=Number(version.cloudVersion||map[key]?.versions?.[version.id]?.cloudVersion||/^cloud-\d+-(\d+)$/.exec(version.id)?.[1]);if(ids.has(String(version.id))||numbers.has(cloud))localIds.add(String(version.id));}
+          for(const version of versions){const cloud=Number(version.cloudVersion||map[key]?.versions?.[version.id]?.cloudVersion||/^cloud-\d+-(\d+)$/.exec(version.id)?.[1]);if(map[key]?.versions?.[version.id]?.retired||ids.has(String(version.id))||numbers.has(cloud))localIds.add(String(version.id));}
           retiredByKey.set(key,localIds);
           memory.poems[key]=versions.filter(v=>!localIds.has(String(v.id))||pendingVersionIds.has(String(v.id)));
-          if(map[key])for(const [id,record] of Object.entries(map[key].versions||{}))if((ids.has(id)||numbers.has(Number(record.cloudVersion)))&&!pendingVersionIds.has(id))delete map[key].versions[id];
+          if(map[key])for(const [id,record] of Object.entries(map[key].versions||{}))if((record.retired||ids.has(id)||numbers.has(Number(record.cloudVersion)))&&!pendingVersionIds.has(id))delete map[key].versions[id];
         }
         const deletedPoemIds = new Set(
           (remoteTrash.deletedPoemIds || []).map(Number).filter(Number.isInteger)

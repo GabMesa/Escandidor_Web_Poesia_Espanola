@@ -502,6 +502,8 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     }
     const replayBatch=await jsonRequest(baseUrl,`/api/poems/${compressionId}/versions`,{method:'POST',cookie:firstCookie,body:{versions:[compressionPayload(1),compressionPayload(2)]}});
     assert.equal(replayBatch.response.status,200,JSON.stringify(replayBatch.payload));assert.equal(replayBatch.payload.uploaded.length,2);
+    const legacyAlias=await jsonRequest(baseUrl,`/api/poems/${compressionId}`,{method:'PUT',cookie:firstCookie,body:{...compressionPayload(1),sync:{...compressionPayload(1).sync,id:'legacy-local-alias',cloudVersion:1}}});
+    assert.equal(legacyAlias.response.status,200,JSON.stringify(legacyAlias.payload));assert.equal(legacyAlias.payload.compressed,true);assert.equal(legacyAlias.payload.syncedVersion,3);
     const changedRetired=await jsonRequest(baseUrl,`/api/poems/${compressionId}`,{method:'PUT',cookie:firstCookie,body:{...compressionPayload(1),content:'Una modificación nueva en una copia vieja.'}});
     assert.equal(changedRetired.response.status,409);
     const compressedHistory=(await jsonRequest(baseUrl,'/api/poems',{cookie:firstCookie})).payload.poems.find(p=>p.id===compressionId);

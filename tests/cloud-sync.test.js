@@ -2,6 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createCloudSync } from '../cloud-sync.js';
 
+test('a legacy local ID confirmed as compressed is removed on the next pull',async()=>{
+ const storage=new MemoryStorage();
+ const sync=createCloudSync({storage,request:async(path,options={})=>{
+  if(options.method==='PUT'){assert.equal(JSON.parse(options.body).sync.cloudVersion,1);return jsonResponse({poem:{id:64,version:2},syncedVersion:2,compressed:true});}
+  if(path==='/api/trash')return jsonResponse({trash:[],compressedVersions:[{poemId:64,version:1,clientId:'server-old',replacementVersion:2}]});
+  return jsonResponse({poems:[{id:64,title:'Golem',versions:[{version:2,content:'Texto conservado',sync:{id:'kept',settings:{poemFont:'atkinson'}}}]}]});
+ }});
+ sync.setUser({id:9});const old=version('legacy-local',1,'Texto anterior');
+ storage.setItem('escandador.poemMemory.v1',JSON.stringify({poems:{'server:64':[old]},trash:{}}));
+ storage.setItem('escandador.cloudPoemMap.v1:9',JSON.stringify({'server:64':{poemId:64,versions:{'legacy-local':{cloudVersion:1}}}}));
+ await sync.syncSavedVersion({poemKey:'server:64',title:'Golem',version:old});await sync.loadFromServer();
+ assert.deepEqual(JSON.parse(storage.getItem('escandador.poemMemory.v1')).poems['server:64'].map(v=>v.id),['kept']);
+});
+
 test('a device pulling a compressed poem removes retired cached checkpoints instead of restoring them',async()=>{
  const storage=new MemoryStorage();
  const request=async path=>path==='/api/trash'?jsonResponse({trash:[],deletedPoemIds:[],compressedVersions:[{poemId:64,version:1,clientId:'old',replacementVersion:2}]}):jsonResponse({poems:[{id:64,title:'Golem',settings:{poemFont:'atkinson'},versions:[{version:2,content:'Texto distinto',sync:{id:'kept',settings:{poemFont:'atkinson'},savedAt:'2026-10-15T00:00:02Z'}}]}]});

@@ -79,7 +79,7 @@ export async function onRequestPost(context) {
       JOIN poem_versions pv ON pv.poem_id=cp.id WHERE cp.user_id=? AND pv.client_id=?`)
       .bind(user.id, sync.id).first();
     if (uploaded) return jsonResponse({ ok: true, poem: serializePoem(uploaded), syncedVersion: uploaded.synced_version });
-    const alias=(await compressedAliases(env.escandidor_db,user.id,null,[sync.id])).get(sync.id);
+    const alias=(await compressedAliases(env.escandidor_db,user.id,Number(body.sourcePoemId)||null,[{id:sync.id,cloudVersion:body.sync?.cloudVersion}])).get(sync.id);
     if(alias){
       const conflict=compressedVersionConflict(alias,content,settings);if(conflict)return conflict;
       const current=await env.escandidor_db.prepare('SELECT * FROM current_poems WHERE id=? AND user_id=?').bind(alias.poem_id,user.id).first();

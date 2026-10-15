@@ -35,14 +35,23 @@ export async function compressServerPoem(db,userId,poemId,{dryRun=false}={}){
 
 export async function compressedAliases(db,userId,poemId,ids){
   if(!ids.length)return new Map();
+  const entries=ids.map(entry=>typeof entry==='string'?{id:entry}:entry);
+  const legacyNumbers=entries.map(e=>Number(e.cloudVersion)).filter(n=>Number.isInteger(n)&&n>0);
+  let legacy=new Map();
+  if(poemId&&legacyNumbers.length){
+    const {results}=await db.prepare('SELECT version,client_id FROM compressed_poem_versions WHERE user_id=? AND poem_id=? AND version IN(SELECT value FROM json_each(?))').bind(userId,poemId,JSON.stringify(legacyNumbers)).all();
+    legacy=new Map(results.map(r=>[r.version,r.client_id]));
+  }
+  const lookup=[...new Set([...entries.map(e=>e.id),...legacy.values()])];
   const {results}=await db.prepare(`WITH RECURSIVE aliases(poem_id,root,version) AS (
       SELECT poem_id,client_id,replacement_version FROM compressed_poem_versions WHERE user_id=? AND (? IS NULL OR poem_id=?) AND client_id IN(SELECT value FROM json_each(?))
       UNION ALL SELECT a.poem_id,a.root,c.replacement_version FROM aliases a JOIN compressed_poem_versions c ON c.poem_id=a.poem_id AND c.version=a.version
     ) SELECT c.poem_id,c.client_id,c.version_json,v.version AS replacement_version FROM aliases a
       JOIN poem_versions v ON v.poem_id=a.poem_id AND v.version=a.version
       JOIN compressed_poem_versions c ON c.poem_id=a.poem_id AND c.client_id=a.root`)
-    .bind(userId,poemId,poemId,JSON.stringify(ids)).all();
-  return new Map(results.map(row=>[row.client_id,row]));
+    .bind(userId,poemId,poemId,JSON.stringify(lookup)).all();
+  const aliases=new Map(results.map(row=>[row.client_id,row]));
+  return new Map(entries.map(entry=>[entry.id,aliases.get(entry.id)||aliases.get(legacy.get(Number(entry.cloudVersion)))]).filter(([,alias])=>alias));
 }
 
 export function compressedVersionConflict(alias,content,settings){

@@ -14,9 +14,9 @@ export async function onRequestPost({request,env,params}) {
     const validation=poemValidationError(title,input.content);if(validation)return errorResponse(validation,400);
     const settings={...input.settings};settings.poemFont=normalizeFontFamily(settings.poemFont);
     const sync=versionSyncMetadata(input,settings);if(!sync)return errorResponse('La versión necesita una identidad estable.',400);
-    versions.push({content:input.content,name:String(input.versionName||'Versión').slice(0,60),sync});
+    versions.push({content:input.content,name:String(input.versionName||'Versión').slice(0,60),sync,cloudVersion:input.sync?.cloudVersion});
   }
-  const aliases=await compressedAliases(env.escandidor_db,user.id,poem.id,versions.map(v=>v.sync.id));
+  const aliases=await compressedAliases(env.escandidor_db,user.id,poem.id,versions.map(v=>({id:v.sync.id,cloudVersion:v.cloudVersion})));
   for(const v of versions){const alias=aliases.get(v.sync.id);if(alias){const conflict=compressedVersionConflict(alias,v.content,v.sync.settings);if(conflict)return conflict;}}
   const active=versions.filter(v=>!aliases.has(v.sync.id));
   const statements=active.map(v=>env.escandidor_db.prepare(`INSERT INTO poem_versions (poem_id,name,content,version,client_id,sync_json)
@@ -29,5 +29,5 @@ export async function onRequestPost({request,env,params}) {
   if(statements.length)await env.escandidor_db.batch(statements);
   const ids=versions.map(v=>v.sync.id);
   const {results}=await env.escandidor_db.prepare(`SELECT client_id AS id,version AS cloudVersion FROM poem_versions WHERE poem_id=? AND client_id IN (${ids.map(()=>'?').join(',')})`).bind(poem.id,...ids).all();
-  return jsonResponse({ok:true,uploaded:[...results,...[...aliases].map(([id,row])=>({id,cloudVersion:row.replacement_version}))]});
+  return jsonResponse({ok:true,uploaded:[...results,...[...aliases].map(([id,row])=>({id,cloudVersion:row.replacement_version,compressed:true}))]});
 }

@@ -62,7 +62,7 @@ export async function onRequestPut(context) {
   const colorIndex = body.colorIndex !== undefined ? body.colorIndex : existing.color_index;
   const sync = versionSyncMetadata(body, settingsObject);
   if(sync){
-    const alias=(await compressedAliases(env.escandidor_db,user.id,Number(poemId),[sync.id])).get(sync.id);
+    const alias=(await compressedAliases(env.escandidor_db,user.id,Number(poemId),[{id:sync.id,cloudVersion:body.sync?.cloudVersion}])).get(sync.id);
     if(alias){const conflict=compressedVersionConflict(alias,content,settingsObject);if(conflict)return conflict;return jsonResponse({ok:true,poem:serializePoem(existing),syncedVersion:alias.replacement_version,compressed:true});}
   }
 

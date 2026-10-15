@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="../workshop-theme.css">
   <link rel="stylesheet" href="../workshop-layout.css">
   <link rel="stylesheet" href="contest-poems.css">
+  <link rel="stylesheet" href="editor-loading.css">
   <script src="../theme.js" defer></script>
   <script src="../workshop-sidebar.js" defer></script>
 </head>
@@ -31,7 +32,7 @@
         <a href="/apoyar.html">Apoyar el proyecto <span aria-hidden="true">↗</span></a>
       </div>
     </details></aside>
-    <div class="content-area"><main id="main" tabindex="-1"><div class="workshop-loading" role="status"><span class="loading-spinner" aria-hidden="true"></span>Cargando tu mesa de trabajo…</div></main><section id="editor-host" hidden><iframe id="workshop-editor" scrolling="no" title="Escandidor del Taller" src="../escandidor.html?taller=1&real=1"></iframe></section></div>
+    <div class="content-area"><main id="main" tabindex="-1"><section class="editor-loading" aria-busy="true" aria-label="Carga de Escandidor"><div class="editor-loading-art" aria-hidden="true"><svg viewBox="0 0 80 80"><path class="loading-paper" d="M20 18h30l10 10v37H20Z M50 18v12h10"/><path class="loading-writing" d="M29 40h22 M29 49h17 M29 58h20"/><path class="loading-pen" d="m53 39 15-24 5 4-17 23-6 3Z"/></svg><span></span><span></span><span></span></div><div class="editor-loading-body"><p class="eyebrow">TU MESA DE POESÍA</p><h2>Cargando Escandidor</h2><p class="editor-loading-detail" role="status">Cargando las herramientas de escritura y análisis…</p><div class="editor-loading-meter"><span>Preparando herramientas</span><progress aria-label="Cargando herramientas"></progress></div></div></section></main><section id="editor-host" hidden><iframe id="workshop-editor" scrolling="no" title="Escandidor del Taller" src="../escandidor.html?taller=1&real=1"></iframe></section></div>
   </div>
   <footer id="workshop-footer" class="workshop-footer" aria-label="Créditos del Taller"></footer>
   <script type="module" src="../workshop-credits.js"></script>

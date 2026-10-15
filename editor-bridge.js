@@ -1,8 +1,11 @@
 import {applicationState} from './application-state.js';
+import {reportEditorLoading} from './editor-loading.js';
 if(window.parent!==window && new URLSearchParams(location.search).get('taller')==='1'){
   document.documentElement.classList.add('in-workshop');
   document.documentElement.dataset.theme=parent.document.documentElement.dataset.theme||document.documentElement.dataset.theme||'light';
   const send=(type,detail={})=>parent.postMessage({type,...detail},location.origin);
+  window.addEventListener('escandidor:loading-stage',event=>send('workshop:loading-stage',event.detail));
+  if(applicationState.runtime.editorLoading)send('workshop:loading-stage',applicationState.runtime.editorLoading);
   let resizeFrame=0;
   const refresh=()=>{
     const style=getComputedStyle(document.documentElement);
@@ -20,19 +23,28 @@ if(window.parent!==window && new URLSearchParams(location.search).get('taller')=
   if(document.readyState!=='loading')observe();else window.addEventListener('DOMContentLoaded',observe,{once:true});
   window.addEventListener('resize',refresh);
   function setView(){document.documentElement.classList.remove('workshop-files');refresh();}
-  window.addEventListener('message',event=>{
+  window.addEventListener('message',async event=>{
     if(event.origin!==location.origin||event.source!==parent)return;
     if(event.data?.type==='workshop:appearance'&&['light','dark'].includes(event.data.theme)){document.documentElement.dataset.theme=event.data.theme;refresh();return;}
     if(event.data?.type==='workshop:hello'){ready();return;}
     const message=event.data;if(message?.type==='workshop:view'){setView(message.view);return;}
     if(message?.type==='workshop:library-command'){
+      if(message.command?.action==='open-latest'){applicationState.runtime.loadingRequestId='startup';reportEditorLoading('analysis','Preparando la escansión del último poema guardado.','startup');await new Promise(resolve=>setTimeout(resolve,0));if(applicationState.runtime.loadingRequestId!=='startup'){send('workshop:library-result',{requestId:message.requestId,ok:true,skipped:true});return;}}
       if(['import','font'].includes(message.command?.action))applicationState.runtime.workshopSourceId='';
       window.dispatchEvent(new CustomEvent('workshop:library-command',{detail:{command:message.command,progress:progress=>send('workshop:library-progress',{requestId:message.requestId,progress}),respond:result=>send('workshop:library-result',{requestId:message.requestId,...result})}}));return;
     }
     if(message?.type!=='workshop:open')return;
+    applicationState.runtime.loadingRequestId=message.requestId;
+    reportEditorLoading('draft','Conservando el borrador abierto antes de cambiar de poema.',message.requestId);
     let prepared=false;
     window.dispatchEvent(new CustomEvent('workshop:library-command',{detail:{command:{action:'prepare-open'},respond:result=>{prepared=result.ok;if(!result.ok)send('workshop:error',{requestId:message.requestId,message:result.error});}}}));
     if(!prepared)return;
+    reportEditorLoading('poem',message.poemKey?'Cargando la versión elegida y su configuración.':'Preparando un nuevo espacio de escritura.',message.requestId);
+    await new Promise(resolve=>setTimeout(resolve,0));
+    if(applicationState.runtime.loadingRequestId!==message.requestId)return;
+    reportEditorLoading('analysis','Analizando sílabas, acentos y rimas.',message.requestId);
+    await new Promise(resolve=>setTimeout(resolve,0));
+    if(applicationState.runtime.loadingRequestId!==message.requestId)return;
     setView('editor');applicationState.runtime.workshopSourceId=message.sourceId||'';
     if(message.poemKey){
       window.dispatchEvent(new CustomEvent('workshop:library-command',{detail:{command:{action:'open-version',poemKey:message.poemKey,versionId:message.versionId},respond:result=>{if(result.ok){if(/^#[\da-f]{6}$/i.test(message.color||''))window.dispatchEvent(new CustomEvent('workshop:library-command',{detail:{command:{action:'color',poemKey:message.poemKey,value:message.color},respond:()=>{}}}));send('workshop:editor',{requestId:message.requestId});}else send('workshop:error',{requestId:message.requestId,message:result.error});}}}));
@@ -43,6 +55,7 @@ if(window.parent!==window && new URLSearchParams(location.search).get('taller')=
       if(message.font){const font=document.querySelector('.poem-font-selector:not(#defaultPoemFont)');font.value=message.font;font.dispatchEvent(new Event('change',{bubbles:true}));}
       send('workshop:editor',{requestId:message.requestId});
     }
+    if(applicationState.runtime.loadingRequestId===message.requestId)delete applicationState.runtime.loadingRequestId;
   });
   document.addEventListener('click',event=>{
     const button=event.target.closest('button');

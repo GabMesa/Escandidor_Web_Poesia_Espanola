@@ -8,12 +8,15 @@ import {DEFAULT_AI_STATEMENT,plicaExportFields} from '../plica-policy.js';
 import {createLibrary} from './library-view.js';
 import {contestPoemsHtml} from './contest-poems.js';
 import {createAppearancePreferences} from './appearance-preferences.js';
+import {createEditorLoading} from './editor-loading.js';
 import {visualPreferences,visualColor,colorInk} from '../visual-preferences.js';
 import {documentPreview} from './document-preview.js';
 import {coverOptions,coverWarnings} from './cover-policy.js';
 import {createReminderNotifications} from './reminder-notifications.js';
 import {tagCatalog,createTag,updateTagEverywhere,tagColor,setTagColor,tagMarkup,ensureTagColors} from './tag-library.js';
-const workshopStore=await openWorkshopStore().catch(error=>{document.querySelector('#main').innerHTML=`<div class="workshop-loading" role="alert"><div><p>No se pudo cargar tu mesa. ${h(error.message)}</p><a href="" class="primary">Volver a intentar</a></div></div>`;throw error;});
+const editorLoading=createEditorLoading();
+document.querySelector('#main').innerHTML=editorLoading.html();
+const workshopStore=await openWorkshopStore().catch(error=>{editorLoading.fail(error.message);throw error;});
 applicationState.workshop={data:workshopStore.data,view:workshopStore.user?'editor':'library',contestId:'',query:'',tags:[],tagMode:'all',checked:[],draft:null,preview:'poem',toastTimer:null,editorReady:false,pendingOpen:null,plicaDraft:null};
 const state=applicationState.workshop;
 state.contestPoemFilters={};
@@ -94,7 +97,7 @@ function render(){
   document.querySelector('#contest-count').textContent=state.data.contests.length;
   document.querySelector('#reminder-count').textContent=upcomingNotices(state.data.contests).length;
   const host=document.querySelector('#editor-host');host.hidden=state.view!=='editor';
-  if(!host.hidden&&!state.editorReady){host.hidden=true;main.innerHTML='<div class="workshop-loading" role="status"><span class="loading-spinner" aria-hidden="true"></span>Preparando tu mesa de trabajo…</div>';return;}
+  if(!host.hidden&&(!state.editorReady||!state.startupComplete)){host.hidden=true;main.innerHTML=editorLoading.html();return;}
   if(!host.hidden){main.innerHTML='<div class="editor-workspace-heading"><h1>Escandidor</h1><button data-view="library">Abrir Biblioteca</button></div>';document.querySelector('#workshop-editor').contentWindow.postMessage({type:'workshop:view',view:'editor'},location.origin);return;}
   if(state.view==='library')renderLibrary();else if(state.view==='contests')renderContests();else if(state.view==='reminders')renderReminders();else if(state.view==='export')renderExport();else renderDetail();
 }
@@ -134,7 +137,7 @@ function tagDialog(ids){
 function manageTagsDialog(){const tags=tagCatalog(state.data,allPoems());showDialog('Mis etiquetas',`<form id="create-tag-form"><label>Nueva etiqueta<input name="name" maxlength="60" required placeholder="Ej.: listo para concurso"></label><label class="tag-create-color">Color<input type="color" name="color" value="#3d7164"></label><div class="form-foot"><span class="small muted">Creala ahora y asignala después a tus poemas.</span><button type="submit" class="primary">Crear etiqueta</button></div></form><div class="tag-catalog">${tags.map(tag=>`<div>${tagMarkup(state.data,tag)}<input type="color" data-tag-color="${h(tag)}" value="${tagColor(state.data,tag)}" aria-label="Color de ${h(tag)}" title="Cambiar color de ${h(tag)}"><span class="small muted">${allPoems().filter(p=>p.tags.includes(tag)).length} ${allPoems().filter(p=>p.tags.includes(tag)).length===1?'poema':'poemas'}</span><button class="quiet small" data-action="delete-tag" data-tag="${h(tag)}" aria-label="Eliminar etiqueta ${h(tag)}">Eliminar</button></div>`).join('')||'<p class="muted">Todavía no creaste etiquetas.</p>'}</div>${tags.length?`<form id="rename-tag-form"><div class="form-grid"><label>Etiqueta a renombrar<select name="old">${tags.map(t=>`<option>${h(t)}</option>`).join('')}</select></label><label>Nuevo nombre<input name="next" required maxlength="60"></label></div><p class="hint">Se actualiza en todos los poemas. Si el nombre ya existe, las etiquetas se unifican.</p><div class="form-foot"><button type="button" data-action="close">Cerrar</button><button type="submit">Renombrar etiqueta</button></div></form>`:'<button data-action="close">Cerrar</button>'}`);}
 function openEditor(poem,versionId='latest'){
   state.openGeneration=(state.openGeneration||0)+1;
-  state.openingEditorId=crypto.randomUUID();main.setAttribute('aria-busy','true');document.querySelector('#opening-poem-status')?.remove();main.insertAdjacentHTML('afterbegin','<p id="opening-poem-status" class="inline-loading" role="status"><span class="loading-spinner" aria-hidden="true"></span>Abriendo poema…</p>');
+  state.openingEditorId=crypto.randomUUID();main.setAttribute('aria-busy','true');document.querySelector('#opening-poem-status')?.remove();main.insertAdjacentHTML('afterbegin','<div id="opening-poem-status">'+editorLoading.begin(state.openingEditorId,!state.editorReady)+'</div>');
   state.pendingOpen={type:'workshop:open',requestId:state.openingEditorId,sourceId:poem?.id||'',poemKey:poem?.sourceKey||'',title:poem?.title||'',font:poem?.font,color:poem?.color||state.library.settings.colors?.[poem?.title]||'#205EA6',versionId:versionId==='latest'?'latest':poem?.versions.find(v=>v.id===versionId)?.sourceVersionId||versionId,text:poem?(versionId==='latest'?latestVersion(poem):poem.versions.find(v=>v.id===versionId)||latestVersion(poem)).poemText:''};
   if(state.editorReady){document.querySelector('#workshop-editor').contentWindow.postMessage(state.pendingOpen,location.origin);state.pendingOpen=null;}
 }
@@ -154,7 +157,7 @@ async function importUrl(url,editing=false){
 document.addEventListener('click',async event=>{
   if(event.target.closest('[data-account=appearance],[data-lib=appearance-preferences]')){appearance.open();return;}
   const lib=event.target.closest('[data-lib]');if(lib){await library.click(lib);return;}
-  const view=event.target.closest('[data-view]');if(view){state.openingEditorId=null;state.pendingOpen=null;main.removeAttribute('aria-busy');state.view=view.dataset.view;render();return;}
+  const view=event.target.closest('[data-view]');if(view){if(state.startupComplete)editorLoading.finish();state.openingEditorId=null;state.pendingOpen=null;main.removeAttribute('aria-busy');state.view=view.dataset.view;render();return;}
   const card=event.target.closest('[data-contest-poem]');if(card&&!event.target.closest('button,input,select,label,a')){contestFilters().previewId=card.dataset.contestPoem;renderDetail();document.querySelector('.contest-poem-preview')?.scrollIntoView({block:'nearest',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});return;}
   const button=event.target.closest('[data-action]');if(!button)return;const action=button.dataset.action;
   if(action==='appearance-preferences'){appearance.open();return;}
@@ -257,6 +260,7 @@ window.addEventListener('message',async event=>{
     const initialOpenGeneration=state.openGeneration||0;
     libraryCommand({action:'snapshot'}).then(async()=>{
       state.hydrating=true;
+      editorLoading.stage('preferences');
       try{
         const prefs=state.data.preferences.defaults||{};
         await libraryCommand({action:'default-color',value:prefs.defaultColor||'#205EA6'});
@@ -264,21 +268,23 @@ window.addEventListener('message',async event=>{
         await libraryCommand({action:'auto-compress',value:prefs.autoCompress!==false});
         await applyAppearance();
         if(workshopStore.user&&!hasPendingOpen&&(state.openGeneration||0)===initialOpenGeneration){
+          editorLoading.stage('poem','Abriendo el último poema guardado.');
           const loaded=await libraryCommand({action:'open-latest'});
           const poem=allPoems().find(p=>p.sourceKey===loaded.loadedPoemKey);
           const color=poem&&state.data.preferences.poemColors?.[poem.id];
           if(color)await libraryCommand({action:'color',poemKey:loaded.loadedPoemKey,value:color});
         }
-      }finally{state.hydrating=false;state.startupComplete=true;}
+      }finally{state.hydrating=false;}
+      state.startupComplete=true;editorLoading.finish();
       if(['library','editor'].includes(state.view))render();
-    }).catch(error=>toast(error.message));
+    }).catch(error=>{editorLoading.fail(error.message);toast(error.message);});
     if(state.pendingOpen){event.source.postMessage(state.pendingOpen,location.origin);state.pendingOpen=null;}
     else event.source.postMessage({type:'workshop:view',view:state.view},location.origin);
   }
-  if(message?.type==='workshop:editor'){if(message.requestId&&message.requestId!==state.openingEditorId)return;state.openingEditorId=null;main.removeAttribute('aria-busy');state.view='editor';render();}
+  if(message?.type==='workshop:editor'){if(message.requestId&&message.requestId!==state.openingEditorId)return;if(state.startupComplete)editorLoading.finish();state.openingEditorId=null;main.removeAttribute('aria-busy');state.view='editor';render();}
   if(message?.type==='workshop:library'){state.view='library';state.library.tab='poems';const poem=allPoems().find(p=>p.sourceKey===message.poemKey);if(poem){state.library.poemId=poem.id;state.library.versionId='latest';}render();window.scrollTo(0,0);}
   if(message?.type==='workshop:saved'){const poem=state.data.poems.find(p=>p.id===message.sourceId);if(poem){poem.linkedLocalId='local:'+message.poemKey;persist();}document.querySelector('#poem-count').textContent=allPoems().length;}
-  if(message?.type==='workshop:error'){if(message.requestId&&message.requestId!==state.openingEditorId)return;state.openingEditorId=null;main.removeAttribute('aria-busy');document.querySelector('#opening-poem-status')?.remove();toast(message.message);}
+  if(message?.type==='workshop:error'){if(message.requestId&&message.requestId!==state.openingEditorId)return;editorLoading.fail(message.message);state.openingEditorId=null;main.removeAttribute('aria-busy');document.querySelector('#opening-poem-status')?.remove();toast(message.message);}
   if(message?.type==='workshop:library-changed')migratePoemKeys();
   if(message?.type==='workshop:library-changed' && !['editor','files'].includes(state.view))render();
 });

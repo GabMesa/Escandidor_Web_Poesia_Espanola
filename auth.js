@@ -1,5 +1,6 @@
 import { createCloudSync } from './cloud-sync.js';
 import { applicationState } from './application-state.js';
+import {reportEditorLoading} from './editor-loading.js';
 
 const guestActions = document.getElementById('accountGuestActions');
 const userActions = document.getElementById('accountUserActions');
@@ -30,6 +31,7 @@ const discardLocalPoems = document.getElementById('discardLocalPoems');
 
 const cloudSync = createCloudSync({
   state: applicationState.sync,
+  onProgress(progress){if(!applicationState.runtime.authInitialized)reportEditorLoading('library',progress.detail);},
   shouldAutoCompress: () => applicationState.editor.autoCompressVersions === true
     && (new URLSearchParams(location.search).get('taller') !== '1' || applicationState.runtime.compressionPreferenceReady === true),
   onStatus(status, message) {
@@ -135,7 +137,9 @@ async function handleAuthState(payload) {
   renderUser(payload.user);
   if(new URLSearchParams(location.search).get('real')==='1'){
     if(!applicationState.runtime.authInitialized || previousUserId!==payload.user?.id){
+      reportEditorLoading('library',payload.user?'Descargando tus poemas y versiones guardados en el servidor.':'Recuperando los poemas guardados en este navegador.');
       if(payload.user) await cloudSync.loadFromServer();
+      reportEditorLoading('preferences',applicationState.sync.error?'No se pudo actualizar el servidor. Preparando la biblioteca local.':'Biblioteca recuperada. Preparando el editor y tus preferencias.');
       applicationState.runtime.authInitialized=true;
       window.dispatchEvent(new CustomEvent('escandidor:auth-ready'));
     }
@@ -320,9 +324,11 @@ async function checkCurrentSession() {
   } catch {}
 }
 
+reportEditorLoading('session');
 apiRequest('/api/auth/me')
   .then(handleAuthState)
   .catch((error) => {
+    reportEditorLoading('error',error.message||'No se pudo recuperar la biblioteca.');
     cloudSaveStatus.textContent = error.message || 'No se pudo cargar la biblioteca local.';
     cloudSaveStatus.classList.add('is-error');
   });

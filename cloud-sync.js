@@ -79,6 +79,7 @@ export function createCloudSync({
   onTrash = () => {},
   onTrashPolicy = () => {},
   onLibrary = () => {},
+  onProgress = () => {},
   shouldAutoCompress = () => false,
 } = {}) {
   let user = state.user;
@@ -299,17 +300,19 @@ export function createCloudSync({
   }
 
   async function downloadLibrary() {
-    const poems=new Map();let cursor=null;
+    const poems=new Map();let cursor=null,received=0;
     do {
       const query=new URLSearchParams({limit:'200'});
       if(cursor){query.set('afterPoem',cursor.poemId);query.set('afterVersion',cursor.version);}
       const page=await api('/api/poems?'+query);
       for(const poem of page.poems||[]){
+        received+=(poem.versions||[]).length;
         const existing=poems.get(poem.id);
         if(existing){existing.versions.push(...poem.versions);existing.version=poem.version;existing.content=poem.content;}
         else poems.set(poem.id,poem);
       }
       cursor=page.nextCursor;
+      onProgress({detail:`${poems.size} ${poems.size===1?'poema':'poemas'} · ${received} ${received===1?'versión recibida':'versiones recibidas'}${cursor?' · descargando el siguiente bloque…':'.'}`,poems:poems.size,versions:received});
     }while(cursor);
     return {poems:[...poems.values()]};
   }

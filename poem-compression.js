@@ -26,7 +26,7 @@ export function poemVersionState(version){
   return JSON.stringify([String(version.poemText??'').replace(/\r\n?/g,'\n').trimEnd(),configuration(version)]);
 }
 
-export function compressPoemVersions(versions) {
+export function compressPoemVersions(versions,{protectedVersionIds=[]}={}) {
   const ordered = [...versions];
   // Saved histories are chronological. Only legacy histories need reordering.
   if (ordered.some((entry, index) => index > 0 && compareAge(ordered[index - 1], entry) > 0)) ordered.sort(compareAge);
@@ -47,6 +47,8 @@ export function compressPoemVersions(versions) {
       successors.set(index-1,index);
     }
   }
+  const protectedIds=new Set(protectedVersionIds.map(String));
+  for(let index=0;index<ordered.length;index++)if(protectedIds.has(String(ordered[index].id)))successors.delete(index);
   const retained=ordered.filter((_,index)=>!successors.has(index)),removed=ordered.filter((_,index)=>successors.has(index));
   const replacements=[];
   const resolved=new Map();

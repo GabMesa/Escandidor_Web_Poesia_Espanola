@@ -17,6 +17,7 @@ const workshopStore=await openWorkshopStore().catch(error=>{document.querySelect
 applicationState.workshop={data:workshopStore.data,view:workshopStore.user?'editor':'library',contestId:'',query:'',tags:[],tagMode:'all',checked:[],draft:null,preview:'poem',toastTimer:null,editorReady:false,pendingOpen:null,plicaDraft:null};
 const state=applicationState.workshop;
 state.contestPoemFilters={};
+window.addEventListener('workshop:read-contests',event=>event.detail.respond(state.data.contests));
 function contestFilters(){return state.contestPoemFilters[state.contestId]??={query:'',tags:[],tagMode:'all',selectedOnly:false,previewId:''};}
 const isLocalWorkshop=['localhost','127.0.0.1'].includes(location.hostname);
 const requestedView=new URLSearchParams(location.search).get('view');if(['editor','library','contests','reminders'].includes(requestedView))state.view=requestedView;
@@ -69,6 +70,7 @@ document.addEventListener('click',event=>{
   if(menu&&(!menu.contains(event.target)||event.target.closest('[data-account]')))menu.open=false;
 });
 document.addEventListener('keydown',event=>{
+  const card=event.target.closest('[data-contest-poem]');if(card&&event.target===card&&['Enter',' '].includes(event.key)){event.preventDefault();card.click();return;}
   const menu=document.querySelector('.workshop-user-menu[open]');
   if(event.key==='Escape'&&menu){menu.open=false;menu.querySelector('summary').focus();}
 });
@@ -85,6 +87,7 @@ function heading(eyebrow,title,subtitle,buttons=''){return `<div class="page-hea
 function applyEditorTheme(){const color=visualColor(state.data.preferences.appearance,{surface:'workshop',savedColor:state.editorTheme||''});document.documentElement.classList.toggle('working-poem',!!color);document.documentElement.style.setProperty('--working-poem-color',color||'#536907');if(color)document.documentElement.style.setProperty('--working-poem-ink',colorInk(color));document.documentElement.classList.toggle('visual-color-override',['all','workshop'].includes(visualPreferences(state.data.preferences.appearance).scope));}
 window.addEventListener('poem-color-intensity',event=>{libraryCommand({action:'color-intensity',value:event.detail}).catch(()=>{});});
 function render(){
+  if(main.contains(document.activeElement)&&document.activeElement.matches('select')){state.renderPending=true;return;}
   applyEditorTheme();
   document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===(['detail','export'].includes(state.view)?'contests':state.view)));
   document.querySelector('#poem-count').textContent=allPoems().length;
@@ -96,6 +99,7 @@ function render(){
   if(state.view==='library')renderLibrary();else if(state.view==='contests')renderContests();else if(state.view==='reminders')renderReminders();else if(state.view==='export')renderExport();else renderDetail();
 }
 function renderLibrary(){main.innerHTML=library.renderHtml(heading);}
+document.addEventListener('focusout',event=>{if(event.target.matches('select')&&state.renderPending)setTimeout(()=>{state.renderPending=false;render();},0);});
 function contestCard(c){const date=c.deadline?new Date(c.deadline+'T12:00:00'):null;return `<article class="contest-card"><div class="date-tile"><strong>${date?date.getDate():'—'}</strong><span>${date?date.toLocaleDateString('es',{month:'short'}).toUpperCase():'CIERRE'}</span></div><div><h3>${h(c.name)}</h3><div class="meta"><span>${h(c.country||'País sin indicar')}</span><span>${h(c.delivery)}</span><span>${dateLabel(c.deadline)}</span></div><div class="tag-row"><span class="tag ${c.status==='sent'?'blue':''}">${statusNames[c.status]}</span><span class="tag gray">${c.selections.length} poemas asociados</span>${c.demo?'<span class="tag gray">Ficha de ejemplo</span>':`<span class="tag ${c.reviewed?'':'rose'}">${c.reviewed?'Datos revisados':'Revisar datos'}</span>`}</div></div><div class="actions"><button data-action="open-contest" data-id="${h(c.id)}">Abrir concurso →</button></div></article>`;}
 function renderContests(){main.innerHTML=heading('OPORTUNIDADES PARA TU ESCRITURA','Cada poema, una posibilidad.','Encontrá un concurso en Escritores.org, pegá su enlace y prepará tu participación.',`<button class="primary" data-action="import">${icon} Agregar desde URL</button>`)+`<div class="notice"><div><strong>De la convocatoria a tu taller.</strong> Extraemos los datos disponibles; vos completás y revisás los requisitos.</div><a href="${WRITERS_LIST}" target="_blank" rel="noopener noreferrer">Ver concursos ↗</a></div><div class="section-title"><h2>Mis concursos</h2><span>${state.data.contests.length} guardados · ordenados por cierre</span></div><div class="contest-list">${[...state.data.contests].sort((a,b)=>(a.deadline||'9999').localeCompare(b.deadline||'9999')).map(contestCard).join('')||'<div class="empty">Pegá la URL de tu primer concurso.</div>'}</div>`;}
 function renderDetail(){
@@ -151,6 +155,7 @@ document.addEventListener('click',async event=>{
   if(event.target.closest('[data-account=appearance],[data-lib=appearance-preferences]')){appearance.open();return;}
   const lib=event.target.closest('[data-lib]');if(lib){await library.click(lib);return;}
   const view=event.target.closest('[data-view]');if(view){state.openingEditorId=null;state.pendingOpen=null;main.removeAttribute('aria-busy');state.view=view.dataset.view;render();return;}
+  const card=event.target.closest('[data-contest-poem]');if(card&&!event.target.closest('button,input,select,label,a')){contestFilters().previewId=card.dataset.contestPoem;renderDetail();document.querySelector('.contest-poem-preview')?.scrollIntoView({block:'nearest',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});return;}
   const button=event.target.closest('[data-action]');if(!button)return;const action=button.dataset.action;
   if(action==='appearance-preferences'){appearance.open();return;}
   if(action==='close'){if(!modal.dataset.importing)modal.close();return;}
@@ -202,7 +207,7 @@ document.addEventListener('change',async event=>{
   if(e.dataset.checkPoem){state.checked=e.checked?[...new Set([...state.checked,e.dataset.checkPoem])]:state.checked.filter(id=>id!==e.dataset.checkPoem);renderLibrary();return;}
   const c=currentContest();
   if(e.dataset.associate){c.selections=e.checked?[...c.selections,{poemId:e.dataset.associate,versionId:'latest'}]:c.selections.filter(s=>s.poemId!==e.dataset.associate);persist();renderDetail();return;}
-  if(e.dataset.versionPoem){c.selections.find(s=>s.poemId===e.dataset.versionPoem).versionId=e.value;persist();renderDetail();return;}
+  if(e.dataset.versionPoem){let selection=c.selections.find(s=>s.poemId===e.dataset.versionPoem);if(!selection){selection={poemId:e.dataset.versionPoem,versionId:e.value};c.selections.push(selection);}else selection.versionId=e.value;contestFilters().previewId=e.dataset.versionPoem;persist();renderDetail();return;}
   if(e.dataset.reminder){const n=Number(e.dataset.reminder);c.reminders=e.checked?[...new Set([...c.reminders,n])]:c.reminders.filter(d=>d!==n);persist();return;}
   if(e.id==='contest-status'){if(e.value==='sent'&&c.status!=='sent'){e.value=c.status;sentDialog();return;}c.status=e.value;persist();renderDetail();return;}
   if(e.dataset.profile){const key=e.dataset.profile;let value=e.type==='checkbox'?e.checked:['size','margin','lineSpacing'].includes(key)?Number(e.value):e.value;if(key==='size')value=Math.min(24,Math.max(8,value||12));if(key==='margin')value=Math.min(5,Math.max(1,value||2.5));c.profile[key]=value;if(key==='cover'&&!value)state.preview='poem';persist();renderExport();}
@@ -278,7 +283,7 @@ window.addEventListener('message',async event=>{
   if(message?.type==='workshop:library-changed' && !['editor','files'].includes(state.view))render();
 });
 window.addEventListener('storage',event=>{if(event.key?.startsWith('escandador.cloudPoemMap.v1:')){migratePoemKeys();if(state.view==='library')render();}});
-window.addEventListener('focus',()=>{migratePoemKeys();if(!modal.open)render();});
+window.addEventListener('focus',()=>{migratePoemKeys();});
 render();
 // The editor can finish before this module's dependencies load. Request readiness
 // explicitly as well as listening for its initial announcement.

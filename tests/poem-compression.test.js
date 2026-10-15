@@ -3,6 +3,12 @@ import assert from 'node:assert/strict';
 import { compressPoemVersions } from '../poem-compression.js';
 
 const history = texts => texts.map((poemText, index) => ({ id: `v${index + 1}`, poemText, versionNumber: index + 1, savedAt: `2026-10-13T12:00:0${index}Z` }));
+test('compression keeps a revision pinned by a contest while removing unpinned copies',()=>{
+ const versions=history(['El río','El río','El río']);
+ const result=compressPoemVersions(versions,{protectedVersionIds:['v1']});
+ assert.deepEqual(result.retained.map(v=>v.id),['v1','v3']);
+ assert.deepEqual(result.removed.map(v=>v.id),['v2']);
+});
 
 test('compresses the approved adjacent examples', () => {
   for (const [texts, expected] of [

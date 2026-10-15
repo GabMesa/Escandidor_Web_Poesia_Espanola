@@ -70,7 +70,7 @@ html.in-workshop,.in-workshop body{height:auto;min-height:0;overflow:hidden}
 .in-workshop #poemTitle { font-size: 21px; padding: 0; }
 .in-workshop .input-memory-bar { padding: 7px 12px; }
 .in-workshop .capture-actions { padding: 6px 12px; }
-.in-workshop #poemInput { flex: 0 0 auto; field-sizing: content; height: auto; min-height: 360px; padding: 14px; overflow: hidden; resize: none; }
+.in-workshop #poemInput { flex: 0 0 auto; field-sizing: fixed; height: auto; max-height: none; min-height: 360px; padding: 14px; overflow: hidden; resize: none; }
 .in-workshop .analysis-text-output { min-height: 360px; padding: 10px 12px; }
 .in-workshop .word-lookup-bar { padding: 6px 10px; }
 .in-workshop .lookup-results { display:flex; flex-direction:column; height:auto; min-height:0; max-height:none; overflow:visible; padding:8px 10px; gap:10px; }

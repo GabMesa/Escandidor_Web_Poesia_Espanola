@@ -3,6 +3,7 @@ import {showPoemColorPicker,COLOR_INTENSITIES} from './poem-color-picker.js';
 import { applyTrashPolicy, TRASH_MAX_BYTES } from './trash-policy.js';
 import { compressPoemVersions } from './poem-compression.js';
 import {visualPreferences,visualColor} from './visual-preferences.js';
+import {autoSizePoemInput} from './poem-input-size.js';
 import { isValidPoemTitle, poemValidationError, samePoemContent, cleanEmptyPoemVersions } from './poem-policy.js';
 import { writePersistentStorage, writeDisposableStorage, loadWordCorpusCache, saveWordCorpusCache } from './browser-storage.js';
 import { sortPoemVersions, selectMarkdownEntries, buildHistoryMarkdown, buildVideoTimeline } from './poem-exports.js';
@@ -163,6 +164,7 @@ import {
 } from './poem-input-tools.js';
 
 const poemInput = document.getElementById('poemInput');
+const schedulePoemInputSize = autoSizePoemInput(poemInput);
 const analysisOutput = document.getElementById('analysisOutput');
 const stressPatternFields = document.getElementById('stressPatternFields');
 const poeticForm = document.getElementById('poeticForm');
@@ -3842,12 +3844,22 @@ function compressSelectedPoemVersions() {
   compressStoredPoemVersions(poemKeys);
 }
 
+function compressPoemHistory(versions,poemKey){
+  let contests=[],map={};
+  if(window.parent!==window)window.parent.dispatchEvent(new window.parent.CustomEvent('workshop:read-contests',{detail:{respond:value=>{contests=value;}}}));
+  try{map=JSON.parse(poemStorage.getItem('escandador.cloudPoemMap.v1:'+applicationState.auth.user?.id)||'{}')[poemKey]||{};}catch{}
+  const poemId=map.poemId||/^server:(\d+)$/.exec(poemKey)?.[1];
+  const selections=contests.flatMap(c=>c.selections).filter(s=>s.poemId==='local:'+poemKey||s.poemId==='poem:'+poemId);
+  const protectedVersionIds=versions.filter(v=>selections.some(s=>s.versionId===String(v.id)||(poemId&&s.versionId===`cloud-${poemId}-${v.cloudVersion||map.versions?.[v.id]?.cloudVersion}`))).map(v=>v.id);
+  return compressPoemVersions(versions,{protectedVersionIds});
+}
+
 function compressStoredPoemVersions(poemKeys, { notify = true } = {}) {
   const store = loadPoemMemoryStore();
   const changes = [];
   for (const poemKey of poemKeys) {
     const versions = store.poems[poemKey] || [];
-    const result = compressPoemVersions(versions);
+    const result = compressPoemHistory(versions,poemKey);
     if (!result.removed.length) {
       if (notify && versions.length) dispatchVersionsCompressed(poemKey, getStoredPoemTitle(poemKey, versions), result, true);
       continue;
@@ -3983,7 +3995,7 @@ function saveCurrentPoemVersion(options = {}) {
   }
 
   const compression = state.autoCompressVersions
-    ? compressPoemVersions(versions)
+    ? compressPoemHistory(versions,poemKey)
     : { retained: versions, removed: [] };
   if (compression.removed.length) {
     store.poems[poemKey] = compression.retained;
@@ -6636,6 +6648,7 @@ function buildStanzaSummary(text) {
 }
 
 function updateAnalysis() {
+  schedulePoemInputSize();
   const focusSnapshot = captureInlineInputFocus();
   setPoemTitleDisplay(poemTitle?.value ?? '');
   updatePoeticFormHint();

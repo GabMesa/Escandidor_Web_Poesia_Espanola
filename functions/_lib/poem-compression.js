@@ -26,7 +26,11 @@ export function compressionStatements(userId,poemId,replacements){
 
 export async function compressServerPoem(db,userId,poemId,{dryRun=false}={}){
   const {results:rows}=await db.prepare('SELECT * FROM poem_versions WHERE poem_id=? ORDER BY version').bind(poemId).all();
-  const result=compressPoemVersions(rows.map(storedVersion));
+  const {results:contests}=await db.prepare('SELECT data_json FROM contests WHERE user_id=?').bind(userId).all();
+  const pins=new Set(contests.flatMap(c=>JSON.parse(c.data_json).selections||[]).map(s=>String(s.versionId)));
+  const versions=rows.map(storedVersion);
+  const protectedVersionIds=versions.filter(v=>pins.has(String(v.id))||pins.has(`cloud-${poemId}-${v.serverVersion}`)).map(v=>v.id);
+  const result=compressPoemVersions(versions,{protectedVersionIds});
   if(!dryRun&&result.removed.length)await db.batch(compressionStatements(userId,poemId,result.replacements.slice(0,800)).map(s=>db.prepare(s.sql).bind(...s.args)));
   const count=await db.prepare('SELECT COUNT(*) AS count FROM poem_versions WHERE poem_id=?').bind(poemId).first();
   const {results:removedVersions}=await db.prepare('SELECT version,client_id AS clientId,replacement_version AS replacementVersion FROM compressed_poem_versions WHERE user_id=? AND poem_id=?').bind(userId,poemId).all();

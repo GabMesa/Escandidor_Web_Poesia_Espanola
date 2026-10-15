@@ -1,4 +1,5 @@
 import { maintainUserTrash } from '../../_lib/trash-storage.js';
+import {compressedAliases,compressedVersionConflict} from '../../_lib/poem-compression.js';
 import { versionSyncMetadata } from '../../_lib/version-sync.js';
 import { poemValidationError, samePoemContent } from '../../../poem-policy.js';
 import {
@@ -60,6 +61,10 @@ export async function onRequestPut(context) {
   const settings = JSON.stringify(settingsObject);
   const colorIndex = body.colorIndex !== undefined ? body.colorIndex : existing.color_index;
   const sync = versionSyncMetadata(body, settingsObject);
+  if(sync){
+    const alias=(await compressedAliases(env.escandidor_db,user.id,Number(poemId),[sync.id])).get(sync.id);
+    if(alias){const conflict=compressedVersionConflict(alias,content,settingsObject);if(conflict)return conflict;return jsonResponse({ok:true,poem:serializePoem(existing),syncedVersion:alias.replacement_version,compressed:true});}
+  }
 
   await env.escandidor_db
     .prepare(
@@ -71,16 +76,16 @@ export async function onRequestPut(context) {
 
   if (sync) {
     await env.escandidor_db.prepare(`INSERT INTO poem_versions (poem_id,name,content,version,client_id,sync_json)
-      SELECT ?,?,?,COALESCE(MAX(version),0)+1,?,? FROM poem_versions WHERE poem_id=?
+      SELECT ?,?,?,COALESCE(MAX(version),0)+1,?,? FROM (SELECT version FROM poem_versions WHERE poem_id=? UNION ALL SELECT version FROM compressed_poem_versions WHERE poem_id=?) WHERE true
       ON CONFLICT(poem_id,client_id) DO UPDATE SET name=excluded.name,content=excluded.content,sync_json=excluded.sync_json`)
-      .bind(poemId,versionName,content,sync.id,JSON.stringify(sync),poemId).run();
+      .bind(poemId,versionName,content,sync.id,JSON.stringify(sync),poemId,poemId).run();
   } else if ((body.versionName !== undefined || body.content !== undefined) && !samePoemContent(content, existing.content)) {
     await env.escandidor_db
       .prepare(
         `INSERT INTO poem_versions (poem_id, name, content, version,client_id,sync_json)
-         SELECT ?, ?, ?, COALESCE(MAX(version),0)+1,'cloud-'||?||'-'||(COALESCE(MAX(version),0)+1),? FROM poem_versions WHERE poem_id=?`
+         SELECT ?, ?, ?, COALESCE(MAX(version),0)+1,'cloud-'||?||'-'||(COALESCE(MAX(version),0)+1),? FROM (SELECT version FROM poem_versions WHERE poem_id=? UNION ALL SELECT version FROM compressed_poem_versions WHERE poem_id=?) WHERE true`
       )
-      .bind(poemId, versionName, content, poemId,JSON.stringify({settings:settingsObject}),poemId)
+      .bind(poemId, versionName, content, poemId,JSON.stringify({settings:settingsObject}),poemId,poemId)
       .run();
   }
 

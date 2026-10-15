@@ -36,11 +36,13 @@ export async function onRequestGet(context) {
     .bind(user.id)
     .all();
 
+  const {results:compressedVersions}=await env.escandidor_db.prepare('SELECT poem_id AS poemId,version,client_id AS clientId,replacement_version AS replacementVersion FROM compressed_poem_versions WHERE user_id=?').bind(user.id).all();
   return jsonResponse({
     ok: true,
     policy,
     trash: results.map(serializeTrashEntry),
     deletedPoemIds: deletions.map((row) => row.poem_id),
+    compressedVersions,
   });
 }
 
@@ -92,7 +94,8 @@ export async function onRequestPost(context) {
       .prepare('SELECT version, content FROM poem_versions WHERE poem_id = ? ORDER BY version DESC LIMIT 1')
       .bind(poemId)
       .first();
-    let nextVersion = Number(latest?.version) || 0;
+    const high=await env.escandidor_db.prepare('SELECT MAX(version) AS version FROM (SELECT version FROM poem_versions WHERE poem_id=? UNION ALL SELECT version FROM compressed_poem_versions WHERE poem_id=?)').bind(poemId,poemId).first();
+    let nextVersion = Math.max(Number(latest?.version)||0,Number(high?.version)||0);
     let previousContent = latest?.content;
     for (const version of versions) {
       if (previousContent !== undefined && samePoemContent(previousContent, version.content)) continue;

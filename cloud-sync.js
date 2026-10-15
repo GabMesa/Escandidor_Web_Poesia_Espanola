@@ -378,7 +378,12 @@ export function createCloudSync({
     for (const version of retainedVersions) {
       await syncOne({ poemKey, title, version });
     }
-    await deleteOne({ poemKey, title, versionIds, protectedVersionIds: detail.retainedVersionIds || retainedVersions.map(version => String(version.id)) });
+    const key=String(poemKey||title),current=loadMap()[key];
+    const cloudNumber=id=>Number(current?.versions?.[id]?.cloudVersion||/^cloud-\d+-(\d+)$/.exec(id)?.[1]);
+    const protectedCloud=new Set((detail.retainedVersionIds||retainedVersions.map(v=>String(v.id))).map(cloudNumber).filter(Boolean));
+    const remoteRemovals=versionIds.filter(id=>!protectedCloud.has(cloudNumber(id))&&(current?.versions?.[id]||cloudPoemId(id)));
+    if(current?.poemId&&remoteRemovals.length){let result;do{result=await api(`/api/poems/${current.poemId}/compress`,{method:'POST',body:JSON.stringify({})});}while(result.more);}
+    const map=loadMap();if(map[key]){for(const id of versionIds)delete map[key].versions[id];saveMap(map);}
     for (const operation of supersededSaves) removePending(operation.id, user.id);
   }
 
@@ -523,6 +528,17 @@ export function createCloudSync({
         memory.poems = memory.poems && typeof memory.poems === 'object' ? memory.poems : {};
         memory.trash = memory.trash && typeof memory.trash === 'object' ? memory.trash : {};
         const map = loadMap();
+        const retiredByKey=new Map(),pendingVersionIds=new Set(loadOutbox(syncOwner).filter(op=>op.type==='save').map(op=>String(op.detail.version.id)));
+        for(const [key,versions] of Object.entries(memory.poems)){
+          const poemId=Number(map[key]?.poemId)||serverPoemId(key);
+          const retired=(remoteTrash.compressedVersions||[]).filter(v=>Number(v.poemId)===poemId);
+          if(!retired.length)continue;
+          const ids=new Set(retired.map(v=>v.clientId)),numbers=new Set(retired.map(v=>Number(v.version))),localIds=new Set();
+          for(const version of versions){const cloud=Number(version.cloudVersion||map[key]?.versions?.[version.id]?.cloudVersion||/^cloud-\d+-(\d+)$/.exec(version.id)?.[1]);if(ids.has(String(version.id))||numbers.has(cloud))localIds.add(String(version.id));}
+          retiredByKey.set(key,localIds);
+          memory.poems[key]=versions.filter(v=>!localIds.has(String(v.id))||pendingVersionIds.has(String(v.id)));
+          if(map[key])for(const [id,record] of Object.entries(map[key].versions||{}))if((ids.has(id)||numbers.has(Number(record.cloudVersion)))&&!pendingVersionIds.has(id))delete map[key].versions[id];
+        }
         const deletedPoemIds = new Set(
           (remoteTrash.deletedPoemIds || []).map(Number).filter(Number.isInteger)
         );
@@ -626,7 +642,8 @@ export function createCloudSync({
             if (deletedPoemIds.has(id)) continue;
             const title = String(versions[0]?.poemTitle || key);
             const previous=new Map((beforeDownload.poems?.[key]||[]).map(version=>[String(version.id),JSON.stringify(version)]));
-            const edited=versions.filter(version=>previous.get(String(version.id))!==JSON.stringify(version));
+            const currentPending=new Set(loadOutbox(syncOwner).filter(op=>op.type==='save').map(op=>String(op.detail.version.id)));
+            const edited=versions.filter(version=>(!retiredByKey.get(key)?.has(String(version.id))||currentPending.has(String(version.id)))&&previous.get(String(version.id))!==JSON.stringify(version));
             memory.poems[key] = mergeUniqueVersions(title, memory.poems[key] || [], edited);
           }
         }

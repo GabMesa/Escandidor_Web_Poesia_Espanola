@@ -2,6 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createCloudSync } from '../cloud-sync.js';
 
+test('a device pulling a compressed poem removes retired cached checkpoints instead of restoring them',async()=>{
+ const storage=new MemoryStorage();
+ const request=async path=>path==='/api/trash'?jsonResponse({trash:[],deletedPoemIds:[],compressedVersions:[{poemId:64,version:1,clientId:'old',replacementVersion:2}]}):jsonResponse({poems:[{id:64,title:'Golem',settings:{poemFont:'atkinson'},versions:[{version:2,content:'Texto distinto',sync:{id:'kept',settings:{poemFont:'atkinson'},savedAt:'2026-10-15T00:00:02Z'}}]}]});
+ const sync=createCloudSync({storage,request});sync.setUser({id:9});
+ storage.setItem('escandador.poemMemory.v1',JSON.stringify({schemaVersion:2,poems:{'server:64':[{...version('old',1,'Texto viejo'),cloudVersion:1},{...version('kept',2,'Texto distinto'),cloudVersion:2}]},trash:{}}));
+ await sync.loadFromServer();
+ assert.deepEqual(JSON.parse(storage.getItem('escandador.poemMemory.v1')).poems['server:64'].map(v=>v.id),['kept']);
+});
+
 test('import progress confirms actual uploads and preserves the remaining selection after a cut',async()=>{
  const storage=new MemoryStorage(),state={user:null,queue:Promise.resolve()},seen=[];let offline=false;
  const sync=createCloudSync({storage,state,request:async()=>{if(offline)throw Error('Sin conexión');offline=true;return jsonResponse({poem:{id:81,version:1}});}});
@@ -645,7 +654,7 @@ test('compression saves a replacement autosave before deleting its old cloud ver
   await sync.syncSavedVersion({ poemKey: 'local:poem', title: 'Luna', version: version('v1', 1, 'la') });
   const replacement = { ...version('v2', 2, 'la luna'), kind: 'autosave' };
   await sync.compressVersions({ poemKey: 'local:poem', title: 'Luna', versionIds: ['v1'], retainedVersions: [replacement] });
-  assert.deepEqual(calls.map(call => `${call.method} ${call.path}`), ['POST /api/poems', 'PUT /api/poems/55', 'DELETE /api/poems/55?version=1']);
+  assert.deepEqual(calls.map(call => `${call.method} ${call.path}`), ['POST /api/poems', 'PUT /api/poems/55', 'POST /api/poems/55/compress']);
   assert.equal(replacement.kind, 'autosave');
   assert.equal(sync.pendingCount(), 0);
 });
@@ -667,7 +676,7 @@ test('a failed replacement upload keeps the old cloud copy and compression pendi
   assert.equal(sync.pendingCount(), 1);
   offline = false;
   await sync.retryPending();
-  assert.equal(calls.at(-1), 'DELETE');
+  assert.equal(calls.at(-1), 'POST');
   assert.equal(sync.pendingCount(), 0);
 });
 

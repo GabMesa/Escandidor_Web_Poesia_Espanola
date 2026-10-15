@@ -485,6 +485,32 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     assert.equal(history[1].sync.settings.poemFont,'atkinson');
     assert.equal((await jsonRequest(baseUrl,`/api/poems/${syncId}`,{method:'DELETE',cookie:firstCookie})).response.status,200);
 
+    const compressionPayload=n=>({title:'Compresión entre dispositivos',content:n%2?'Una estrofa original.':'Otra estrofa distinta.',versionName:'v'+n,
+      settings:{poemFont:n===5?'atkinson':'lora'},sync:{id:'compression-'+n,kind:'manual',versionNumber:n,savedAt:'2026-10-15T03:00:00Z'}});
+    const compressionPoem=await jsonRequest(baseUrl,'/api/poems',{method:'POST',cookie:firstCookie,body:compressionPayload(1)});
+    const compressionId=compressionPoem.payload.poem.id;
+    for(let n=2;n<=6;n++)assert.equal((await jsonRequest(baseUrl,`/api/poems/${compressionId}`,{method:'PUT',cookie:firstCookie,body:compressionPayload(n)})).response.status,200);
+    const previewCompression=await jsonRequest(baseUrl,`/api/poems/${compressionId}/compress`,{method:'POST',cookie:firstCookie,body:{dryRun:true}});
+    assert.equal(previewCompression.response.status,200,JSON.stringify(previewCompression.payload));
+    assert.equal(previewCompression.payload.before,6);assert.equal(previewCompression.payload.after,3);
+    const compressed=await jsonRequest(baseUrl,`/api/poems/${compressionId}/compress`,{method:'POST',cookie:firstCookie,body:{}});
+    assert.equal(compressed.response.status,200,JSON.stringify(compressed.payload));assert.equal(compressed.payload.removed,3);assert.equal(compressed.payload.removedVersions.length,3);
+    const againCompressed=await jsonRequest(baseUrl,`/api/poems/${compressionId}/compress`,{method:'POST',cookie:firstCookie,body:{}});
+    assert.equal(againCompressed.payload.removed,0);
+    for(const [path,method,body] of [[`/api/poems/${compressionId}`,'PUT',compressionPayload(1)],['/api/poems','POST',compressionPayload(1)]]){
+      const replay=await jsonRequest(baseUrl,path,{method,cookie:firstCookie,body});assert.equal(replay.response.status,200,JSON.stringify(replay.payload));assert.equal(replay.payload.compressed,true);assert.equal(replay.payload.syncedVersion,3);
+    }
+    const replayBatch=await jsonRequest(baseUrl,`/api/poems/${compressionId}/versions`,{method:'POST',cookie:firstCookie,body:{versions:[compressionPayload(1),compressionPayload(2)]}});
+    assert.equal(replayBatch.response.status,200,JSON.stringify(replayBatch.payload));assert.equal(replayBatch.payload.uploaded.length,2);
+    const changedRetired=await jsonRequest(baseUrl,`/api/poems/${compressionId}`,{method:'PUT',cookie:firstCookie,body:{...compressionPayload(1),content:'Una modificación nueva en una copia vieja.'}});
+    assert.equal(changedRetired.response.status,409);
+    const compressedHistory=(await jsonRequest(baseUrl,'/api/poems',{cookie:firstCookie})).payload.poems.find(p=>p.id===compressionId);
+    assert.equal(compressedHistory.versions.length,3);assert.equal(compressedHistory.content,compressionPayload(6).content);
+    const isolationUser=await jsonRequest(baseUrl,'/api/auth/register',{method:'POST',body:{username:'compression-other',email:'compression-other@example.test',password:'Password123!'}});
+    assert.equal((await jsonRequest(baseUrl,`/api/poems/${compressionId}/compress`,{method:'POST',cookie:cookieFrom(isolationUser.response),body:{}})).response.status,404);
+    const compressedTrash=await jsonRequest(baseUrl,'/api/trash',{cookie:firstCookie});assert.ok(compressedTrash.payload.compressedVersions.some(v=>v.poemId===compressionId&&v.clientId==='compression-1'));
+    assert.equal((await jsonRequest(baseUrl,`/api/poems/${compressionId}`,{method:'DELETE',cookie:firstCookie})).response.status,200);
+
   } finally {
     if (server) stopProcess(server);
   }

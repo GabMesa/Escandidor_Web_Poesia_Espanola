@@ -3845,7 +3845,7 @@ function compressStoredPoemVersions(poemKeys, { notify = true } = {}) {
     changes.push({ poemKey, title, result });
   }
   if (!changes.length) {
-    if (notify) showToast('No hay versiones consecutivas contenidas para comprimir.', 'info');
+    if (notify) showToast('No hay versiones repetidas ni borradores consecutivos contenidos para comprimir.', 'info');
     return;
   }
   const dirty = isCurrentDraftDirtyAgainstLoadedVersion();

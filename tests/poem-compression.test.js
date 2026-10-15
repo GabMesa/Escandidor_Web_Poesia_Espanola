@@ -20,6 +20,26 @@ test('does not compare against earlier nonadjacent survivors', () => {
   assert.equal(result.removed.length, 0);
 });
 
+test('collapses repeated history cycles and preserves distinct metric configurations',()=>{
+ const versions=history(['Borrador A','Otro texto B','Borrador A','Otro texto B','Borrador A']);
+ versions[0].settings={rhymeMode:'consonante'};
+ const result=compressPoemVersions(versions);
+ assert.deepEqual(result.retained.map(v=>v.id),['v1','v4','v5']);
+ assert.equal(result.replacements.find(r=>r.removed.id==='v3').retained.id,'v5');
+});
+test('keeps sinalefa and line override differences, independent of property order',()=>{
+ const versions=history(['Luna','Luna','Luna','Luna']);
+ versions[0].settings={a:1,b:2};versions[1].settings={b:2,a:1};
+ versions[2].settings={a:1,b:2};versions[2].sinalefaOverrides={a:true};
+ versions[3].settings={a:1,b:2};versions[3].lineOverrides={0:{stress:'6'}};
+ assert.deepEqual(compressPoemVersions(versions).retained.map(v=>v.id),['v2','v3','v4']);
+});
+test('handles 5000 alternating duplicates and resolves replacements to surviving snapshots',()=>{
+ const versions=Array.from({length:5000},(_,i)=>({id:String(i),poemText:'Texto '+i%21,versionNumber:i+1,savedAt:new Date(2026,0,1,0,0,i).toISOString()}));
+ const result=compressPoemVersions(versions),ids=new Set(result.retained.map(v=>v.id));
+ assert.equal(result.retained.length,21);assert.equal(result.removed.length,4979);assert.ok(result.replacements.every(r=>ids.has(r.retained.id)));
+});
+
 test('keeps identity, date and version number without changing the input', () => {
   const versions = history(['la', 'la luna', 'la casa', 'la casa canta']);
   const original = structuredClone(versions);
@@ -43,7 +63,7 @@ test('containment is literal and includes line breaks and capitalization', () =>
 
 test('keeps the newest of consecutive equal versions with its metadata', () => {
   const versions = history(['La luna', 'La luna', 'La luna', 'El mar', 'La luna']);
-  versions[2].settings = { rhymeMode: 'asonante' };
+  versions[2].settings = { rhymeMode: 'consonante' };
   const result = compressPoemVersions(versions);
   assert.deepEqual(result.retained, [versions[2], versions[3], versions[4]]);
   assert.equal(result.retained[0], versions[2]);

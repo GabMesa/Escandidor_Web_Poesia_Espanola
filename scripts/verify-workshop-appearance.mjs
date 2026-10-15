@@ -21,8 +21,9 @@ try{
  await send('Page.enable');await send('Runtime.enable');await send('Network.enable');await send('Network.setCacheDisabled',{cacheDisabled:true});await send('Network.clearBrowserCookies');await send('Storage.clearDataForOrigin',{origin:base,storageTypes:'local_storage'});
  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
  await send('Page.navigate',{url:base+'/taller/?view=editor'});await until('!!document.querySelector("[data-account=login]")');
- await evaluate(`localStorage.setItem('mesa.colorTheme','light');localStorage.setItem('escandador.workshopSidebar.v1','collapsed')`);await send('Page.reload');
- await until('document.readyState==="complete" && !!document.querySelector("[data-account=login]")');
+ await evaluate(`localStorage.setItem('mesa.colorTheme','light');localStorage.setItem('escandador.workshopSidebar.v1','collapsed')`);
+ let previousLoad=await evaluate('performance.timeOrigin');await send('Page.reload');
+ await until(`performance.timeOrigin!==${previousLoad} && document.readyState==="complete" && !!document.querySelector('[data-account=login]')`);
  await evaluate(`(async()=>{window.parentApp=(await import('/application-state.js')).applicationState;})()`);await until('parentApp.workshop?.startupComplete');
  await evaluate(`window.d=document.querySelector('#workshop-editor').contentDocument`);
  assert.equal(await visible('[data-theme-toggle]'),true);assert.equal(await visible('#sidebar-toggle'),false);
@@ -50,7 +51,7 @@ try{
  for(const [view,name] of [['library','04-biblioteca-oscura'],['contests','05-concursos-oscuros'],['reminders','06-recordatorios-oscuros']]){
   await click(`[data-view=${view}]`);assert.ok(darkColor(await evaluate('getComputedStyle(document.body).backgroundColor')));assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);await evaluate('window.scrollTo(0,0)');await shot(name);
  }
- await send('Page.reload');await until('document.readyState==="complete" && !!document.querySelector("[data-account=login]")');
+ previousLoad=await evaluate('performance.timeOrigin');await send('Page.reload');await until(`performance.timeOrigin!==${previousLoad} && document.readyState==="complete" && !!document.querySelector('[data-account=login]')`);
  await evaluate(`window.d=document.querySelector('#workshop-editor').contentDocument`);await until('d?.querySelector("#poemInput")');assert.equal(await evaluate('document.documentElement.dataset.theme'),'dark');assert.equal(await evaluate('d.documentElement.dataset.theme'),'dark');
  await send('Emulation.setDeviceMetricsOverride',{width:320,height:760,deviceScaleFactor:1,mobile:true});
  assert.equal(await visible('#sidebar-toggle'),false);assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);

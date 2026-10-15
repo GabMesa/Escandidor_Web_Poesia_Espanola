@@ -38,7 +38,7 @@ try{
  // Watch every visible editor frame: it must already contain the requested poem.
  await ev(`(()=>{const button=document.querySelector('[data-action="edit-poem"]'),title=button.closest('.library-row').querySelector('.library-row-title').textContent.trim();window.targetText=expected.find(p=>p.title===title).text;window.framesSeen=[];window.openStart=performance.now();const tick=()=>{const host=document.querySelector('#editor-host');if(!host.hidden){framesSeen.push({text:document.querySelector('#workshop-editor').contentDocument.querySelector('#poemInput').value,ms:performance.now()-openStart});}if(framesSeen.length<12)requestAnimationFrame(tick);};requestAnimationFrame(tick);button.click();})()`);
  await until(`framesSeen.length>=12`);
- const opening=await ev(`({correct:framesSeen.every(f=>f.text===targetText),firstVisibleMs:framesSeen[0].ms,observed:framesSeen.length})`);
+ const opening=await ev(`({correct:framesSeen.every(f=>f.text===targetText),firstVisibleMs:framesSeen[0].ms,firstCorrectMs:framesSeen.find(f=>f.text===targetText)?.ms,observed:framesSeen.length,openingId:app.workshop.openingEditorId,view:app.workshop.view})`);
  console.log('Opening:',opening);assert.equal(opening.correct,true);
  if(created){
   await ev(`document.querySelector('#workshop-editor').contentWindow.eval("import('./application-state.js').then(m=>m.applicationState.runtime.syncPoemsNow())")`);

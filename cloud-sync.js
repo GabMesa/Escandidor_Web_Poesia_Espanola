@@ -1,6 +1,7 @@
 import { poemStorage } from './poem-storage.js';
 import { poemValidationError, hasPoemContent, cleanEmptyPoemVersions } from './poem-policy.js';
 import { writePersistentStorage } from './browser-storage.js';
+import { compressPoemVersions } from './poem-compression.js';
 
 const POEM_MEMORY_KEY = 'escandador.poemMemory.v1';
 const ANONYMOUS_MEMORY_KEY = 'escandador.poemMemory.anonymous.v1';
@@ -78,6 +79,7 @@ export function createCloudSync({
   onTrash = () => {},
   onTrashPolicy = () => {},
   onLibrary = () => {},
+  shouldAutoCompress = () => false,
 } = {}) {
   let user = state.user;
   let queue = state.queue;
@@ -368,13 +370,34 @@ export function createCloudSync({
     saveMap(map);
   }
 
+  async function compressRemotePoem(poemId) {
+    const ownerId = user?.id;
+    let result, removed = 0;
+    do {
+      if (!ownerId || user?.id !== ownerId) throw Error('Cambió la cuenta durante la compresión.');
+      result = await api(`/api/poems/${poemId}/compress`, { method: 'POST', body: '{}' });
+      removed += result.removed || 0;
+    } while (result.more);
+    return removed;
+  }
+
+  async function autoCompressSavedPoems(details, ownerId) {
+    if (user?.id !== ownerId || !shouldAutoCompress()) return;
+    const map = loadMap();
+    const ids = new Set(details.map(detail => map[String(detail.poemKey || detail.title)]?.poemId).filter(Boolean));
+    for (const id of ids) {
+      if (user?.id !== ownerId) return;
+      await compressRemotePoem(id);
+    }
+  }
+
   async function syncCompression(detail) {
     const { poemKey, title, versionIds, retainedVersions } = detail;
     const record = loadMap()[String(poemKey || title)];
     const supersededSaves = loadOutbox().filter(operation => operation.type === 'save'
       && String(operation.detail?.poemKey || operation.detail?.title) === String(poemKey || title)
       && versionIds.includes(String(operation.detail?.version?.id)));
-    const hasCloudVersions = supersededSaves.length > 0
+    const hasCloudVersions = (detail.force && record?.poemId) || supersededSaves.length > 0
       || versionIds.some(id => cloudPoemId(id) || record?.versions?.[id]);
     if (!hasCloudVersions) return;
     // Never delete the last remote copy before the replacement has been saved.
@@ -385,7 +408,7 @@ export function createCloudSync({
     const cloudNumber=id=>Number(current?.versions?.[id]?.cloudVersion||/^cloud-\d+-(\d+)$/.exec(id)?.[1]);
     const protectedCloud=new Set((detail.retainedVersionIds||retainedVersions.map(v=>String(v.id))).map(cloudNumber).filter(Boolean));
     const remoteRemovals=versionIds.filter(id=>!protectedCloud.has(cloudNumber(id))&&(current?.versions?.[id]||cloudPoemId(id)));
-    if(current?.poemId&&remoteRemovals.length){let result;do{result=await api(`/api/poems/${current.poemId}/compress`,{method:'POST',body:JSON.stringify({})});}while(result.more);}
+    if(current?.poemId&&(detail.force||remoteRemovals.length))await compressRemotePoem(current.poemId);
     const map=loadMap();if(map[key]){for(const id of versionIds)delete map[key].versions[id];saveMap(map);}
     for (const operation of supersededSaves) removePending(operation.id, user.id);
   }
@@ -439,6 +462,7 @@ export function createCloudSync({
       const operation = addPending('save', detail);
       return enqueue(async () => {
         await syncOne(detail);
+        await autoCompressSavedPoems([detail], ownerId);
         removePending(operation.id, ownerId);
       });
     },
@@ -458,6 +482,7 @@ export function createCloudSync({
           removePending(operation.id,ownerId);
           onProgress({completed:index+1,total:operations.length,title:operation.detail.title,index:index+1});
         }
+        await autoCompressSavedPoems(details, ownerId);
       });
     },
 
@@ -473,7 +498,7 @@ export function createCloudSync({
     },
 
     compressVersions(detail) {
-      if (!user || !detail.versionIds?.length || !detail.retainedVersions?.length) return Promise.resolve();
+      if (!user || (!detail.force && (!detail.versionIds?.length || !detail.retainedVersions?.length))) return Promise.resolve();
       const ownerId = user.id;
       const record = loadMap()[String(detail.poemKey || detail.title)];
       const compactDetail = {
@@ -522,7 +547,18 @@ export function createCloudSync({
         if(completed.size)saveOutbox(loadOutbox(syncOwner).filter(op=>!completed.has(op.id)),syncOwner);
         preserveActiveMemory();
         const beforeDownload=readMemory(POEM_MEMORY_KEY);
-        const remote = await downloadLibrary();
+        let remote = await downloadLibrary();
+        if (shouldAutoCompress()) {
+          let removed = 0;
+          for (const poem of remote.poems || []) {
+            if (user?.id !== syncOwner) return;
+            // Inspect once per complete history, never once per transfer page.
+            if (compressPoemVersions((poem.versions || []).map(version => localVersion(poem, version))).removed.length) {
+              removed += await compressRemotePoem(poem.id);
+            }
+          }
+          if (removed) remote = await downloadLibrary();
+        }
         const remoteTrash = await api('/api/trash');
         if (user?.id !== syncOwner) return;
         if (remoteTrash.policy) onTrashPolicy(remoteTrash.policy);

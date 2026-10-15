@@ -41,6 +41,7 @@ if (window.parent !== window && new URLSearchParams(location.search).get('taller
         updateVersionLabelInline(key, command.versionId, command.value);
       } else if (command.action === 'compress') {
         compressStoredPoemVersions(keys);
+        if (applicationState.auth.user) await applicationState.runtime.syncPoemsNow();
       } else if (command.action === 'delete-poems') {
         if (!command.confirmed) throw Error('Confirmá el envío a la papelera.');
         selectedVersionIds = new Set(keys.flatMap(k => (store.poems[k] || []).map(v => makeVersionSelectionKey(k, String(v.id)))));
@@ -78,6 +79,7 @@ if (window.parent !== window && new URLSearchParams(location.search).get('taller
         clearDefaultPoemColor();updateDefaultColorButton();
       } else if (command.action === 'auto-compress') {
         state.autoCompressVersions = command.value === true; saveUiPreferences();
+        applicationState.runtime.compressionPreferenceReady = true;
         document.getElementById('autoCompressVersions').checked = state.autoCompressVersions;
       } else if (command.action === 'cleanup') {
         const checkbox = document.getElementById('autoCleanupTrash'); checkbox.checked = command.value === true;
@@ -3816,10 +3818,10 @@ function createNewPoem() {
   showToast('Nuevo poema creado.', 'success');
 }
 
-function dispatchVersionsCompressed(poemKey, title, result) {
-  if (!result.removed.length) return;
+function dispatchVersionsCompressed(poemKey, title, result, force = false) {
+  if (!force && !result.removed.length) return;
   window.dispatchEvent(new CustomEvent('escandidor:versions-compressed', {
-    detail: { poemKey, title, versionIds: result.removed.map(version => String(version.id)), retainedVersions: structuredClone(result.retained) }
+    detail: { poemKey, title, force, versionIds: result.removed.map(version => String(version.id)), retainedVersions: structuredClone(result.retained) }
   }));
 }
 
@@ -3838,7 +3840,10 @@ function compressStoredPoemVersions(poemKeys, { notify = true } = {}) {
   for (const poemKey of poemKeys) {
     const versions = store.poems[poemKey] || [];
     const result = compressPoemVersions(versions);
-    if (!result.removed.length) continue;
+    if (!result.removed.length) {
+      if (notify && versions.length) dispatchVersionsCompressed(poemKey, getStoredPoemTitle(poemKey, versions), result, true);
+      continue;
+    }
     const title = getStoredPoemTitle(poemKey, versions);
     store.poems[poemKey] = result.retained;
     movePoemToTrash(store, title, result.removed);
@@ -3872,7 +3877,7 @@ function compressStoredPoemVersions(poemKeys, { notify = true } = {}) {
   refreshSavedPoemVersionOptions(activePoemKey, state.loadedVersionId || savedPoemVersion?.value || '');
   renderSavedVersionList(activePoemKey, savedPoemVersion?.value || '');
   renderPoemTrash();
-  for (const { poemKey, title, result } of changes) dispatchVersionsCompressed(poemKey, title, result);
+  for (const { poemKey, title, result } of changes) dispatchVersionsCompressed(poemKey, title, result, notify);
   if (notify) showToast(`${removedCount} versión${removedCount === 1 ? '' : 'es'} comprimida${removedCount === 1 ? '' : 's'}.`, 'success');
 }
 

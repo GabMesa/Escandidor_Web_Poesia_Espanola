@@ -30,6 +30,8 @@ const discardLocalPoems = document.getElementById('discardLocalPoems');
 
 const cloudSync = createCloudSync({
   state: applicationState.sync,
+  shouldAutoCompress: () => applicationState.editor.autoCompressVersions === true
+    && (new URLSearchParams(location.search).get('taller') !== '1' || applicationState.runtime.compressionPreferenceReady === true),
   onStatus(status, message) {
     applicationState.sync.status = status;
     applicationState.sync.message = message;

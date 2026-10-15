@@ -1,6 +1,77 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createCloudSync } from '../cloud-sync.js';
+import { compressPoemVersions } from '../poem-compression.js';
+
+test('automatic compression reconciles complete histories for multiple poems and remains stable on later pulls', async () => {
+  const storage = new MemoryStorage(), compressed = [], archived = [];
+  const poems = [11, 22, 33].map(id => ({ id, title: `Poema ${id}`, versions: Array.from({length: 1700}, (_, index) => ({
+    version: index + 1, content: `Estado ${index % 7} del poema ${id}`,
+    sync: {id: `${id}-${index}`, versionNumber: index + 1, savedAt: new Date(2026, 0, 1, 0, 0, index).toISOString(), settings: {poemFont: index === 0 ? 'lora' : 'atkinson'}}
+  })) }));
+  const sync = createCloudSync({storage, shouldAutoCompress: () => true, request: async (path, options = {}) => {
+    if (path === '/api/trash') return jsonResponse({trash: [], compressedVersions: archived});
+    if (!options.method) return jsonResponse({poems});
+    const id = Number(/^\/api\/poems\/(\d+)\/compress$/.exec(path)?.[1]);
+    assert.ok(id, `Unexpected write: ${path}`);
+    const poem = poems.find(p => p.id === id);
+    const plan = compressPoemVersions(poem.versions.map(v => ({id: v.sync.id, versionNumber: v.version, poemText: v.content, settings: v.sync.settings})));
+    const retired = new Set(plan.removed.map(v => v.id));
+    archived.push(...poem.versions.filter(v => retired.has(v.sync.id)).map(v => ({poemId: id, version: v.version, clientId: v.sync.id})));
+    poem.versions = poem.versions.filter(v => !retired.has(v.sync.id));
+    compressed.push(id);
+    return jsonResponse({removed: retired.size, more: false});
+  }});
+  sync.setUser({id: 90});
+  await sync.loadFromServer();
+  await sync.loadFromServer();
+  assert.deepEqual(compressed, [11, 22, 33]);
+  const memory = JSON.parse(storage.getItem('escandador.poemMemory.v1'));
+  for (const id of [11, 22, 33]) {
+    assert.equal(memory.poems[`server:${id}`].length, 8);
+    assert.equal(memory.poems[`server:${id}`].at(-1).id, `${id}-1699`);
+  }
+  assert.equal(archived.length, 5076);
+});
+
+test('automatic compression covers manual saves, autosaves and grouped imports, and respects disabling it', async () => {
+  let enabled = false;
+  const calls = [];
+  const sync = createCloudSync({storage: new MemoryStorage(), shouldAutoCompress: () => enabled, request: async (path, options) => {
+    calls.push(path);
+    if (path.endsWith('/compress')) return jsonResponse({removed: 0, more: false});
+    const body = JSON.parse(options.body);
+    return jsonResponse({poem: {id: body.title === 'Luna' ? 11 : 22, version: 1}});
+  }});
+  sync.setUser({id: 91});
+  await sync.syncSavedVersion({poemKey: 'luna', title: 'Luna', version: version('one', 1, 'Luna primera')});
+  assert.ok(!calls.some(path => path.endsWith('/compress')));
+  enabled = true;
+  await sync.syncSavedVersion({poemKey: 'luna', title: 'Luna', version: {...version('two', 2, 'Luna segunda'), kind: 'autosave'}});
+  await sync.syncSavedVersion({poemKey: 'luna', title: 'Luna', version: version('three', 3, 'Luna tercera')});
+  const before = calls.length;
+  await sync.syncImportedVersions([
+    {poemKey: 'luna', title: 'Luna', version: version('four', 4, 'Luna cuarta')},
+    {poemKey: 'luna', title: 'Luna', version: version('five', 5, 'Luna quinta')},
+    {poemKey: 'sol', title: 'Sol', version: version('sun', 1, 'Sol primero')},
+  ]);
+  assert.deepEqual(calls.slice(before).filter(path => path.endsWith('/compress')), ['/api/poems/11/compress', '/api/poems/22/compress']);
+  assert.equal(calls.filter(path => path.endsWith('/compress')).length, 4);
+  assert.equal(sync.pendingCount(), 0);
+});
+
+test('explicit compression checks the server even when the local history has no redundant versions', async () => {
+  const storage = new MemoryStorage(), calls = [];
+  const sync = createCloudSync({storage, request: async (path) => {
+    calls.push(path);
+    return jsonResponse({removed: 0, more: false});
+  }});
+  sync.setUser({id: 92});
+  storage.setItem('escandador.cloudPoemMap.v1:92', JSON.stringify({poem: {poemId: 11, versions: {}}}));
+  await sync.compressVersions({poemKey: 'poem', title: 'Cualquier poema', force: true, versionIds: [], retainedVersions: []});
+  assert.deepEqual(calls, ['/api/poems/11/compress']);
+  assert.equal(sync.pendingCount(), 0);
+});
 
 test('a legacy local ID confirmed as compressed is removed on the next pull',async()=>{
  const storage=new MemoryStorage();

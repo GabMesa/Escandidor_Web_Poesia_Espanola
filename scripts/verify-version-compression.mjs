@@ -37,6 +37,24 @@ try{
  const after=(await api('/api/poems')).data.poems.find(p=>p.id===id);assert.equal(after.versions.length,22);assert.equal(after.content,before.content);
  const states=p=>new Set(p.versions.map(v=>JSON.stringify([v.content,v.sync.settings])));
  assert.deepEqual(states(after),states(before));
+ // Exercise the normal synchronization path for unrelated poems as well as
+ // the explicit compression endpoint tested above.
+ const automaticIds=[];
+ for(let poem=0;poem<3;poem++){
+  const title='Compresión automática '+poem;
+  const snapshots=Array.from({length:24},(_,i)=>({title,content:`Variante ${i%3} del poema ${poem}.`,settings:{poemFont:i===0?'lora':'atkinson'},sync:{id:`automatic-${poem}-${i}`,versionNumber:i+1,savedAt:new Date(Date.UTC(2026,0,1,0,0,i)).toISOString()}}));
+  const createdPoem=(await api('/api/poems',{method:'POST',body:snapshots[0]})).data.poem;
+  automaticIds.push(createdPoem.id);
+  for(let i=1;i<snapshots.length;i+=20)await api(`/api/poems/${createdPoem.id}/versions`,{method:'POST',body:{versions:snapshots.slice(i,i+20)}});
+ }
+ const automaticStorage=new Storage(),automaticState={user:null,queue:Promise.resolve()};
+ const automaticSync=createCloudSync({storage:automaticStorage,state:automaticState,shouldAutoCompress:()=>true,request:(path,options={})=>fetch(base+path,{...options,headers:{...options.headers,Cookie:cookie}})});
+ automaticSync.setUser(user);
+ await automaticSync.loadFromServer();await automaticSync.loadFromServer();
+ assert.equal(automaticState.error?.message||null,null);
+ const automaticMemory=JSON.parse(automaticStorage.getItem('escandador.poemMemory.v1'));
+ for(const poemId of automaticIds){const versions=automaticMemory.poems['server:'+poemId];assert.equal(versions.length,4);assert.equal(versions.at(-1).versionNumber,24);}
  await mkdir('qa/compresion',{recursive:true});const report={before:total,after:22,archived:total-22,everyStatePreserved:true,currentTextUnchanged:true,staleDeviceDownloads22:true,oldBatchCannotResurrect:true,legacyAliasesCannotResurrect:true,repeatedPullDoesNotUpload:true,elapsedMs:Date.now()-started,origin:base};
+ report.automaticCompressionAcrossPoems=true;
  await writeFile('qa/compresion/'+(base.startsWith('https:')?'produccion':'local')+'.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));
 }finally{if(created){await api('/api/auth/account',{method:'DELETE'});console.log('Temporary QA account deleted.');}}

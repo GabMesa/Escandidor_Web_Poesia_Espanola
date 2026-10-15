@@ -73,6 +73,14 @@ try{
  await until(`(()=>{const input=document.querySelector('#workshop-editor').contentDocument.querySelector('#poemInput');return input.value===longPoem&&input.clientHeight>=input.scrollHeight-1})()`);
  await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
  assert.equal(await ev(`(()=>{const node=document.createElement('span');node.className='loading-spinner';document.body.append(node);const animation=getComputedStyle(node).animationName;node.remove();return animation;})()`),'none');
+ await ev(`window.quotedPoem='> Una cita que no debe escandirse\\nEl poeta canta\\n  >> Una aclaración aparte\\nLa luna alumbra\\n\\n> Otra cita\\nEl río pasa';const input=document.querySelector('#workshop-editor').contentDocument.querySelector('#poemInput');input.value=quotedPoem;input.dispatchEvent(new Event('input',{bubbles:true}))`);
+ await until(`document.querySelector('#workshop-editor').contentDocument.querySelectorAll('.analysis-row').length===3`);
+ assert.equal(await ev(`document.querySelector('#workshop-editor').contentDocument.querySelector('#poemInput').value`),await ev('quotedPoem'));
+ assert.deepEqual(await ev(`[...document.querySelector('#workshop-editor').contentDocument.querySelectorAll('.verse-index-col')].map(n=>n.textContent.trim())`),['1','2','3']);
+ assert.equal(await ev(`document.querySelector('#workshop-editor').contentDocument.querySelector('#stanzaSummaryBadge').textContent`),'2-1');
+ assert.ok(await ev(`!document.querySelector('#workshop-editor').contentDocument.querySelector('#analysisTextOutput').textContent.includes('Una cita')`));
+ await ev(`document.querySelector('#workshop-editor').contentDocument.querySelector('.sinalefa-toggle[data-line="3"][data-boundary="1"]').click()`);
+ assert.equal(await ev(`document.querySelector('#workshop-editor').contentWindow.eval("import('/application-state.js').then(m=>Object.hasOwn(m.applicationState.editor.sinalefaOverrides,'3:1'))")`),true);
  assert.equal(errors.length,0,JSON.stringify(errors));
  console.log('Verified contest search, tags, selected-first ordering, fixed-version previews, appearance scopes, unchanged poem data and mobile layout.');
 }finally{try{await send?.('Browser.close');}catch{}socket?.close();if(browser.exitCode===null)browser.kill();}

@@ -136,6 +136,7 @@ if (window.parent !== window && new URLSearchParams(location.search).get('taller
 import { createPoemVideoExporter } from './poem-video.js';
 import {
   analyzePoem,
+  isPoemQuoteLine,
   normalizeInput,
   analyzeWord,
   adjustPoeticCount,
@@ -6250,7 +6251,7 @@ function renderSinalefaMarker(boundary, lineIndex) {
     return '';
   }
 
-  const runtime = lastRuntime[lineIndex];
+  const runtime = lastRuntime.find(entry=>entry.lineIndex===lineIndex);
   const previousBoundary = runtime?.activeBoundaries?.[boundary.index - 1];
   const nextBoundary = runtime?.activeBoundaries?.[boundary.index + 1];
   const leftWord = runtime?.lineAnalysis?.analyses?.[boundary.index];
@@ -6445,16 +6446,18 @@ function renderLineAdvanced(runtime) {
 }
 
 function renderAnalysis(result) {
-  if (!result.lines.length) {
+  if (!result.lines.some(line=>line.text.trim())) {
+    lastRuntime=[];
+    const emptyMessage=poemInput.value.split('\n').some(isPoemQuoteLine)?'Las citas y aclaraciones que empiezan con > se conservan en el poema y no se escanden.':'Escribe un poema para ver la escansión.';
     analysisOutput.innerHTML = `
       <div class="empty-state">
         <div>
-          <strong>Escribe un poema para ver la escansión.</strong>
+          <strong>${escapeHtml(emptyMessage)}</strong>
         </div>
       </div>
     `;
     if (analysisTextOutput) {
-      analysisTextOutput.textContent = 'Escribe un poema para ver la escansión en formato texto.';
+      analysisTextOutput.textContent = emptyMessage;
     }
     applyPoemScreenTheme(normalizePoemTitle(poemTitle?.value ?? savedPoemName?.value ?? ''));
     applyAnalysisMode();
@@ -6464,7 +6467,7 @@ function renderAnalysis(result) {
   let runtimeVerseIndex = -1;
   const runtimes = result.lines.map((line, index) => {
     if (line.text.trim()) runtimeVerseIndex += 1;
-    return buildLineRuntime(line, index, Math.max(0, runtimeVerseIndex));
+    return buildLineRuntime(line, line.sourceLineIndex??index, Math.max(0, runtimeVerseIndex));
   });
   state.currentAnalysisTitle = normalizePoemTitle(poemTitle?.value ?? savedPoemName?.value ?? 'Sin título');
   applyPoemScreenTheme(state.currentAnalysisTitle);
@@ -6629,6 +6632,7 @@ function buildStanzaSummary(text) {
   let versesInStanza = 0;
 
   for (const line of lines) {
+    if(isPoemQuoteLine(line))continue;
     if (line.trim()) {
       versesInStanza += 1;
       continue;
@@ -6644,7 +6648,7 @@ function buildStanzaSummary(text) {
     stanzaCounts.push(versesInStanza);
   }
 
-  return stanzaCounts.length ? stanzaCounts.join('-') : '1';
+  return stanzaCounts.length ? stanzaCounts.join('-') : lines.some(isPoemQuoteLine)?'0':'1';
 }
 
 function updateAnalysis() {
@@ -7806,11 +7810,12 @@ analysisOutput.addEventListener('click', (event) => {
 
   const line = Number(target.dataset.line);
   const boundary = Number(target.dataset.boundary);
-  if (!Number.isInteger(line) || !Number.isInteger(boundary) || !lastRuntime?.[line]) {
+  const runtime=lastRuntime.find(entry=>entry.lineIndex===line);
+  if (!Number.isInteger(line) || !Number.isInteger(boundary) || !runtime) {
     return;
   }
 
-  const boundaryData = lastRuntime[line].activeBoundaries[boundary];
+  const boundaryData = runtime.activeBoundaries[boundary];
   if (!boundaryData || boundaryData.blockedByHemistich) {
     return;
   }

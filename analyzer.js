@@ -661,12 +661,19 @@ export function analyzeLine(line, options = {}) {
   };
 }
 
+export function isPoemQuoteLine(line) {
+  return /^\s*>/.test(String(line??''));
+}
+
 export function analyzePoem(text, options = {}) {
   const lines = splitIntoLines(text);
-  const analyzedLines = lines.map((line, lineIndex) => analyzeLine(line, {
-    ...options,
-    syneresis: options.syneresisOverrides?.[lineIndex] ?? {}
-  }));
+  const analyzedLines = lines.flatMap((line, sourceLineIndex) => isPoemQuoteLine(line)?[]:[{
+    ...analyzeLine(line, {
+      ...options,
+      syneresis: options.syneresisOverrides?.[sourceLineIndex] ?? {}
+    }),
+    sourceLineIndex
+  }]);
 
   return {
     lines: analyzedLines,

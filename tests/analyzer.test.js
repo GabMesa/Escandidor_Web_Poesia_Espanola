@@ -22,6 +22,21 @@ function rhymeOf(word, options = {}) {
   return extractRhymeData({ analyses: [analyzeWord(word)] }, options);
 }
 
+test('poem analysis omits Markdown quotes and preserves the source line numbers',()=>{
+ const result=analyzePoem('> Una cita previa\nEl poeta canta\n  >> Una aclaración\nLa luna alumbra\n\n> Otra cita\nEl río pasa');
+ const plain=analyzePoem('El poeta canta\nLa luna alumbra\n\nEl río pasa');
+ assert.deepEqual(result.lines.map(l=>l.text),plain.lines.map(l=>l.text));
+ assert.deepEqual(result.lines.map(l=>l.sourceLineIndex),[1,3,4,6]);
+ assert.equal(result.rawCount,plain.rawCount);assert.equal(result.poeticCount,plain.poeticCount);
+ assert.equal(analyzePoem('> Una cita\n  > Otra').lines.length,0);
+});
+
+test('quotes do not shift syneresis overrides or omit greater-than signs inside a verse',()=>{
+ const result=analyzePoem('> Cita\npoeta',{syneresisOverrides:{1:{0:[0]}}});
+ assert.deepEqual(result.lines[0].analyses[0].syllables,['poe','ta']);
+ assert.equal(analyzePoem('El mar > la luna').lines.length,1);
+});
+
 test('syllabifies and classifies common Spanish words', () => {
   const celestiales = analyzeWord('celestiales');
   assert.deepEqual(celestiales.syllables, ['ce', 'les', 'tia', 'les']);

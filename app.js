@@ -5524,7 +5524,7 @@ function renderHemistichPatternFields(patterns = readHemistichPatternsFromContro
   hemistichPatternFields.innerHTML = counts.length ? counts.map((count) => {
     const alternatives = normalized[count]?.length ? normalized[count] : [''];
     return `<div class="stress-pattern-group" data-hemi-group="${count}"><div class="stress-pattern-heading"><strong>${count} sílabas</strong><button type="button" class="stress-pattern-add" data-add-hemi="${count}" aria-label="Añadir otro hemistiquio para ${count} sílabas">+</button></div>${alternatives.map((pattern, index) => `<div class="stress-pattern-entry"><input type="text" data-hemi-count="${count}" value="${escapeHtml(pattern)}" placeholder="Ej: 7 o 4-8" aria-label="Hemistiquio ${index + 1} para ${count} sílabas" />${index ? '<button type="button" class="stress-pattern-remove" data-remove-hemi aria-label="Eliminar alternativa de hemistiquio">−</button>' : ''}</div>`).join('')}</div>`;
-  }).join('') : '<span class="hint">Define primero el conteo silábico.</span>';
+  }).join('') : '<span class="hint">Usá el corte general o definí un conteo silábico para configurar cortes por metro.</span>';
 }
 
 function parseHemistichPositions(value) {
@@ -5605,8 +5605,7 @@ function getEffectiveHemistichPositions(lineAnalysis, lineIndex, verseIndex = 0,
   const alternatives = applicableCounts.flatMap((count) => (state.hemistichPatterns?.[count] ?? [])
     .filter((pattern) => pattern.trim()).map((pattern) => ({ count, positions: parseHemistichPositions(pattern) })));
   if (!alternatives.length) {
-    // Preserve older poems configured without a syllable target.
-    return !counts.length && state.hemistichPositions.length
+    return state.hemistichPositions.length
       ? resolveHemistichCuts(lineAnalysis, lineIndex, verseIndex, effectivePattern, state.hemistichPositions)
       : { boundaries: [], invalid: [] };
   }
@@ -7119,12 +7118,12 @@ hemistichPatternFields?.addEventListener('click', (event) => {
     remove.closest('.stress-pattern-entry').remove();
     group.querySelector('[data-add-hemi]').focus();
   }
-  hemistichSplit.value = '';
   markPoeticFormCustom();
   updateAnalysis();
 });
 
 hemistichSplit.addEventListener('input', () => {
+  for (const input of hemistichPatternFields?.querySelectorAll('[data-hemi-count]') ?? []) input.value = '';
   markPoeticFormCustom();
   updateAnalysis();
 });

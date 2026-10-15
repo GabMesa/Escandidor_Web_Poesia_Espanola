@@ -94,6 +94,35 @@ try{
    assert.equal(await ev(`document.querySelector('#workshop-editor').contentDocument.querySelector('.sinalefa-toggle.is-inactive').textContent`),label.replace(/([,.])/, '$1 '));
   }
  }
+ // General cuts work with free meter and fixed targets; verse numbers are
+ // a separate filter. Per-count cuts and explicit slashes remain available.
+ const editorDoc=`document.querySelector('#workshop-editor').contentDocument`;
+ await send('Emulation.setDeviceMetricsOverride',{width:1600,height:1050,deviceScaleFactor:1,mobile:false});
+ const setEditorInput=async(id,value)=>ev(`const input=${editorDoc}.querySelector('#${id}');input.value=${JSON.stringify(value)};input.dispatchEvent(new Event('input',{bubbles:true}))`);
+ await setEditorInput('syllablePattern','');await setEditorInput('hemistichVerses','');
+ await setEditorInput('poemInput','Remando tranquilo me arrimo a tus costas\\nRemando tranquilo me arrimo a tus costas'.replaceAll('\\n','\n'));
+ await setEditorInput('hemistichSplit','6');
+ await until(`${editorDoc}.querySelectorAll('.hemistich-marker').length===2`);
+ assert.ok(await ev(`${editorDoc}.querySelector('#hemistichSplit').type==='text'`));
+ assert.deepEqual(await ev(`[...${editorDoc}.querySelectorAll('.visual-col')].map(n=>n.textContent.split('/')[0].trim())`),['Re-man-do tran-qui-lo','Re-man-do tran-qui-lo']);
+ await ev(`window.setMesaTheme('light');${editorDoc}.querySelector('.config-shell').open=true;document.querySelector('#workshop-editor').scrollIntoView({block:'start'});`);
+ await sleep(200);await mkdir('qa/hemistiquios',{recursive:true});
+ await writeFile('qa/hemistiquios/01-corte-seis.png',Buffer.from((await send('Page.captureScreenshot',{format:'png'})).data,'base64'));
+ await setEditorInput('hemistichVerses','2');
+ assert.deepEqual(await ev(`[...${editorDoc}.querySelectorAll('.analysis-row')].map(n=>n.querySelectorAll('.hemistich-marker').length)`),[0,1]);
+ await setEditorInput('hemistichVerses','');await setEditorInput('syllablePattern','12');
+ assert.equal(await ev(`${editorDoc}.querySelectorAll('.hemistich-marker').length`),2);
+ await ev(`${editorDoc}.querySelector('[data-add-hemi="12"]').click()`);
+ assert.equal(await ev(`${editorDoc}.querySelector('#hemistichSplit').value`),'6');
+ await ev(`const input=${editorDoc}.querySelector('[data-hemi-count="12"]');input.value='3';input.dispatchEvent(new Event('input',{bubbles:true}))`);
+ assert.equal(await ev(`${editorDoc}.querySelector('#hemistichSplit').value`),'');
+ assert.ok(await ev(`${editorDoc}.querySelector('.visual-col').textContent.split('/')[0].trim()==='Re-man-do'`));
+ await setEditorInput('poemInput','noche clara noche clara noche clara');await setEditorInput('hemistichSplit','4-8');
+ assert.equal(await ev(`${editorDoc}.querySelectorAll('.hemistich-marker').length`),2);
+ assert.equal(await ev(`${editorDoc}.querySelector('.count-col').textContent.trim()`),'4+4+4');
+ await setEditorInput('poemInput','noche / clara noche clara noche clara');
+ assert.equal(await ev(`${editorDoc}.querySelectorAll('.hemistich-marker').length`),1);
+ assert.equal(await ev(`${editorDoc}.querySelector('.visual-col').textContent.split('/')[0].trim()`),'no-che');
  assert.equal(errors.length,0,JSON.stringify(errors));
  console.log('Verified contest search, tags, selected-first ordering, fixed-version previews, appearance scopes, unchanged poem data and mobile layout.');
 }finally{try{await send?.('Browser.close');}catch{}socket?.close();if(browser.exitCode===null)browser.kill();}

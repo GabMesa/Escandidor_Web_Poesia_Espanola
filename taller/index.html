@@ -36,6 +36,8 @@
   <script type="module" src="../workshop-credits.js"></script>
   <dialog id="modal" aria-labelledby="dialog-title"></dialog>
   <div id="toast" role="status" aria-live="polite"></div>
+  <!-- Keep the native file picker alive while focus or sync refreshes the library. -->
+  <input id="library-import-file" type="file" accept=".md,.markdown,text/markdown,text/plain" hidden>
   <script type="module" src="taller.js"></script>
 </body>
 </html>

@@ -26,8 +26,12 @@ try{
  }
  await ev(`(async()=>{window.app=(await import('/application-state.js')).applicationState;window.expected=${JSON.stringify(expected)};window.markdown=${JSON.stringify(markdown)};window.storage=(await import('/poem-storage.js')).poemStorage;})()`);
  await ev(`(()=>{const d=document.querySelector('#workshop-editor').contentDocument;d.querySelector('#poemTitle').value='Sin título';d.querySelector('#poemInput').value='Un borrador todavía sin título.';d.querySelector('#poemInput').dispatchEvent(new Event('input',{bubbles:true}));})()`);
- // The real file input drives the same change handler as a chosen Markdown file.
- await ev(`(()=>{const input=document.querySelector('#library-import-file'),transfer=new DataTransfer();transfer.items.add(new File([markdown],'poemario.md',{type:'text/markdown'}));input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+ // Returning from the native picker restores window focus. Background sync
+ // can also refresh the library while the picker is open. Keep its original
+ // input, just as the browser does, rather than finding a replacement node.
+ await ev(`(()=>{window.pickerInput=document.querySelector('#library-import-file');window.dispatchEvent(new Event('focus'));window.dispatchEvent(new StorageEvent('storage',{key:'escandador.cloudPoemMap.v1:qa'}));})()`);
+ assert.equal(await ev('pickerInput.isConnected'),true,'The file picker input was removed during focus or synchronization.');
+ await ev(`(()=>{const transfer=new DataTransfer();transfer.items.add(new File([markdown],'poemario.md',{type:'text/markdown'}));pickerInput.files=transfer.files;pickerInput.dispatchEvent(new Event('change',{bubbles:true}));})()`);
  await until(`!!document.querySelector('#poem-import-form')`);
  assert.equal(await ev(`document.querySelectorAll('#poem-import-form [name=include]').length`),expected.length);
  assert.equal(await ev(`Object.keys(JSON.parse(storage.getItem('escandador.poemMemory.v1')||'{}').poems||{}).length`),0);

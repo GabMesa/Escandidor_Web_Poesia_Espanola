@@ -2116,31 +2116,36 @@ function renderLookupResults() {
 
   const loaderVisible = state.lookupLoadingDefinition;
   const loaderMessage = wordCorpusLoadingMessage || 'Cargando información desde las fuentes...';
-  const loaderBlock = `<div class="lookup-status" role="status">${loaderVisible ? `<p class="lookup-loader"><span class="lookup-spinner" aria-hidden="true"></span>${escapeHtml(loaderMessage)}</p>` : ''}</div>`;
-  const errorLine = state.lookupError ? `<p class="lookup-definition">${escapeHtml(state.lookupError)}</p>` : '';
+  const loaderBlock = `<div class="lookup-status" role="status" title="${escapeHtml(state.lookupError || (loaderVisible ? loaderMessage : ''))}">${state.lookupError ? escapeHtml(state.lookupError) : loaderVisible ? `<p class="lookup-loader"><span class="lookup-spinner" aria-hidden="true"></span>${escapeHtml(loaderMessage)}</p>` : ''}</div>`;
+  const definitionOpen = lookupResults.querySelector('.lookup-definition-section')?.open ?? true;
+  const synonymsOpen = lookupResults.querySelector('.lookup-synonyms-section')?.open ?? true;
+  const rhymesOpen = lookupResults.querySelector('.lookup-rhymes-column details')?.open ?? true;
 
   lookupResults.innerHTML = `
     ${loaderBlock}
-    ${errorLine}
     
     <div class="lookup-definition-column">
-    <div class="lookup-section">
+    <details class="lookup-collapsible-section lookup-definition-section" ${definitionOpen ? 'open' : ''}>
+    <summary class="lookup-section">
       <strong>Definición (Wikcionario)</strong>
-    </div>
+    </summary>
+    <div class="lookup-definition-body">
     <p class="lookup-definition">${escapeHtml(definitionText)}</p>
     <p class="lookup-definition" style="margin-top: 0.35rem;"><strong>Frecuencia:</strong> ${escapeHtml(frequencyText)}</p>
     ${corroborationLinks}
+    </div>
+    </details>
 
-    <section class="lookup-collapsible-section lookup-synonyms-section">
-      <div class="lookup-section">
+    <details class="lookup-collapsible-section lookup-synonyms-section" ${synonymsOpen ? 'open' : ''}>
+      <summary class="lookup-section">
         <strong>Sinónimos</strong>
-      </div>
+      </summary>
       <div class="lookup-synonym-groups">${synonymsHtml}</div>
-    </section>
+    </details>
     </div>
 
     <div class="lookup-rhymes-column">
-    <details class="lookup-collapsible-section" open>
+    <details class="lookup-collapsible-section" ${rhymesOpen ? 'open' : ''}>
       <summary class="lookup-section" style="cursor: pointer; list-style: max-content; margin-top: 1rem;">
         <strong>Rimas filtradas (${mode})</strong>
         <span class="guide-hover lookup-rhyme-mode-help" tabindex="0">

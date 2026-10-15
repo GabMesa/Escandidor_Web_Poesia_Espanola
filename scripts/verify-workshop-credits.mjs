@@ -26,7 +26,7 @@ try{
   const poem='Con diez cañones por banda,\nviento en popa, a toda vela,';
   const versions=[{id:'credits-qa',versionNumber:1,kind:'manual',label:'Primera versión',poemTitle:'Canción del pirata',poemText:poem,savedAt:'2026-10-14T14:00:00Z'}];
   await evaluate(`localStorage.setItem('escandador.poemMemory.v1',JSON.stringify({schemaVersion:2,poems:{'Canción del pirata':${JSON.stringify(versions)}},trash:{}}))`);
-  await send('Page.reload');await until('!!document.querySelector("[data-view=editor]") && !!document.querySelector("#workshop-footer a")');
+  const previousLoad=await evaluate('performance.timeOrigin');await send('Page.reload');await until(`performance.timeOrigin!==${previousLoad} && !!document.querySelector('[data-view=editor]') && !!document.querySelector('#workshop-footer a')`);
   await click('[data-view=editor]');await until('!!document.querySelector("#workshop-editor").contentDocument?.querySelector("#poemInput")');
   await evaluate(`window.d=document.querySelector('#workshop-editor').contentDocument`);
   await evaluate(`(async()=>{window.parentApp=(await import('/application-state.js')).applicationState;})()`);
@@ -68,6 +68,8 @@ try{
   await until('!ea.editor.lookupLoadingRhymes && !ea.editor.lookupLoadingDefinition');
   const lookup=await evaluate(`({height:d.querySelector('#lookupResults').getBoundingClientRect().height,synonyms:d.querySelector('.lookup-synonym-groups').getBoundingClientRect().height,rhymes:d.querySelector('.lookup-rhyme-list').getBoundingClientRect().height,columns:getComputedStyle(d.querySelector('#lookupResults')).flexDirection})`);
   assert.equal(lookup.columns,'column');assert.equal(lookup.synonyms,252);assert.equal(lookup.rhymes,184);
+  assert.equal(await evaluate(`d.defaultView.getComputedStyle(d.querySelector('#lookupResults')).overflowY`),'visible');
+  assert.ok(await evaluate(`d.querySelector('#lookupResults').scrollHeight<=d.querySelector('#lookupResults').clientHeight+1`));
   assert.ok(await evaluate(`!!d.querySelector('.lookup-rhymes-column a[href^="https://iedra.es/rimas/"]')`));
   await evaluate(`document.querySelector('#toast').style.display='none';window.scrollTo(0,document.querySelector('#workshop-editor').getBoundingClientRect().top+scrollY+d.querySelector('#lookupShell').getBoundingClientRect().top-20)`);
   await shot('04-consultas-columna-fija');
@@ -75,6 +77,18 @@ try{
   await sleep(1200);
   await until('!ea.editor.lookupLoadingRhymes && !ea.editor.lookupLoadingDefinition');
   assert.equal(await evaluate(`d.querySelector('#lookupResults').getBoundingClientRect().height`),lookup.height);
+  await evaluate(`d.querySelector('.lookup-definition-section>summary').click()`);
+  assert.equal(await evaluate(`d.querySelector('.lookup-definition-section').open`),false);
+  assert.equal(await evaluate(`d.querySelector('.lookup-synonyms-section').open`),true);
+  await evaluate(`d.querySelector('.lookup-synonyms-section>summary').click()`);
+  assert.equal(await evaluate(`d.querySelector('.lookup-synonyms-section').open`),false);
+  assert.ok(await evaluate(`d.querySelector('#lookupResults').getBoundingClientRect().height`)<lookup.height-300);
+  await evaluate(`(()=>{const e=d.querySelector('#selectedLookupWord');e.value='casa';e.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+  await sleep(1200);await until('!ea.editor.lookupLoadingRhymes && !ea.editor.lookupLoadingDefinition');
+  assert.equal(await evaluate(`d.querySelector('.lookup-definition-section').open`),false);
+  assert.equal(await evaluate(`d.querySelector('.lookup-synonyms-section').open`),false);
+  assert.equal(await evaluate(`d.querySelector('.lookup-rhyme-list').getBoundingClientRect().height`),184);
+  await shot('12-definicion-sinonimos-plegados');
   for(const view of ['editor','library','contests','reminders']){
     await click(`[data-view=${view}]`);
     assert.equal(await evaluate('getComputedStyle(document.querySelector("#workshop-footer")).display!=="none"'),true);

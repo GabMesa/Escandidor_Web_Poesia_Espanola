@@ -48,6 +48,17 @@ try{
  assert.notEqual(await evaluate('getComputedStyle(document.body).backgroundColor'),shadeBefore);
  assert.ok(darkColor(await evaluate('getComputedStyle(document.body).backgroundColor')));
  await shot('03-movil-oscuro-verde');
+ await evaluate(`(()=>{d.querySelector('#lookupShell').open=true;const e=d.querySelector('#selectedLookupWord');e.value='mar';e.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+ await until(`!!d.querySelector('.lookup-definition-section')`);
+ assert.equal(await evaluate(`d.defaultView.getComputedStyle(d.querySelector('#lookupResults')).overflowY`),'visible');
+ await evaluate(`d.querySelector('.lookup-definition-section>summary').click();d.querySelector('.lookup-synonyms-section>summary').click()`);
+ await evaluate(`(()=>{const e=d.querySelector('#selectedLookupWord');e.value='luz';e.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+ await sleep(1000);
+ assert.equal(await evaluate(`d.querySelector('.lookup-definition-section').open`),false);
+ assert.equal(await evaluate(`d.querySelector('.lookup-synonyms-section').open`),false);
+ await evaluate(`window.scrollTo(0,document.querySelector('#workshop-editor').getBoundingClientRect().top+scrollY+d.querySelector('#lookupShell').getBoundingClientRect().top-16)`);
+ await shot('09-consultas-plegadas-movil');
+ await evaluate(`d.querySelector('#lookupShell').open=false;window.scrollTo(0,0)`);
  for(const [view,name] of [['library','04-biblioteca-oscura'],['contests','05-concursos-oscuros'],['reminders','06-recordatorios-oscuros']]){
   await click(`[data-view=${view}]`);assert.ok(darkColor(await evaluate('getComputedStyle(document.body).backgroundColor')));assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);await evaluate('window.scrollTo(0,0)');await shot(name);
  }
@@ -62,7 +73,7 @@ try{
  await click('[data-theme-toggle]');await until('document.documentElement.dataset.theme==="light" && d.documentElement.dataset.theme==="light"');
  await shot('08-escritorio-claro');
  assert.equal(errors.length,0,JSON.stringify(errors));
- await writeFile(out+'/verificacion.json',JSON.stringify({checkedAt:new Date().toISOString(),mobileLabels:true,noMobileCollapseButton:true,desktopCollapse:true,visibleThemeToggle:true,darkEditorAndWorkshop:true,allViews:true,persistsAfterReload:true,poemTintInDarkMode:true,retainsPoemText:true,widths:[320,390,1440],consoleErrors:0},null,2));
- await writeFile(out+'/galeria.html',`<!doctype html><meta charset="utf-8"><title>Taller en móvil y modo oscuro</title><style>body{font:16px system-ui;background:#e6e4d9;margin:20px}img{max-width:100%;display:block;margin:16px 0 32px}</style><h1>Taller en móvil y modo oscuro</h1>${['01-movil-claro','02-movil-oscuro','03-movil-oscuro-verde','04-biblioteca-oscura','05-concursos-oscuros','06-recordatorios-oscuros','07-escritorio-oscuro','08-escritorio-claro'].map(name=>`<h2>${name.slice(3).replaceAll('-',' ')}</h2><img src="${name}.png">`).join('')}`);
+ await writeFile(out+'/verificacion.json',JSON.stringify({checkedAt:new Date().toISOString(),mobileLabels:true,noMobileCollapseButton:true,desktopCollapse:true,visibleThemeToggle:true,darkEditorAndWorkshop:true,allViews:true,persistsAfterReload:true,poemTintInDarkMode:true,retainsPoemText:true,noLookupContainerScroll:true,collapsibleDefinitionAndSynonyms:true,retainsCollapsedSections:true,widths:[320,390,1440],consoleErrors:0},null,2));
+ await writeFile(out+'/galeria.html',`<!doctype html><meta charset="utf-8"><title>Taller en móvil y modo oscuro</title><style>body{font:16px system-ui;background:#e6e4d9;margin:20px}img{max-width:100%;display:block;margin:16px 0 32px}</style><h1>Taller en móvil y modo oscuro</h1>${['01-movil-claro','02-movil-oscuro','03-movil-oscuro-verde','04-biblioteca-oscura','05-concursos-oscuros','06-recordatorios-oscuros','07-escritorio-oscuro','08-escritorio-claro','09-consultas-plegadas-movil'].map(name=>`<h2>${name.slice(3).replaceAll('-',' ')}</h2><img src="${name}.png">`).join('')}`);
  console.log('Verified mobile navigation, visible theme control, dark editor and all views, reload persistence, poem colors and desktop collapse. Screenshots: '+out);
 }finally{try{await send?.('Browser.close');}catch{}socket?.close();if(browser.exitCode===null)browser.kill();}

@@ -1,0 +1,67 @@
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {WebSocket} from 'ws';
+const base=process.env.WORKSHOP_QA_ORIGIN||'http://localhost:8794';
+const out='qa/taller-apariencia/'+(base.startsWith('https:')?'produccion':'local');
+await mkdir(out,{recursive:true});
+const browser=spawn('C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',['--headless=new','--disable-gpu','--no-first-run','--remote-debugging-port=9249',`--user-data-dir=${process.cwd()}\\.wrangler\\appearance-qa-browser`,'about:blank'],{stdio:'ignore',windowsHide:true});
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));let socket,send;const errors=[];
+try{
+ let targets;for(let i=0;i<50;i++){try{targets=await fetch('http://127.0.0.1:9249/json').then(r=>r.json());break;}catch{await sleep(200);}}
+ assert.ok(targets);socket=new WebSocket(targets.find(t=>t.type==='page').webSocketDebuggerUrl);await new Promise(r=>socket.once('open',r));
+ let id=0;const pending=new Map();socket.on('message',raw=>{const m=JSON.parse(raw);if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails);if(pending.has(m.id)){pending.get(m.id)(m);pending.delete(m.id);}});
+ send=(method,params={})=>new Promise((ok,fail)=>{const key=++id;pending.set(key,m=>m.error?fail(Error(JSON.stringify(m.error))):ok(m.result));socket.send(JSON.stringify({id:key,method,params}));});
+ const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});assert.equal(r.exceptionDetails,undefined,JSON.stringify(r.exceptionDetails));return r.result.value;};
+ const until=async expression=>{for(let i=0;i<150;i++){if(await evaluate(expression))return;await sleep(100);}throw Error('Timed out: '+expression);};
+ const click=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
+ const shot=async name=>{await sleep(180);const r=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(out+'/'+name+'.png',Buffer.from(r.data,'base64'));};
+ const visible=selector=>evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});return !!(e&&e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden');})()`);
+ const darkColor=color=>{const values=(color.match(/[\d.]+/g)||[]).map(Number);return Math.max(...values.slice(0,3))<90;};
+ await send('Page.enable');await send('Runtime.enable');await send('Network.enable');await send('Network.setCacheDisabled',{cacheDisabled:true});await send('Network.clearBrowserCookies');await send('Storage.clearDataForOrigin',{origin:base,storageTypes:'local_storage'});
+ await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+ await send('Page.navigate',{url:base+'/taller/?view=editor'});await until('!!document.querySelector("[data-account=login]")');
+ await evaluate(`localStorage.setItem('mesa.colorTheme','light');localStorage.setItem('escandador.workshopSidebar.v1','collapsed')`);await send('Page.reload');
+ await until('document.readyState==="complete" && !!document.querySelector("[data-account=login]")');
+ await evaluate(`(async()=>{window.parentApp=(await import('/application-state.js')).applicationState;})()`);await until('parentApp.workshop?.startupComplete');
+ await evaluate(`window.d=document.querySelector('#workshop-editor').contentDocument`);
+ assert.equal(await visible('[data-theme-toggle]'),true);assert.equal(await visible('#sidebar-toggle'),false);
+ assert.equal(await evaluate('Array.from(document.querySelectorAll(".sidebar .nav-label")).filter(e=>e.getClientRects().length).length'),4);
+ assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);
+ assert.equal(await evaluate('document.documentElement.dataset.theme'),'light');assert.equal(await evaluate('d.documentElement.dataset.theme'),'light');
+ await evaluate(`(()=>{const t=d.querySelector('#poemTitle');t.value='Mi mesa de poesía';t.dispatchEvent(new Event('input',{bubbles:true}));const e=d.querySelector('#poemInput');e.value=${JSON.stringify('Con diez cañones por banda,\nviento en popa, a toda vela,')};e.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+ await shot('01-movil-claro');
+ const text=await evaluate('d.querySelector("#poemInput").value');
+ await click('[data-theme-toggle]');await until('document.documentElement.dataset.theme==="dark" && d.documentElement.dataset.theme==="dark"');
+ assert.equal(await evaluate('document.querySelector("[data-theme-toggle]").textContent.includes("Modo claro")'),true);
+ assert.ok(darkColor(await evaluate('getComputedStyle(document.body).backgroundColor')));
+ assert.ok(darkColor(await evaluate('d.defaultView.getComputedStyle(d.querySelector("#poemInput")).backgroundColor')));
+ assert.equal(await evaluate('d.querySelector("#poemInput").value'),text);
+ assert.equal(await evaluate(`getComputedStyle(document.querySelector('body>.workspace')).paddingLeft`),'10px');
+ await shot('02-movil-oscuro');
+ const shadeBefore=await evaluate('getComputedStyle(document.body).backgroundColor');
+ await evaluate(`d.querySelector('#savePoem').click()`);
+ await evaluate(`(async()=>{window.ea=await d.defaultView.eval("import('./application-state.js').then(m=>m.applicationState)");})()`);
+ await evaluate(`document.querySelector('#workshop-editor').contentWindow.postMessage({type:'workshop:library-command',requestId:'qa-color',command:{action:'color',poemKey:ea.editor.loadedVersionTitle,value:'#536907'}},location.origin)`);
+ await until(`getComputedStyle(document.documentElement).getPropertyValue('--working-poem-color').trim()==='#536907'`);
+ assert.notEqual(await evaluate('getComputedStyle(document.body).backgroundColor'),shadeBefore);
+ assert.ok(darkColor(await evaluate('getComputedStyle(document.body).backgroundColor')));
+ await shot('03-movil-oscuro-verde');
+ for(const [view,name] of [['library','04-biblioteca-oscura'],['contests','05-concursos-oscuros'],['reminders','06-recordatorios-oscuros']]){
+  await click(`[data-view=${view}]`);assert.ok(darkColor(await evaluate('getComputedStyle(document.body).backgroundColor')));assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);await evaluate('window.scrollTo(0,0)');await shot(name);
+ }
+ await send('Page.reload');await until('document.readyState==="complete" && !!document.querySelector("[data-account=login]")');
+ await evaluate(`window.d=document.querySelector('#workshop-editor').contentDocument`);await until('d?.querySelector("#poemInput")');assert.equal(await evaluate('document.documentElement.dataset.theme'),'dark');assert.equal(await evaluate('d.documentElement.dataset.theme'),'dark');
+ await send('Emulation.setDeviceMetricsOverride',{width:320,height:760,deviceScaleFactor:1,mobile:true});
+ assert.equal(await visible('#sidebar-toggle'),false);assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);
+ await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1050,deviceScaleFactor:1,mobile:false});
+ assert.equal(await visible('#sidebar-toggle'),true);assert.equal(await evaluate('document.querySelector("#sidebar-toggle").getAttribute("aria-expanded")'),'false');
+ await click('#sidebar-toggle');assert.equal(await evaluate('document.querySelector("#sidebar-toggle").getAttribute("aria-expanded")'),'true');
+ await click('[data-view=editor]');await shot('07-escritorio-oscuro');
+ await click('[data-theme-toggle]');await until('document.documentElement.dataset.theme==="light" && d.documentElement.dataset.theme==="light"');
+ await shot('08-escritorio-claro');
+ assert.equal(errors.length,0,JSON.stringify(errors));
+ await writeFile(out+'/verificacion.json',JSON.stringify({checkedAt:new Date().toISOString(),mobileLabels:true,noMobileCollapseButton:true,desktopCollapse:true,visibleThemeToggle:true,darkEditorAndWorkshop:true,allViews:true,persistsAfterReload:true,poemTintInDarkMode:true,retainsPoemText:true,widths:[320,390,1440],consoleErrors:0},null,2));
+ await writeFile(out+'/galeria.html',`<!doctype html><meta charset="utf-8"><title>Taller en móvil y modo oscuro</title><style>body{font:16px system-ui;background:#e6e4d9;margin:20px}img{max-width:100%;display:block;margin:16px 0 32px}</style><h1>Taller en móvil y modo oscuro</h1>${['01-movil-claro','02-movil-oscuro','03-movil-oscuro-verde','04-biblioteca-oscura','05-concursos-oscuros','06-recordatorios-oscuros','07-escritorio-oscuro','08-escritorio-claro'].map(name=>`<h2>${name.slice(3).replaceAll('-',' ')}</h2><img src="${name}.png">`).join('')}`);
+ console.log('Verified mobile navigation, visible theme control, dark editor and all views, reload persistence, poem colors and desktop collapse. Screenshots: '+out);
+}finally{try{await send?.('Browser.close');}catch{}socket?.close();if(browser.exitCode===null)browser.kill();}

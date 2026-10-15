@@ -1,7 +1,7 @@
 import {applicationState} from './application-state.js';
 if(window.parent!==window && new URLSearchParams(location.search).get('taller')==='1'){
   document.documentElement.classList.add('in-workshop');
-  document.documentElement.dataset.theme='light';
+  document.documentElement.dataset.theme=parent.document.documentElement.dataset.theme||document.documentElement.dataset.theme||'light';
   const send=(type,detail={})=>parent.postMessage({type,...detail},location.origin);
   let resizeFrame=0;
   const refresh=()=>{
@@ -20,6 +20,7 @@ if(window.parent!==window && new URLSearchParams(location.search).get('taller')=
   function setView(){document.documentElement.classList.remove('workshop-files');refresh();}
   window.addEventListener('message',event=>{
     if(event.origin!==location.origin||event.source!==parent)return;
+    if(event.data?.type==='workshop:appearance'&&['light','dark'].includes(event.data.theme)){document.documentElement.dataset.theme=event.data.theme;refresh();return;}
     if(event.data?.type==='workshop:hello'){ready();return;}
     const message=event.data;if(message?.type==='workshop:view'){setView(message.view);return;}
     if(message?.type==='workshop:library-command'){

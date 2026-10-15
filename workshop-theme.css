@@ -1,11 +1,30 @@
-/* The open poem sets the workshop palette across every tab and dialog. */
-.working-poem {
+/* The open poem tints the paper in either appearance mode. */
+:root {
+  --workshop-page: #f3f0e7;
+  --workshop-paper: #faf8f2;
+  --workshop-base-line: #dcded2;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --workshop-page: #100F0F;
+  --workshop-paper: #1C1B1A;
+  --workshop-base-line: #575653;
+  --bg: var(--workshop-page);
+  --surface: var(--workshop-paper);
+  --surface-2: #282726;
+  --text: #CECDC3;
+  --muted: #B7B5AC;
+  --line: var(--workshop-base-line);
+  --action: #536907;
+  --accent: #A0AF54;
+}
+:root.working-poem {
   --action: var(--working-poem-color);
-  --accent: var(--working-poem-color);
-  --surface: color-mix(in srgb, var(--working-poem-color) var(--color-surface, 12%), #faf8f2);
-  --surface-2: color-mix(in srgb, var(--working-poem-color) 20%, #faf8f2);
-  --bg: color-mix(in srgb, var(--working-poem-color) 8%, #f3f0e7);
-  --line: color-mix(in srgb, var(--working-poem-color) 35%, #dcded2);
+  --accent: color-mix(in srgb, var(--working-poem-color) 45%, var(--text));
+  --surface: color-mix(in srgb, var(--working-poem-color) var(--color-surface, 12%), var(--workshop-paper));
+  --surface-2: color-mix(in srgb, var(--working-poem-color) 20%, var(--workshop-paper));
+  --bg: color-mix(in srgb, var(--working-poem-color) 8%, var(--workshop-page));
+  --line: color-mix(in srgb, var(--working-poem-color) 35%, var(--workshop-base-line));
 }
 .working-poem .primary,
 .working-poem .preview-tabs .active,
@@ -28,3 +47,9 @@
   color: var(--text);
 }
 .working-poem .paper-stage { background: var(--surface-2); }
+:root[data-theme='dark'] :is(.sidebar nav button.active,.review-help,.import-summary,.notice:not(.warm)) {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--line);
+}
+:root[data-theme='dark'] :is(.poem-card .excerpt,.rules) { color: var(--muted); }

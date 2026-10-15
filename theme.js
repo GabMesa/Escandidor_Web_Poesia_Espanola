@@ -16,6 +16,7 @@
       button.title = dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro';
     }
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#100F0F' : '#E6E4D9');
+    document.querySelector('#workshop-editor')?.contentWindow?.postMessage({type:'workshop:appearance',theme},location.origin);
   }
   for (const button of document.querySelectorAll('[data-theme-toggle]')) {
     button.addEventListener('click', () => {

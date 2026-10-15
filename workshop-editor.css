@@ -35,7 +35,7 @@ html.in-workshop{--bg:#f3f0e7;--surface:#faf8f2;--text:#292b27;--muted:#6b7066;-
 /* The outer Workshop page owns scrolling and the poem supplies its atmosphere. */
 html.in-workshop,.in-workshop body{height:auto;min-height:0;overflow:hidden}
 .in-workshop .controls{grid-template-columns:1fr}
-.in-workshop body.has-poem-theme{--action:var(--poem-color);--accent:var(--poem-color);--surface:color-mix(in srgb,var(--poem-color) var(--color-surface,12%),#faf8f2);--bg:color-mix(in srgb,var(--poem-color) 8%,#f3f0e7);--line:color-mix(in srgb,var(--poem-color) 35%,#dcded2)}
+.in-workshop body.has-poem-theme{--action:var(--poem-color);--accent:color-mix(in srgb,var(--poem-color) 45%,var(--text));--surface:color-mix(in srgb,var(--poem-color) var(--color-surface,12%),var(--workshop-paper));--bg:color-mix(in srgb,var(--poem-color) 8%,var(--workshop-page));--line:color-mix(in srgb,var(--poem-color) 35%,var(--workshop-base-line))}
 .in-workshop body.has-poem-theme button:not(.secondary):not(.poem-color-btn):not(.rhyme-color-btn):not(.sinalefa-toggle):not(.syneresis-toggle){color:var(--poem-on-color,#fff)}
 .in-workshop .panel,.in-workshop .analysis-output{max-height:none;overflow:visible}
 
@@ -50,6 +50,10 @@ html.in-workshop,.in-workshop body{height:auto;min-height:0;overflow:hidden}
 .in-workshop body .analysis-output button.syneresis-toggle{border-radius:999px;min-height:18px;height:auto;padding:0 4px;font:inherit;line-height:1.15;background:rgba(42,126,121,.09);color:#27716d}
 
 .in-workshop .analysis-output .sinalefa-toggle strong{color:inherit}
+:root[data-theme='dark'].in-workshop body .analysis-output button.sinalefa-toggle.is-active { color:var(--success); border-color:var(--success); }
+:root[data-theme='dark'].in-workshop body .analysis-output button.sinalefa-toggle.is-inactive { color:var(--danger); border-color:var(--danger); }
+:root[data-theme='dark'].in-workshop body .analysis-output button.sinalefa-toggle.is-warning { color:var(--warning); border-color:var(--warning); }
+:root[data-theme='dark'].in-workshop body .analysis-output button.syneresis-toggle { color:var(--cyan); }
 
 /* The writing area keeps its own height when either analysis view grows. */
 .in-workshop .controls { gap: 6px; margin-bottom: 8px; }

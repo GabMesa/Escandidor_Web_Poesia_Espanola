@@ -2,12 +2,17 @@ import {requireUser,safeJson,jsonResponse,errorResponse,normalizeFontFamily} fro
 import {versionSyncMetadata} from '../../../_lib/version-sync.js';
 import {poemValidationError} from '../../../../poem-policy.js';
 import {compressedAliases,compressedVersionConflict} from '../../../_lib/poem-compression.js';
+import {canonicalPoemId,existingPoemTitle} from '../../../_lib/poem-identity.js';
+import {poemTitleKey} from '../../../../poem-policy.js';
 
 export async function onRequestPost({request,env,params}) {
   const {user,error}=await requireUser(request,env);if(error)return error;
-  const poem=await env.escandidor_db.prepare('SELECT * FROM poems WHERE id=? AND user_id=?').bind(params.id,user.id).first();
+  const poemId=await canonicalPoemId(env.escandidor_db,user.id,params.id);
+  const poem=await env.escandidor_db.prepare('SELECT * FROM poems WHERE id=? AND user_id=?').bind(poemId,user.id).first();
   if(!poem)return errorResponse('Poema no encontrado.',404);
   const body=await safeJson(request),title=String(body.title||poem.name).trim().slice(0,200);
+  const duplicate=await existingPoemTitle(env.escandidor_db,user.id,title);
+  if(duplicate&&Number(duplicate)!==Number(poem.id))return errorResponse('Ya existe un poema con ese título.',409);
   if(!Array.isArray(body.versions)||!body.versions.length||body.versions.length>20)return errorResponse('Enviá entre 1 y 20 versiones por bloque.',400);
   const versions=[];
   for(const input of body.versions){
@@ -24,8 +29,8 @@ export async function onRequestPost({request,env,params}) {
     ON CONFLICT(poem_id,client_id) DO UPDATE SET name=excluded.name,content=excluded.content,sync_json=excluded.sync_json`)
     .bind(poem.id,v.name,v.content,v.sync.id,JSON.stringify(v.sync),poem.id,poem.id));
   const latest=active.at(-1);
-  if(latest)statements.push(env.escandidor_db.prepare("UPDATE poems SET name=?,configurations=?,font_family=?,updated_at=datetime('now') WHERE id=? AND user_id=?")
-    .bind(title,JSON.stringify(latest.sync.settings),latest.sync.settings.poemFont,poem.id,user.id));
+  if(latest)statements.push(env.escandidor_db.prepare("UPDATE poems SET name=?,title_key=?,configurations=?,font_family=?,updated_at=datetime('now') WHERE id=? AND user_id=?")
+    .bind(title,poemTitleKey(title),JSON.stringify(latest.sync.settings),latest.sync.settings.poemFont,poem.id,user.id));
   if(statements.length)await env.escandidor_db.batch(statements);
   const ids=versions.map(v=>v.sync.id);
   const {results}=await env.escandidor_db.prepare(`SELECT client_id AS id,version AS cloudVersion FROM poem_versions WHERE poem_id=? AND client_id IN (${ids.map(()=>'?').join(',')})`).bind(poem.id,...ids).all();

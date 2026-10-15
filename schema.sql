@@ -26,6 +26,7 @@ CREATE TABLE poems (
   user_id INTEGER NOT NULL,
   name TEXT NOT NULL,
   configurations TEXT NOT NULL DEFAULT '{}',
+  title_key TEXT,
   font_family TEXT NOT NULL DEFAULT 'open-dyslexic',
   color_index INTEGER,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -45,6 +46,14 @@ CREATE TABLE poem_versions (
   UNIQUE (poem_id, version),
   UNIQUE (poem_id, client_id),
   FOREIGN KEY (poem_id) REFERENCES poems(id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX poems_user_title_key ON poems(user_id,title_key);
+CREATE TABLE IF NOT EXISTS merged_poems (
+ user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ source_id INTEGER NOT NULL PRIMARY KEY,
+ target_id INTEGER NOT NULL,
+ merged_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS compressed_poem_versions (

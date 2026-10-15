@@ -1,6 +1,8 @@
 import { maintainUserTrash } from '../../_lib/trash-storage.js';
 import {compressedAliases,compressedVersionConflict} from '../../_lib/poem-compression.js';
 import { versionSyncMetadata } from '../../_lib/version-sync.js';
+import {canonicalPoemId,existingPoemTitle} from '../../_lib/poem-identity.js';
+import {poemTitleKey} from '../../../poem-policy.js';
 import { poemValidationError, samePoemContent } from '../../../poem-policy.js';
 import {
   jsonResponse,
@@ -38,7 +40,7 @@ export async function onRequestPut(context) {
   const { request, env, params } = context;
   const { user, error } = await requireUser(request, env);
   if (error) return error;
-  const poemId = params.id;
+  const poemId = await canonicalPoemId(env.escandidor_db,user.id,params.id);
 
   const existing = await env.escandidor_db
     .prepare('SELECT * FROM current_poems WHERE id = ? AND user_id = ?')
@@ -53,6 +55,8 @@ export async function onRequestPut(context) {
   const content = body.content !== undefined ? (typeof body.content === 'string' ? body.content : '') : existing.content;
   const validationError = poemValidationError(title, content);
   if (validationError) return errorResponse(validationError, 400);
+  const sameTitleId=await existingPoemTitle(env.escandidor_db,user.id,title);
+  if(sameTitleId&&Number(sameTitleId)!==Number(poemId))return errorResponse('Ya existe un poema con ese título. Abrilo desde la biblioteca para agregar una versión.',409,{code:'duplicate_poem_title'});
   const settingsObject = body.settings !== undefined
     ? body.settings
     : JSON.parse(existing.settings_json || '{}');
@@ -68,10 +72,10 @@ export async function onRequestPut(context) {
 
   await env.escandidor_db
     .prepare(
-      `UPDATE poems SET name = ?, configurations = ?, font_family = ?, color_index = ?, updated_at = datetime('now')
+      `UPDATE poems SET name = ?, configurations = ?, font_family = ?, color_index = ?, title_key = ?, updated_at = datetime('now')
        WHERE id = ? AND user_id = ?`
     )
-    .bind(title, settings, fontFamily, colorIndex, poemId, user.id)
+    .bind(title, settings, fontFamily, colorIndex, poemTitleKey(title),poemId, user.id)
     .run();
 
   if (sync) {

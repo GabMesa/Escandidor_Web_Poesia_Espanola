@@ -3907,9 +3907,14 @@ function saveCurrentPoemVersion(options = {}) {
   const loadedPoemKey = String(state.loadedVersionTitle ?? '').trim();
   const loadedVersionId = String(state.loadedVersionId ?? '').trim();
   const store = loadPoemMemoryStore();
+  const matchingPoemKey = Object.keys(store.poems).find(key => importTitleKey(getStoredPoemTitle(key,store.poems[key])) === importTitleKey(title));
+  if(matchingPoemKey&&loadedPoemKey&&matchingPoemKey!==loadedPoemKey){
+    if(notify)showToast('Ya existe un poema con ese título. Abrilo desde la biblioteca para agregar una versión.', 'warning');
+    return false;
+  }
   const poemKey = loadedPoemKey && loadedVersionId && Array.isArray(store.poems[loadedPoemKey])
     ? loadedPoemKey
-    : createLocalPoemKey();
+    : matchingPoemKey || createLocalPoemKey();
   const versions = Array.isArray(store.poems[poemKey]) ? store.poems[poemKey] : [];
   const previousTitle = versions.length ? getStoredPoemTitle(poemKey, versions) : '';
   setStoredPoemTitle(versions, title);
@@ -4239,6 +4244,9 @@ function renamePoemTitleInline(poemKey, nextTitleRaw) {
   const visibleTitleBefore = normalizePoemTitle(poemTitle?.value ?? '');
   const store = loadPoemMemoryStore();
   const sourceVersions = Array.isArray(store.poems?.[selectedPoemKey]) ? store.poems[selectedPoemKey] : [];
+  if(Object.keys(store.poems).some(key=>key!==selectedPoemKey&&importTitleKey(getStoredPoemTitle(key,store.poems[key]))===importTitleKey(targetTitle))){
+    showToast('Ya existe un poema con ese título.', 'warning');return false;
+  }
   if (!sourceVersions.length) {
     return false;
   }
@@ -4542,9 +4550,10 @@ function importPoemsFromMarkdown(markdown, { openFirst = true } = {}) {
   const store = loadPoemMemoryStore();
   const imported = [];
   for (const entry of parsed) {
-    const poemKey = createLocalPoemKey();
-    store.poems[poemKey] = [];
-    const nextVersionNumber = 1;
+    const poemKey = Object.keys(store.poems).find(key=>importTitleKey(getStoredPoemTitle(key,store.poems[key]))===importTitleKey(entry.title)) || createLocalPoemKey();
+    store.poems[poemKey] ||= [];
+    if(store.poems[poemKey].some(v=>samePoemContent(v.poemText,entry.text)))continue;
+    const nextVersionNumber = getNextVersionNumber(store.poems[poemKey]);
 
     store.poems[poemKey].push({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -4573,7 +4582,7 @@ function importPoemsFromMarkdown(markdown, { openFirst = true } = {}) {
       versionNumber: nextVersionNumber,
       poemTitle: entry.title
     });
-    imported.push({poemKey,title:entry.title,version:store.poems[poemKey][0]});
+    imported.push({poemKey,title:entry.title,version:store.poems[poemKey].at(-1)});
   }
 
   const ok = savePoemMemoryStore(store);
@@ -4581,11 +4590,10 @@ function importPoemsFromMarkdown(markdown, { openFirst = true } = {}) {
     throw Error('No se pudieron guardar los poemas importados. Revisá el espacio del navegador.');
   }
 
-  // Every imported poem is an independent manual checkpoint, including poems
-  // with the same visible title. Notify sync only after the whole local write.
+  // Repeated titles share a history. Notify sync after the whole local write.
   for (const entry of imported) dispatchPoemSaved(entry.poemKey,entry.title,entry.version);
-  refreshSavedPoemNameOptions(shouldOpenFirst ? imported[0].poemKey : state.loadedVersionTitle);
-  if (shouldOpenFirst) loadVersionById(imported[0].poemKey,imported[0].version.id);
+  refreshSavedPoemNameOptions(shouldOpenFirst && imported.length ? imported[0].poemKey : state.loadedVersionTitle);
+  if (shouldOpenFirst && imported.length) loadVersionById(imported[0].poemKey,imported[0].version.id);
   window.dispatchEvent(new CustomEvent('escandidor:library-changed'));
   return imported.length;
 }

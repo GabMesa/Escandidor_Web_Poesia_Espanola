@@ -1,6 +1,8 @@
 import { maintainUserTrash } from '../../_lib/trash-storage.js';
 import { hasPoemContent, isValidPoemTitle, samePoemContent } from '../../../poem-policy.js';
 import { jsonResponse, safeJson, requireUser } from '../../_lib/helpers.js';
+import {existingPoemTitle} from '../../_lib/poem-identity.js';
+import {poemTitleKey} from '../../../poem-policy.js';
 
 function serializeTrashEntry(row) {
   let versions = [];
@@ -37,12 +39,14 @@ export async function onRequestGet(context) {
     .all();
 
   const {results:compressedVersions}=await env.escandidor_db.prepare('SELECT poem_id AS poemId,version,client_id AS clientId,replacement_version AS replacementVersion FROM compressed_poem_versions WHERE user_id=?').bind(user.id).all();
+  const {results:mergedPoems}=await env.escandidor_db.prepare('SELECT source_id AS sourceId,target_id AS targetId FROM merged_poems WHERE user_id=?').bind(user.id).all();
   return jsonResponse({
     ok: true,
     policy,
     trash: results.map(serializeTrashEntry),
     deletedPoemIds: deletions.map((row) => row.poem_id),
     compressedVersions,
+    mergedPoems,
   });
 }
 
@@ -77,15 +81,17 @@ export async function onRequestPost(context) {
         .first()
       : null;
 
-    if (!existing) {
+    const sameTitleId=!existing?await existingPoemTitle(env.escandidor_db,user.id,entry.title):null;
+    if(sameTitleId)poemId=sameTitleId;
+    if (!existing && !sameTitleId) {
       const first = versions[0] || {};
       const settings = first.settings && typeof first.settings === 'object' ? first.settings : {};
       const poem = await env.escandidor_db
         .prepare(
-          `INSERT INTO poems (user_id, name, configurations, font_family, color_index)
-           VALUES (?, ?, ?, ?, ?) RETURNING id`
+          `INSERT INTO poems (user_id, name, configurations, font_family, color_index,title_key)
+           VALUES (?, ?, ?, ?, ?,?) RETURNING id`
         )
-        .bind(user.id, entry.title, JSON.stringify(settings), settings.poemFont || 'atkinson', first.colorIndex ?? null)
+        .bind(user.id, entry.title, JSON.stringify(settings), settings.poemFont || 'atkinson', first.colorIndex ?? null,poemTitleKey(entry.title))
         .first();
       poemId = poem.id;
     }

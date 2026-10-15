@@ -469,6 +469,15 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     const syncId = syncedPoem.payload.poem.id;
     const duplicatePost = await jsonRequest(baseUrl,'/api/poems',{method:'POST',cookie:firstCookie,body:syncPayload});
     assert.equal(duplicatePost.payload.poem.id,syncId);
+    const simultaneousImports=await Promise.all(Array.from({length:8},(_,index)=>jsonRequest(baseUrl,'/api/poems',{
+      method:'POST',cookie:firstCookie,body:{...syncPayload,title:index%2?'Importación simultánea':' IMPORTACIÓN   SIMULTÁNEA ',sync:{...syncPayload.sync,id:'simultaneous-import-'+index},content:'Verso importado '+index}
+    })));
+    for(const response of simultaneousImports)assert.ok(response.response.ok,JSON.stringify(response.payload));
+    assert.equal(new Set(simultaneousImports.map(r=>r.payload.poem.id)).size,1);
+    const importedId=simultaneousImports[0].payload.poem.id;
+    const importedHistory=(await jsonRequest(baseUrl,'/api/poems',{cookie:firstCookie})).payload.poems.find(p=>p.id===importedId);
+    assert.equal(importedHistory.versions.length,8);
+    await jsonRequest(baseUrl,`/api/poems/${importedId}`,{method:'DELETE',cookie:firstCookie});
     const concurrent = await Promise.all(['a','b'].map(device=>jsonRequest(baseUrl,`/api/poems/${syncId}`,{
       method:'PUT',cookie:firstCookie,body:{...syncPayload,content:`Cambio del dispositivo ${device}`,settings:{poemFont:'atkinson'},
         sync:{...syncPayload.sync,id:`device-${device}-44`,versionNumber:44}}})));

@@ -3,6 +3,22 @@ import assert from 'node:assert/strict';
 import { createCloudSync } from '../cloud-sync.js';
 import { compressPoemVersions } from '../poem-compression.js';
 
+test('merged server poems and multiple local keys converge to one poem without losing an offline revision',async()=>{
+ const storage=new MemoryStorage(),writes=[];
+ const remote={id:11,title:'Luna',versions:[{version:1,content:'Original',sync:{id:'one'}},{version:2,content:'Otra revisión',sync:{id:'two'}}]};
+ const sync=createCloudSync({storage,request:async(path,options={})=>{
+  if(path==='/api/trash')return jsonResponse({trash:[],mergedPoems:[{sourceId:22,targetId:11}]});
+  if(!options.method)return jsonResponse({poems:[remote]});
+  writes.push(path);return jsonResponse({poem:{id:11,version:3},syncedVersion:3});
+ }});
+ sync.setUser({id:93});
+ storage.setItem('escandador.poemMemory.v1',JSON.stringify({poems:{'server:11':[version('one',1,'Original')],'server:22':[version('two',1,'Otra revisión'),version('offline',2,'Cambio sin conexión')]},trash:{}}));
+ await sync.loadFromServer();
+ const poems=Object.values(JSON.parse(storage.getItem('escandador.poemMemory.v1')).poems).filter(v=>v.length);
+ assert.equal(poems.length,1);assert.deepEqual(new Set(poems[0].map(v=>v.poemText)),new Set(['Original','Otra revisión','Cambio sin conexión']));
+ assert.deepEqual(writes,['/api/poems/11']);
+});
+
 test('automatic compression reconciles complete histories for multiple poems and remains stable on later pulls', async () => {
   const storage = new MemoryStorage(), compressed = [], archived = [];
   const poems = [11, 22, 33].map(id => ({ id, title: `Poema ${id}`, versions: Array.from({length: 1700}, (_, index) => ({

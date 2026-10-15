@@ -6,7 +6,7 @@ import {parsePoemsFromMarkdown} from '../poem-markdown-import.js';
 const base=process.env.WORKSHOP_QA_ORIGIN||'http://localhost:8794';
 if(process.argv[2]&&base.startsWith('https:'))throw Error('Private collections may only be verified locally.');
 const markdown=process.argv[2]?await readFile(process.argv[2],'utf8'):'# Primero\n\nUn verso de prueba.\n\n# Segundo\n\nOtro verso distinto.\n\n# Último\n\nLa memoria permanece.';
-const expected=parsePoemsFromMarkdown(markdown),port=9264,errors=[];
+const expected=parsePoemsFromMarkdown(markdown),uniqueCount=new Set(expected.map(p=>p.title)).size,port=9264,errors=[];
 const browser=spawn('C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',['--headless=new','--disable-gpu','--no-first-run',`--remote-debugging-port=${port}`,`--user-data-dir=${process.cwd()}\\.wrangler\\import-open-qa`,'about:blank'],{stdio:'ignore',windowsHide:true});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));let socket,send,created=false;
 try{
@@ -40,8 +40,15 @@ try{
  assert.equal(await ev(`document.querySelector('#poem-import-progress').value===document.querySelector('#poem-import-progress').max`),true);
  await ev(`document.querySelector('#modal [data-action=close]').click()`);
  console.log('Import result:',await ev(`({message:document.querySelector('#toast').textContent,count:document.querySelector('#poem-count').textContent})`));
- const imported=await ev(`(()=>{const poems=Object.values(JSON.parse(storage.getItem('escandador.poemMemory.v1')||'{}').poems||{}).map(v=>v.at(-1));return {count:poems.length,exact:expected.every(p=>poems.some(v=>v.poemTitle===p.title&&v.poemText===p.text))};})()`);
- assert.equal(imported.count,expected.length);assert.equal(imported.exact,true);
+ const imported=await ev(`(()=>{const poems=Object.values(JSON.parse(storage.getItem('escandador.poemMemory.v1')||'{}').poems||{});return {count:poems.length,exact:expected.every(p=>poems.some(versions=>versions.some(v=>v.poemTitle===p.title&&v.poemText===p.text)))};})()`);
+ assert.equal(imported.count,uniqueCount);assert.equal(imported.exact,true);
+ const beforeReplay=await ev(`Object.values(JSON.parse(storage.getItem('escandador.poemMemory.v1')).poems).reduce((sum,versions)=>sum+versions.length,0)`);
+ await ev(`(()=>{const input=document.querySelector('#library-import-file'),transfer=new DataTransfer();transfer.items.add(new File([markdown],'mismo-poemario.md',{type:'text/markdown'}));input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+ await until(`!!document.querySelector('#poem-import-form')`);await ev(`document.querySelector('#poem-import-form').requestSubmit()`);
+ await until(`!!document.querySelector('#poem-import-progress')&&!document.querySelector('#modal').dataset.importing`);
+ assert.equal(await ev(`Object.values(JSON.parse(storage.getItem('escandador.poemMemory.v1')).poems).reduce((sum,versions)=>sum+versions.length,0)`),beforeReplay);
+ await ev(`document.querySelector('#modal [data-action=close]').click()`);
+ console.log('Reimporting the complete collection creates no duplicate poems or versions.');
  assert.equal(await ev(`document.querySelector('#workshop-editor').contentDocument.querySelector('#poemInput').value`),'Un borrador todavía sin título.');
  assert.equal(await ev(`document.querySelector('#workshop-editor').contentDocument.querySelector('#poemTitle').value`),'Sin título');
  await ev(`document.querySelector('#workshop-editor').contentDocument.querySelector('#poemTitle').value='Mi borrador conservado'`);
@@ -72,7 +79,7 @@ try{
  await until(`!!document.querySelector('#poem-import-progress')&&!document.querySelector('#modal').dataset.importing`);
  if(created)await send('Network.emulateNetworkConditions',{offline:false,latency:0,downloadThroughput:-1,uploadThroughput:-1});
  const reviewed=await ev(`(()=>{const m=JSON.parse(storage.getItem('escandador.poemMemory.v1'));return {count:Object.keys(m.poems).length,history:m.poems[firstReviewKey].length,keepsOriginal:m.poems[firstReviewKey][0].poemText===beforeReview.poems[firstReviewKey][0].poemText,separate:Object.values(m.poems).some(v=>v.at(-1).poemText==='Un poema que se guardará por separado.'),skipped:!Object.values(m.poems).some(v=>v[0].poemTitle==='No importar este poema')};})()`);
- assert.equal(reviewed.count,expected.length+1);assert.equal(reviewed.history,2);assert.equal(reviewed.keepsOriginal,true);assert.equal(reviewed.separate,true);assert.equal(reviewed.skipped,true);
+ assert.equal(reviewed.count,uniqueCount);assert.equal(reviewed.history,2);assert.equal(reviewed.keepsOriginal,true);assert.equal(reviewed.separate,true);assert.equal(reviewed.skipped,true);
  shot=await send('Page.captureScreenshot',{format:'png'});await writeFile('qa/importacion/03-terminado.png',Buffer.from(shot.data,'base64'));
  await ev(`(()=>{document.querySelector('#modal [data-action=close]').click();const input=document.querySelector('#workshop-editor').contentDocument.querySelector('#importPoemsFile'),transfer=new DataTransfer();transfer.items.add(new File(['# '+expected[0].title+'\\n\\nUna revisión importada diferente.'],'desde-escandidor.md',{type:'text/markdown'}));input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));})()`);await until(`!!document.querySelector('#poem-import-form')`);await ev(`document.querySelector('#poem-import-form').requestSubmit()`);await until(`!!document.querySelector('#poem-import-progress')&&!document.querySelector('#modal').dataset.importing`);
  assert.ok(await ev(`document.querySelector('[data-import-current]').textContent.includes('0 importados · 1 ya estaban iguales')`));
@@ -92,7 +99,7 @@ try{
   assert.equal(await ev(`fetch('/api/poems').then(r=>r.json()).then(p=>p.poems.filter(p=>p.title==='Importado sin conexión').length)`),1);
   console.log('Offline import stays local with pending status and uploads once after reconnecting.');
  }
- console.log('Verified review, cancellation, merge into existing history, separate poem, deselection, progress and identical-text deduplication.');
+ console.log('Verified review, cancellation, merge into existing history, unique poems, deselection, progress and historical-text deduplication.');
  assert.equal(errors.length,0,JSON.stringify(errors));
  shot=await send('Page.captureScreenshot',{format:'png'});await writeFile('qa/importacion/escandidor.png',Buffer.from(shot.data,'base64'));
  await writeFile('qa/importacion/galeria.html',`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Importar poemas</title><style>body{font:16px system-ui;background:#e6e4d9;margin:24px}img{display:block;max-width:100%;margin-bottom:32px}</style><h1>Importación de poemas</h1>${['01-revisar','02-progreso','03-terminado','04-movil'].map(n=>'<h2>'+n+'</h2><img src="'+n+'.png">').join('')}`);

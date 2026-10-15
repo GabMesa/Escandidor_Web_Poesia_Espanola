@@ -567,6 +567,33 @@ export function createCloudSync({
         memory.poems = memory.poems && typeof memory.poems === 'object' ? memory.poems : {};
         memory.trash = memory.trash && typeof memory.trash === 'object' ? memory.trash : {};
         const map = loadMap();
+        const mergeAliases=new Map((remoteTrash.mergedPoems||[]).map(p=>[Number(p.sourceId),Number(p.targetId)]));
+        function consolidatePoemKeys(){
+          const keysById=new Map();
+          for(const [key,versions] of Object.entries(memory.poems)){
+            if(!versions?.length)continue;
+            const oldId=Number(map[key]?.poemId)||serverPoemId(key),id=mergeAliases.get(oldId)||oldId;
+            if(!id)continue;
+            const remotePoem=(remote.poems||[]).find(p=>Number(p.id)===id);
+            map[key] ||= {poemId:id,versions:{}};
+            if(id!==oldId){
+              map[key]={poemId:id,versions:{}};
+              memory.poems[key]=versions.map(v=>{
+                const match=remotePoem?.versions.find(r=>r.sync?.id===String(v.id));
+                const next={...v};delete next.cloudVersion;
+                if(match){next.cloudVersion=match.version;map[key].versions[v.id]={cloudVersion:match.version,signature:JSON.stringify(buildPayload(remotePoem.title,next)),stateSignature:versionSignature(remotePoem.title,next)};}
+                return next;
+              });
+            }
+            const targetKey=keysById.get(id);
+            if(!targetKey){keysById.set(id,key);continue;}
+            const title=remotePoem?.title||versions[0].poemTitle||key;
+            memory.poems[targetKey]=mergeUniqueVersions(title,memory.poems[targetKey],memory.poems[key]);
+            map[targetKey]={poemId:id,versions:{...map[targetKey]?.versions,...map[key]?.versions}};
+            delete memory.poems[key];
+          }
+        }
+        consolidatePoemKeys();
         const retiredByKey=new Map(),pendingVersionIds=new Set(loadOutbox(syncOwner).filter(op=>op.type==='save').map(op=>String(op.detail.version.id)));
         for(const [key,versions] of Object.entries(memory.poems)){
           const poemId=Number(map[key]?.poemId)||serverPoemId(key);
@@ -686,6 +713,8 @@ export function createCloudSync({
             memory.poems[key] = mergeUniqueVersions(title, memory.poems[key] || [], edited);
           }
         }
+        consolidatePoemKeys();
+        saveMap(map);
         writePersistentStorage(storage, userMemoryKey(user.id), JSON.stringify(memory));
         activateMemory(memory, String(user.id), true);
         onTrash(remoteTrash.trash || []);

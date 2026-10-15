@@ -13,10 +13,17 @@ test('choosing an existing poem appends a checkpoint while retaining its identit
  const result=appendPoemImport(memory,{title:'Canción',text:'Texto nuevo',targetKey:'local'},tools);
  assert.equal(result.poemKey,'local');assert.deepEqual(memory.poems.local[0],existing);assert.equal(result.version.versionNumber,44);assert.equal(memory.poems.local.length,2);
 });
-test('choosing a separate poem keeps the original untouched',()=>{
+test('an empty destination reuses the existing title instead of creating a duplicate',()=>{
  const memory={poems:{local:[existing]}};
  appendPoemImport(memory,{title:'Canción',text:'Texto nuevo',targetKey:null},tools);
- assert.equal(memory.poems.local.length,1);assert.equal(memory.poems.separado[0].versionNumber,1);
+ assert.equal(memory.poems.local.length,2);assert.equal(Object.keys(memory.poems).length,1);
+});
+
+test('repeated titles inside one file and older identical texts reuse one poem and history',()=>{
+ const memory={poems:{}};let serial=0;
+ const factory={createKey:()=>`local:${serial++}`,createVersion:({title,text,versionNumber})=>({id:`v${serial++}`,poemTitle:title,poemText:text,versionNumber})};
+ for(const text of ['Primero','Segundo','Primero'])appendPoemImport(memory,{title:'Canción',text},factory);
+ assert.equal(Object.keys(memory.poems).length,1);assert.equal(Object.values(memory.poems)[0].length,2);
 });
 test('an identical latest text is not duplicated and a vanished destination is rejected',()=>{
  const memory={poems:{local:[existing]}};

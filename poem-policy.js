@@ -42,3 +42,4 @@ export function cleanEmptyPoemVersions(memory) {
   }
   return { memory: { ...memory, poems, trash }, removed };
 }
+export const poemTitleKey = value => String(value ?? '').normalize('NFC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('es');

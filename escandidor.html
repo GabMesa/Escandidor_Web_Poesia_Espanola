@@ -368,11 +368,18 @@
 
                   <fieldset class="metric-detail-section rhyme-scheme-config">
                     <legend>Esquema de rima</legend>
-                    <input id="rhymeScheme" type="text" value="" placeholder="Ej: ABBA, abab o AbAb" aria-label="Esquema de rima" title="Minúscula exige arte menor (8 sílabas o menos); mayúscula, arte mayor (más de 8). Usa - para versos sueltos." />
+                    <input id="rhymeScheme" type="text" value="" placeholder="Ej: -aab'-ccb', -AAB'-CCB'" aria-label="Esquema de rima" aria-describedby="rhymeSchemeHelp" title="Minúscula: arte menor; mayúscula: arte mayor. Prima ('): final aguda. Guion (-): verso suelto." />
+                    <p id="rhymeSchemeHelp" class="hint config-field-help">Coma: esquemas alternativos para una estrofa. Espacio o <strong>|</strong>: otra estrofa. Ejemplo: <strong>-AAB'-CCB' -AAB'-CCB'</strong>. Se aplica la alternativa que mejor encaje.</p>
                     <div class="rhyme-scheme-options">
                       <label class="checkbox-row" for="repeatRhymeScheme">
                         <input id="repeatRhymeScheme" type="checkbox" />
                         Repetir esquema
+                      </label>
+                      <label id="rhymeSchemeScopeField" hidden>Rimas entre estrofas
+                        <select id="rhymeSchemeSharedRhymes">
+                          <option value="independent">Independientes en cada estrofa</option>
+                          <option value="shared">Conservar las mismas rimas</option>
+                        </select>
                       </label>
                       <label class="checkbox-row" for="distinguishSZInRhyme">
                         <input id="distinguishSZInRhyme" type="checkbox" />

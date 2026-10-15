@@ -6,6 +6,7 @@ import { writePersistentStorage, writeDisposableStorage, loadWordCorpusCache, sa
 import { sortPoemVersions, selectMarkdownEntries, buildHistoryMarkdown, buildVideoTimeline } from './poem-exports.js';
 import { groupVersionsForSelection } from './poem-version-selection.js';
 import { parsePoemsFromMarkdown } from './poem-markdown-import.js';
+import { parseRhymeSchemes, validateStanzaRhymeSchemes } from './rhyme-scheme.js';
 
 // The local Workshop reuses the editor's library services through the same-origin bridge.
 // Functions are evaluated only after the editor has initialized and a command arrives.
@@ -129,8 +130,6 @@ import { applicationState, replaceLibraryState } from './application-state.js';
 import {
   POETIC_FORM_PRESETS,
   getExpectedSyllableCounts,
-  getRhymeSchemeArtRequirement,
-  matchesRhymeSchemeArt,
   matchesSyllablePattern,
   parseSyllablePattern
 } from './poetic-forms.js';
@@ -156,6 +155,7 @@ for (const id of ['assonanceRange', 'hemistichVerses']) {
 const rhymeMode = document.getElementById('rhymeMode');
 const rhymeScheme = document.getElementById('rhymeScheme');
 const repeatRhymeScheme = document.getElementById('repeatRhymeScheme');
+const rhymeSchemeSharedRhymes = document.getElementById('rhymeSchemeSharedRhymes');
 const distinguishSZInRhyme = document.getElementById('distinguishSZInRhyme');
 const sinalefaEnabled = document.getElementById('sinalefaEnabled');
 const rioplatenseY = document.getElementById('rioplatenseY');
@@ -2941,6 +2941,7 @@ function loadVersionById(poemKey, versionId) {
     }
     if (repeatRhymeScheme) {
       repeatRhymeScheme.checked = Boolean(version.settings.repeatRhymeScheme);
+      rhymeSchemeSharedRhymes.value = (version.settings.rhymeSchemeSharedRhymes ?? !version.settings.repeatRhymeScheme) ? 'shared' : 'independent';
     }
     if (distinguishSZInRhyme) {
       distinguishSZInRhyme.checked = Boolean(version.settings.distinguishSZInRhyme);
@@ -3637,6 +3638,7 @@ function buildCurrentSnapshot() {
       rhymeMode: rhymeMode?.value ?? 'asonante',
       rhymeScheme: rhymeScheme?.value ?? '',
       repeatRhymeScheme: Boolean(repeatRhymeScheme?.checked),
+      rhymeSchemeSharedRhymes: rhymeSchemeSharedRhymes?.value === 'shared',
       distinguishSZInRhyme: Boolean(distinguishSZInRhyme?.checked),
       rioplatenseY: Boolean(rioplatenseY?.checked)
     },
@@ -3671,6 +3673,7 @@ function getSnapshotSignature(snapshot) {
       rhymeMode: String(snapshot.settings?.rhymeMode ?? 'asonante'),
       rhymeScheme: String(snapshot.settings?.rhymeScheme ?? ''),
       repeatRhymeScheme: Boolean(snapshot.settings?.repeatRhymeScheme),
+      rhymeSchemeSharedRhymes: Boolean(snapshot.settings?.rhymeSchemeSharedRhymes ?? !snapshot.settings?.repeatRhymeScheme),
       distinguishSZInRhyme: Boolean(snapshot.settings?.distinguishSZInRhyme),
       rioplatenseY: Boolean(snapshot.settings?.rioplatenseY)
     },
@@ -3753,6 +3756,7 @@ function createNewPoem() {
   }
   if (repeatRhymeScheme) {
     repeatRhymeScheme.checked = false;
+    rhymeSchemeSharedRhymes.value = 'independent';
   }
   if (distinguishSZInRhyme) {
     distinguishSZInRhyme.checked = false;
@@ -4491,6 +4495,7 @@ function importPoemsFromMarkdown(markdown) {
         rhymeMode: rhymeMode?.value ?? 'asonante',
         rhymeScheme: '',
         repeatRhymeScheme: false,
+        rhymeSchemeSharedRhymes: false,
         distinguishSZInRhyme: Boolean(distinguishSZInRhyme?.checked),
         rioplatenseY: Boolean(rioplatenseY?.checked)
       },
@@ -4959,37 +4964,17 @@ function markRhymeSchemeFailure(lineStatus, runtime, reason) {
   lineStatus.set(runtime.lineIndex, existing);
 }
 
-function markRhymeSchemeWarning(lineStatus, runtime, warning) {
-  if (!runtime || !warning) {
-    return;
-  }
-
-  const existing = lineStatus.get(runtime.lineIndex) ?? { valid: true, reasons: [], warnings: [], expectedLetter: '', verseNumber: 0 };
-  existing.warnings = [...(existing.warnings ?? []), warning];
-  lineStatus.set(runtime.lineIndex, existing);
-}
-
-function validateRhymeSchemeArt(lineStatus, runtime, tokenMeta) {
-  if (!tokenMeta.letter || matchesRhymeSchemeArt(tokenMeta.letter, runtime.metricVerseCount)) {
-    return;
-  }
-
-  const requirement = getRhymeSchemeArtRequirement(tokenMeta.letter);
-  const description = requirement === 'minor'
-    ? 'minúscula exige arte menor (8 sílabas o menos)'
-    : 'mayúscula exige arte mayor (más de 8 sílabas)';
-  markRhymeSchemeFailure(
-    lineStatus,
-    runtime,
-    `La letra ${tokenMeta.letter} es inválida: ${description}; el verso tiene ${runtime.metricVerseCount}.`
-  );
-}
-
 function validateRhymeScheme(runtimes, schemeValue, mode = state.rhymeMode) {
   const verseRuntimes = runtimes.filter((runtime) => runtime.lineAnalysis.text.trim());
   const isSextinaForm = state.poeticForm === 'sextina';
+  if (!isSextinaForm) {
+    return validateStanzaRhymeSchemes(runtimes, schemeValue, {
+      repeat: state.repeatRhymeScheme,
+      sharedRhymes: state.rhymeSchemeSharedRhymes,
+      wholePoem: state.poeticForm === 'soneto'
+    });
+  }
   const tokens = tokenizeRhymeScheme(schemeValue, isSextinaForm);
-  const repeatByStanza = Boolean(state.repeatRhymeScheme && !isSextinaForm);
   const scheme = isSextinaForm ? tokens.join(' ') : tokens.join('');
   const lineStatus = new Map();
 
@@ -5059,166 +5044,6 @@ function validateRhymeScheme(runtimes, schemeValue, mode = state.rhymeMode) {
     };
   }
 
-  if (repeatByStanza) {
-    const stanzaGroups = [];
-    let currentGroup = [];
-
-    for (const runtime of runtimes) {
-      if (runtime.lineAnalysis.text.trim()) {
-        currentGroup.push(runtime);
-        continue;
-      }
-
-      if (currentGroup.length) {
-        stanzaGroups.push(currentGroup);
-        currentGroup = [];
-      }
-    }
-
-    if (currentGroup.length) {
-      stanzaGroups.push(currentGroup);
-    }
-
-    let verseNumber = 0;
-    for (const stanza of stanzaGroups) {
-      const letterToKey = new Map();
-      const keyToLetter = new Map();
-
-      for (let index = 0; index < stanza.length; index += 1) {
-        const runtime = stanza[index];
-        const expectedToken = tokens[index % tokens.length] ?? '';
-        const tokenMeta = parseRhymeSchemeToken(expectedToken);
-        const actualKey = normalizeValidationWord(runtime.rhyme?.activeKey ?? '');
-        const current = lineStatus.get(runtime.lineIndex) ?? { valid: true, reasons: [] };
-        verseNumber += 1;
-        current.expectedLetter = expectedToken;
-        current.verseNumber = verseNumber;
-        lineStatus.set(runtime.lineIndex, current);
-
-        if (tokenMeta.isFree) {
-          continue;
-        }
-
-        if (tokenMeta.requiresAguda && !hasAgudaRhymeEnding(runtime)) {
-          markRhymeSchemeFailure(lineStatus, runtime, `La letra ${tokenMeta.letter}' exige final aguda.`);
-        }
-
-        validateRhymeSchemeArt(lineStatus, runtime, tokenMeta);
-
-        const expectedLetter = tokenMeta.familyKey;
-        if (!expectedLetter) {
-          markRhymeSchemeFailure(lineStatus, runtime, `Token de rima inválido: ${expectedToken}.`);
-          continue;
-        }
-
-        if (!actualKey) {
-          markRhymeSchemeFailure(lineStatus, runtime, 'No hay rima definida para este verso.');
-          continue;
-        }
-
-        if (!letterToKey.has(expectedLetter)) {
-          const mappedLetter = keyToLetter.get(actualKey);
-          if (mappedLetter && mappedLetter !== expectedLetter) {
-            markRhymeSchemeFailure(lineStatus, runtime, `La rima ya se usa en la letra ${mappedLetter}.`);
-            continue;
-          }
-
-          letterToKey.set(expectedLetter, actualKey);
-          keyToLetter.set(actualKey, expectedLetter);
-          continue;
-        }
-
-        if (letterToKey.get(expectedLetter) !== actualKey) {
-          markRhymeSchemeFailure(lineStatus, runtime, `Debe rimar como ${expectedLetter}.`);
-        }
-      }
-    }
-
-    const failingVerses = [...lineStatus.entries()]
-      .filter(([, status]) => status.valid === false)
-      .map(([, status]) => status.verseNumber)
-      .filter((value) => Number.isInteger(value) && value > 0)
-      .sort((left, right) => left - right);
-
-    return {
-      valid: failingVerses.length === 0,
-      summary: failingVerses.length ? `${scheme}: falla v. ${failingVerses.join(', ')}` : scheme,
-      failingVerses,
-      lineStatus,
-      scheme
-    };
-  }
-
-  const checkedCount = Math.min(verseRuntimes.length, tokens.length);
-  const checkedRuntimes = verseRuntimes.slice(0, checkedCount);
-
-  const letterToKey = new Map();
-  const keyToLetter = new Map();
-
-  for (let index = 0; index < checkedRuntimes.length; index += 1) {
-    const runtime = checkedRuntimes[index];
-    const expectedToken = tokens[index];
-    const tokenMeta = parseRhymeSchemeToken(expectedToken);
-    const actualKey = normalizeValidationWord(runtime.rhyme?.activeKey ?? '');
-    const current = lineStatus.get(runtime.lineIndex) ?? { valid: true, reasons: [] };
-    current.expectedLetter = expectedToken;
-    current.verseNumber = index + 1;
-    lineStatus.set(runtime.lineIndex, current);
-
-    if (tokenMeta.isFree) {
-      continue;
-    }
-
-    if (tokenMeta.requiresAguda && !hasAgudaRhymeEnding(runtime)) {
-      markRhymeSchemeFailure(lineStatus, runtime, `La letra ${tokenMeta.letter}' exige final aguda.`);
-    }
-
-    validateRhymeSchemeArt(lineStatus, runtime, tokenMeta);
-
-    const expectedLetter = tokenMeta.familyKey;
-    if (!expectedLetter) {
-      markRhymeSchemeFailure(lineStatus, runtime, `Token de rima inválido: ${expectedToken}.`);
-      continue;
-    }
-
-    if (!actualKey) {
-      markRhymeSchemeFailure(lineStatus, runtime, 'No hay rima definida para este verso.');
-      continue;
-    }
-
-    if (!letterToKey.has(expectedLetter)) {
-      const mappedLetter = keyToLetter.get(actualKey);
-      if (mappedLetter && mappedLetter !== expectedLetter) {
-        markRhymeSchemeFailure(lineStatus, runtime, `La rima ya se usa en la letra ${mappedLetter}.`);
-        continue;
-      }
-
-      letterToKey.set(expectedLetter, actualKey);
-      keyToLetter.set(actualKey, expectedLetter);
-      continue;
-    }
-
-    if (letterToKey.get(expectedLetter) !== actualKey) {
-      markRhymeSchemeFailure(lineStatus, runtime, `Debe rimar como ${expectedLetter}.`);
-    }
-  }
-
-  const failingVerses = checkedRuntimes
-    .map((runtime, index) => ({ runtime, verseNumber: index + 1 }))
-    .filter(({ runtime }) => lineStatus.get(runtime.lineIndex)?.valid === false)
-    .map(({ verseNumber }) => verseNumber);
-
-  const checkedLabel = checkedCount < verseRuntimes.length || checkedCount < tokens.length
-    ? ` (v. 1-${checkedCount})`
-    : '';
-
-  return {
-    valid: failingVerses.length === 0,
-    summary: failingVerses.length ? `${scheme}${checkedLabel}: falla v. ${failingVerses.join(', ')}` : `${scheme}${checkedLabel}`,
-    failingVerses,
-    lineStatus,
-    scheme
-  };
 }
 
 function renderRhymeSchemeStatus(runtime, rhymeSchemeValidation) {
@@ -6641,6 +6466,10 @@ function syncStateFromControls() {
   if (assonanceField) assonanceField.hidden = state.rhymeMode !== 'consonante';
   state.rhymeScheme = rhymeScheme?.value ?? '';
   state.repeatRhymeScheme = Boolean(repeatRhymeScheme?.checked);
+  state.rhymeSchemeSharedRhymes = rhymeSchemeSharedRhymes?.value === 'shared';
+  let stanzaSchemes = false;
+  try { stanzaSchemes = parseRhymeSchemes(state.rhymeScheme).length > 1; } catch {}
+  document.getElementById('rhymeSchemeScopeField').hidden = !(state.repeatRhymeScheme || stanzaSchemes) || state.poeticForm === 'sextina';
   state.distinguishSZInRhyme = Boolean(distinguishSZInRhyme?.checked);
   state.rioplatenseY = Boolean(rioplatenseY?.checked);
   state.sinalefaEnabled = true;
@@ -6667,6 +6496,7 @@ function applyPoeticFormPreset() {
   if (rhymeMode) rhymeMode.value = preset.rhymeMode ?? 'asonante';
   if (rhymeScheme) rhymeScheme.value = preset.rhymeScheme ?? '';
   if (repeatRhymeScheme) repeatRhymeScheme.checked = Boolean(preset.repeatRhymeScheme);
+  if (rhymeSchemeSharedRhymes) rhymeSchemeSharedRhymes.value = preset.rhymeSchemeSharedRhymes ? 'shared' : 'independent';
   updatePoeticFormHint();
   recomputeLookupRhymes();
   refreshLookupBar();
@@ -7211,6 +7041,10 @@ rhymeScheme?.addEventListener('input', () => {
   updateAnalysis();
 });
 repeatRhymeScheme?.addEventListener('change', () => {
+  markPoeticFormCustom();
+  updateAnalysis();
+});
+rhymeSchemeSharedRhymes?.addEventListener('change', () => {
   markPoeticFormCustom();
   updateAnalysis();
 });

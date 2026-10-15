@@ -1,0 +1,60 @@
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+import {mkdir,writeFile,readFile} from 'node:fs/promises';
+import {WebSocket} from 'ws';
+const base=process.env.WORKSHOP_QA_ORIGIN||'http://localhost:8794';
+const out='qa/esquemas-rima/'+(base.startsWith('https:')?'produccion':'local');
+await mkdir(out,{recursive:true});
+const browser=spawn('C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',['--headless=new','--disable-gpu','--no-first-run','--remote-debugging-port=9254',`--user-data-dir=${process.cwd()}\\.wrangler\\rhyme-scheme-qa-browser`,'about:blank'],{stdio:'ignore',windowsHide:true});
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));let socket,send;const checks=[],errors=[];
+try{
+ let targets;for(let i=0;i<50;i++){try{targets=await fetch('http://127.0.0.1:9254/json').then(r=>r.json());break;}catch{await sleep(200);}}
+ assert.ok(targets);socket=new WebSocket(targets.find(t=>t.type==='page').webSocketDebuggerUrl);await new Promise(r=>socket.once('open',r));
+ let id=0;const pending=new Map();socket.on('message',raw=>{const m=JSON.parse(raw);if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails);if(pending.has(m.id)){pending.get(m.id)(m);pending.delete(m.id);}});
+ send=(method,params={})=>new Promise((ok,fail)=>{const key=++id;pending.set(key,m=>m.error?fail(Error(JSON.stringify(m.error))):ok(m.result));socket.send(JSON.stringify({id:key,method,params}));});
+ const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true,userGesture:true});assert.equal(r.exceptionDetails,undefined,JSON.stringify(r.exceptionDetails));return r.result.value;};
+ const until=async expression=>{for(let i=0;i<200;i++){if(await evaluate(expression))return;await sleep(100);}throw Error('Timed out: '+expression);};
+ const click=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
+ const shot=async name=>{await evaluate('document.querySelector("#toast").style.display="none"');await sleep(150);const r=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(out+'/'+name+'.png',Buffer.from(r.data,'base64'));};
+ const dimensions=async(width)=>{await send('Emulation.setDeviceMetricsOverride',{width,height:width<761?844:950,deviceScaleFactor:1,mobile:width<761});await sleep(80);const value=await evaluate(`({width:innerWidth,height:document.querySelector('.topbar').getBoundingClientRect().height,overflow:document.documentElement.scrollWidth>innerWidth})`);assert.equal(value.overflow,false,JSON.stringify(value));assert.ok(value.height<=(width>980?56:108),JSON.stringify(value));checks.push(value);};
+ const ready=async()=>{await until('document.readyState==="complete" && !!document.querySelector("#workshop-save-status")');await evaluate(`(async()=>{window.app=(await import('/application-state.js')).applicationState;})()`);await until('app.workshop?.startupComplete');};
+ const reload=async()=>{const previous=await evaluate('performance.timeOrigin');await send('Page.reload');await until(`performance.timeOrigin!==${previous} && document.readyState==='complete'`);await ready();};
+ await send('Page.enable');await send('Runtime.enable');await send('Network.enable');await send('Network.setCacheDisabled',{cacheDisabled:true});await send('Network.clearBrowserCookies');await send('Storage.clearDataForOrigin',{origin:base,storageTypes:'local_storage'});
+ await send('Emulation.setDeviceMetricsOverride',{width:1440,height:950,deviceScaleFactor:1,mobile:false});
+ await send('Page.navigate',{url:base+'/taller/?view=editor'});await ready();
+
+
+ const first=['Un camino','Miro la casa','Cruzo la brasa','Canta mi canción','El sendero','Tengo mi cielo','Pruebo mi hielo','Late el corazón'];
+ const second=['Por el camino silencioso voy andando','Por el camino silencioso va la vida','Por el camino silencioso va la herida','Por el camino silencioso miro el mar','Por el camino silencioso sigo andando','Por el camino silencioso va mi frente','Por el camino silencioso cruza el puente','Por el camino silencioso voy a cantar'];
+ const poem=first.join('\n')+'\n\n'+second.join('\n');
+ const change=(selector,value,event='change')=>evaluate(`(()=>{const e=document.querySelector('#workshop-editor').contentDocument.querySelector(${JSON.stringify(selector)});e.value=${JSON.stringify(value)};e.dispatchEvent(new Event(${JSON.stringify(event)},{bubbles:true}));})()`);
+ const eclick=selector=>evaluate(`document.querySelector('#workshop-editor').contentDocument.querySelector(${JSON.stringify(selector)}).click()`);
+ const badge=()=>evaluate(`(()=>{const e=document.querySelector('#workshop-editor').contentDocument.querySelector('#rhymeSchemeBadge');return {valid:e.classList.contains('is-valid'),text:e.textContent};})()`);
+ const expect=async valid=>{const b=await badge();assert.equal(b.valid,valid,JSON.stringify(b));};
+ const open=()=>evaluate(`(()=>{const d=document.querySelector('#workshop-editor').contentDocument;d.querySelector('.controls>.config-shell').open=true;d.querySelector('#poeticForm').closest('details').open=true;})()`);
+ const focusScheme=()=>evaluate(`(()=>{const f=document.querySelector('#workshop-editor'),e=f.contentDocument.querySelector('.rhyme-scheme-config');scrollTo(0,scrollY+f.getBoundingClientRect().top+e.getBoundingClientRect().top-30);})()`);
+ await change('#poemTitle','Estrofas con rimas independientes','input');await change('#poemInput',poem,'input');await change('#rhymeMode','consonante');
+ await open();
+ assert.equal(await evaluate('document.querySelector("#workshop-editor").contentDocument.querySelector("#rhymeSchemeScopeField").hidden'),true);
+ await change('#rhymeScheme',"-aab'-ccb', -AAB'-CCB'",'input');await eclick('#repeatRhymeScheme');await change('#rhymeSchemeSharedRhymes','independent');await expect(true);
+ await focusScheme();await shot('01-alternativas-independientes');
+ await change('#rhymeSchemeSharedRhymes','shared');await expect(false);await shot('02-conservar-mismas-rimas');
+ await change('#rhymeSchemeSharedRhymes','independent');await eclick('#repeatRhymeScheme');
+ await change('#poemInput',second.join('\n')+'\n\n'+second.map(line=>line.replace('vida','casa').replace('herida','brasa').replace('frente','cielo').replace('puente','hielo').replace('el mar','mi canción').replace('cantar','cantar mi corazón')).join('\n'),'input');
+ await change('#rhymeScheme',"-AAB'-CCB' -AAB'-CCB'",'input');await expect(true);await shot('03-esquema-por-estrofa');
+ await eclick('#savePoem');await reload();
+ assert.equal(await evaluate('document.querySelector("#workshop-editor").contentDocument.querySelector("#rhymeSchemeSharedRhymes").value'),'independent');
+ assert.equal(await evaluate('document.querySelector("#workshop-editor").contentDocument.querySelector("#rhymeScheme").value'),"-AAB'-CCB' -AAB'-CCB'");await expect(true);
+ await open();await change('#rhymeSchemeSharedRhymes','shared');await expect(false);await eclick('#savePoem');await reload();
+ assert.equal(await evaluate('document.querySelector("#workshop-editor").contentDocument.querySelector("#rhymeSchemeSharedRhymes").value'),'shared');await expect(false);
+ await change('#rhymeSchemeSharedRhymes','independent');await expect(true);
+ await dimensions(390);await open();await focusScheme();await shot('04-movil');
+ await click('[data-theme-toggle]');await focusScheme();await shot('05-movil-otro-tema');
+ await dimensions(1440);await change('#poemInput',first.join('\n'),'input');await change('#poeticForm','romance');
+ assert.equal(await evaluate('document.querySelector("#workshop-editor").contentDocument.querySelector("#rhymeSchemeSharedRhymes").value'),'shared');
+ await eclick('#newPoemTop');assert.equal(await evaluate('document.querySelector("#workshop-editor").contentDocument.querySelector("#rhymeSchemeSharedRhymes").value'),'independent');
+ assert.equal(errors.length,0,JSON.stringify(errors));
+ await writeFile(out+'/verificacion.json',JSON.stringify({checkedAt:new Date().toISOString(),alternatives:true,independentAndShared:true,explicitStanzas:true,reloadedBothSettings:true,presetsAndNewPoem:true,mobile:true,consoleErrors:0},null,2));
+ await writeFile(out+'/galeria.html',`<!doctype html><meta charset="utf-8"><title>Esquemas de rima por estrofa</title><style>body{font:16px system-ui;background:#e6e4d9;margin:20px}img{display:block;max-width:100%;margin:16px 0 30px}</style><h1>Esquemas de rima por estrofa</h1>${['01-alternativas-independientes','02-conservar-mismas-rimas','03-esquema-por-estrofa','04-movil','05-movil-otro-tema'].map(name=>`<h2>${name.slice(3).replaceAll('-',' ')}</h2><img src="${name}.png">`).join('')}`);
+ console.log('Verified rhyme alternatives, shared and independent stanzas, saved/reopened settings, mobile and themes.');
+}finally{try{await send?.('Browser.close');}catch{}socket?.close();if(browser.exitCode===null)browser.kill();}

@@ -55,7 +55,7 @@ test('creates one cloud poem, appends versions, and preserves all settings', asy
     version: version('local-v2', 2, 'Segundo texto', {
       poemFont: 'garamond', poeticForm: 'silva', syllablePattern: '7 11',
       stressPatterns: { 7: '3-6', 11: '6-10' },
-      rhymeMode: 'asonante', repeatRhymeScheme: true,
+      rhymeMode: 'asonante', repeatRhymeScheme: true, rhymeSchemeSharedRhymes: false, rhymeScheme: "-aab'-ccb', -AAB'-CCB'",
     }),
   });
 
@@ -72,6 +72,8 @@ test('creates one cloud poem, appends versions, and preserves all settings', asy
     stressPatterns: { 7: '3-6', 11: '6-10' },
     rhymeMode: 'asonante',
     repeatRhymeScheme: true,
+    rhymeSchemeSharedRhymes: false,
+    rhymeScheme: "-aab'-ccb', -AAB'-CCB'",
     sinalefaOverrides: { '0:1': true },
     lineOverrides: { 0: { stress: '6-10' } },
   });

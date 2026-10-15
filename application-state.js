@@ -9,6 +9,7 @@ export const applicationState = {
     rhymeMode: 'asonante',
     rhymeScheme: '',
     repeatRhymeScheme: false,
+    rhymeSchemeSharedRhymes: false,
     distinguishSZInRhyme: false,
     analysisMode: 'visual',
     panelViewMode: 'both',

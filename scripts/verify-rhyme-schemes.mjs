@@ -35,6 +35,12 @@ try{
  const focusScheme=()=>evaluate(`(()=>{const f=document.querySelector('#workshop-editor'),e=f.contentDocument.querySelector('.rhyme-scheme-config');scrollTo(0,scrollY+f.getBoundingClientRect().top+e.getBoundingClientRect().top-30);})()`);
  await change('#poemTitle','Estrofas con rimas independientes','input');await change('#poemInput',poem,'input');await change('#rhymeMode','consonante');
  await open();
+ assert.equal(await evaluate('document.querySelector("#workshop-editor").contentDocument.querySelector(".poetic-form-group").tagName'),'SECTION');
+ await eclick('#poeticFormTitle');
+ assert.equal(await evaluate('document.querySelector("#workshop-editor").contentDocument.querySelector("#poeticForm").checkVisibility()'),true);
+ await eclick('.controls>.config-shell>summary');
+ assert.equal(await evaluate('document.querySelector("#workshop-editor").contentDocument.querySelector("#poeticForm").checkVisibility()'),false);
+ await open();
  assert.equal(await evaluate('document.querySelector("#workshop-editor").contentDocument.querySelector("#rhymeSchemeScopeField").hidden'),true);
  await change('#rhymeScheme',"-aab'-ccb', -AAB'-CCB'",'input');await eclick('#repeatRhymeScheme');await change('#rhymeSchemeSharedRhymes','independent');await expect(true);
  await focusScheme();await shot('01-alternativas-independientes');

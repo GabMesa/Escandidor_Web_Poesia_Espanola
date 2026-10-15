@@ -995,16 +995,12 @@ h1 {
   grid-column: 1 / -1;
 }
 
-.config-group > summary {
-  list-style: none;
-  cursor: pointer;
+.config-group-title {
+  margin: 0;
+  font-family: inherit;
   font-size: 0.84rem;
   font-weight: 800;
   color: var(--text);
-}
-
-.config-group > summary::-webkit-details-marker {
-  display: none;
 }
 
 .config-body {

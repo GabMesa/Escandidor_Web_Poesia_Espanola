@@ -2,6 +2,7 @@ import { poemStorage } from './poem-storage.js';
 import {showPoemColorPicker,COLOR_INTENSITIES} from './poem-color-picker.js';
 import { applyTrashPolicy, TRASH_MAX_BYTES } from './trash-policy.js';
 import { compressPoemVersions } from './poem-compression.js';
+import {visualPreferences,visualColor} from './visual-preferences.js';
 import { isValidPoemTitle, poemValidationError, samePoemContent, cleanEmptyPoemVersions } from './poem-policy.js';
 import { writePersistentStorage, writeDisposableStorage, loadWordCorpusCache, saveWordCorpusCache } from './browser-storage.js';
 import { sortPoemVersions, selectMarkdownEntries, buildHistoryMarkdown, buildVideoTimeline } from './poem-exports.js';
@@ -81,6 +82,9 @@ if (window.parent !== window && new URLSearchParams(location.search).get('taller
         state.autoCompressVersions = command.value === true; saveUiPreferences();
         applicationState.runtime.compressionPreferenceReady = true;
         document.getElementById('autoCompressVersions').checked = state.autoCompressVersions;
+      } else if (command.action === 'visual-preferences') {
+        applicationState.runtime.visualPreferences=visualPreferences(command.value);
+        applyPoemScreenTheme(poemTitle?.value||state.currentAnalysisTitle);
       } else if (command.action === 'cleanup') {
         const checkbox = document.getElementById('autoCleanupTrash'); checkbox.checked = command.value === true;
         checkbox.dispatchEvent(new Event('change', { bubbles: true }));
@@ -534,7 +538,11 @@ function getPoemActionTextColor(hex) {
 function applyPoemScreenTheme(poemTitle) {
   const normalizedTitle = normalizePoemTitle(poemTitle);
   const stored = normalizedTitle ? loadPoemColors()[normalizedTitle] : '';
-  const colorHex = isHexColor(stored) ? String(stored).trim() : normalizedTitle && document.documentElement.classList.contains('in-workshop') ? getPoemColorHex(0) : '';
+  const originalColor = isHexColor(stored) ? String(stored).trim() : normalizedTitle && document.documentElement.classList.contains('in-workshop') ? getPoemColorHex(0) : '';
+  const versions=state.loadedVersionTitle?loadPoemMemoryStore().poems[state.loadedVersionTitle]||[]:[];
+  const createdAt=versions.length?versions.reduce((earliest,v)=>Date.parse(v.savedAt)<Date.parse(earliest)?v.savedAt:earliest,versions[0].savedAt):new Date().toISOString();
+  const colorHex = visualColor(applicationState.runtime.visualPreferences,{surface:'editor',savedColor:originalColor,createdAt});
+  applicationState.runtime.themeVisualOverride = colorHex !== originalColor;
 
   if (colorHex) {
     document.documentElement.style.setProperty('--poem-color', colorHex);

@@ -101,6 +101,12 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     assert.equal(firstRegistration.response.status, 200);
     assert.equal(firstRegistration.payload.user.role, 'user');
     let firstCookie = cookieFrom(firstRegistration.response);
+    const workshop=await jsonRequest(baseUrl,'/api/workshop',{cookie:firstCookie});
+    const appearance={color:'#205EA6',scope:'workshop',newPoems:true,since:'2026-10-15T12:00:00Z'};
+    const workshopData={...workshop.payload.data,preferences:{...workshop.payload.data.preferences,appearance}};
+    const savedAppearance=await jsonRequest(baseUrl,'/api/workshop',{method:'PUT',cookie:firstCookie,body:{revision:workshop.payload.revision,data:workshopData}});
+    assert.equal(savedAppearance.response.status,200,JSON.stringify(savedAppearance.payload));
+    assert.deepEqual((await jsonRequest(baseUrl,'/api/workshop',{cookie:firstCookie})).payload.data.preferences.appearance,appearance);
     assert.equal((await jsonRequest(baseUrl, '/api/contests/import', { method: 'POST', body: { url: 'https://example.com/' } })).response.status, 401);
     assert.equal((await jsonRequest(baseUrl, '/api/contests/import', { method: 'POST', cookie: firstCookie, body: { url: 'http://127.0.0.1/' } })).response.status, 422);
 

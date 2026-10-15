@@ -1,0 +1,63 @@
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {WebSocket} from 'ws';
+const base=process.env.WORKSHOP_QA_ORIGIN||'http://localhost:8794',port=9266;
+const browser=spawn('C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',['--headless=new','--disable-gpu','--no-first-run',`--remote-debugging-port=${port}`,`--user-data-dir=${process.cwd()}\\.wrangler\\contest-appearance-qa`,'about:blank'],{stdio:'ignore',windowsHide:true});
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));let socket,send;const errors=[];
+try{
+ let targets;for(let i=0;i<50;i++){try{targets=await fetch(`http://127.0.0.1:${port}/json`).then(r=>r.json());break;}catch{await sleep(100);}}
+ socket=new WebSocket(targets.find(t=>t.type==='page'&&!t.url.startsWith('edge://')).webSocketDebuggerUrl);await new Promise(r=>socket.once('open',r));
+ let id=0;const pending=new Map();socket.on('message',raw=>{const m=JSON.parse(raw);if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails);if(pending.has(m.id)){pending.get(m.id)(m);pending.delete(m.id);}});
+ send=(method,params={})=>new Promise((ok,fail)=>{const key=++id;pending.set(key,m=>m.error?fail(Error(JSON.stringify(m.error))):ok(m.result));socket.send(JSON.stringify({id:key,method,params}));});
+ const ev=async expression=>{const r=await send('Runtime.evaluate',{expression:'(()=>eval('+JSON.stringify(expression)+'))()',awaitPromise:true,returnByValue:true,userGesture:true});assert.equal(r.exceptionDetails,undefined,JSON.stringify(r.exceptionDetails));return r.result.value;};
+ const until=async expression=>{for(let i=0;i<300;i++){if(await ev(expression))return;await sleep(100);}throw Error('Timeout: '+expression+' '+JSON.stringify(errors));};
+ await send('Page.enable');await send('Runtime.enable');await send('Network.enable');await send('Network.setCacheDisabled',{cacheDisabled:true});await send('Network.clearBrowserCookies');await send('Storage.clearDataForOrigin',{origin:base,storageTypes:'local_storage,indexeddb'});await send('Emulation.setDeviceMetricsOverride',{width:1600,height:1050,deviceScaleFactor:1,mobile:false});
+ await send('Page.navigate',{url:base+'/taller/?view=library'});
+ await until(`import('/application-state.js').then(m=>m.applicationState.workshop?.startupComplete)`);
+ await ev(`(async()=>{window.app=(await import('/application-state.js')).applicationState;window.storage=(await import('/poem-storage.js')).poemStorage;const model=await import('/taller/model.js');const version=(id,text,savedAt,n=1)=>({id,poemTitle:id.startsWith('a')?'Un poema elegido':id.startsWith('b')?'El poema más reciente':'Un poema de invierno',poemText:text,savedAt,versionNumber:n,settings:{poemFont:'atkinson'},kind:'manual'});const memory={schemaVersion:2,poems:{'local:a':[version('a1','La tarde cae sobre el río.\\nEl agua guarda nuestra voz.','2026-01-01'),version('a2','La tarde vuelve al río.\\nY el agua nos devuelve otra canción.','2026-02-01',2)],'local:b':[version('b1','Las hojas nuevas\\nconversan con la luz.','2026-10-14')],'local:c':[version('c1','Silencio de invierno.\\nUna estrella en la ventana.','2026-03-01')]},trash:{}};storage.setItem('escandador.poemMemory.v1',JSON.stringify(memory));storage.setItem('escandador.poemMemory.anonymous.v1',JSON.stringify(memory));await storage.flush();app.workshop.data.contests=[{id:'qa',name:'Certamen de poesía del río',country:'Uruguay',organizer:'Casa de la poesía',delivery:'Correo electrónico',rules:'Una selección de poemas para compartir.',status:'preparing',selections:[{poemId:'local:local:a',versionId:'a1'}],snapshots:[],profile:model.defaultContestProfile(),reminders:[],reviewed:true}];app.workshop.data.tagCatalog=['río','naturaleza'];app.workshop.data.tagColors={'río':'#205EA6','naturaleza':'#879A39'};app.workshop.data.localTags={'local:local:a':['río'],'local:local:b':['naturaleza'],'local:local:c':['naturaleza']};app.workshop.data.preferences.poemColors={'local:local:a':'#A02F6F'};document.querySelector('[data-view=contests]').click();document.querySelector('[data-action=open-contest]').click();})()`);
+ assert.deepEqual(await ev(`[...document.querySelectorAll('[data-contest-poem]')].map(e=>e.dataset.contestPoem)`),['local:local:a','local:local:b','local:local:c']);
+ assert.ok(await ev(`document.querySelector('[data-contest-preview]').textContent.includes('La tarde cae')`));
+ await ev(`document.querySelector('[data-associate="local:local:b"]').click()`);
+ assert.deepEqual(await ev(`[...document.querySelectorAll('[data-contest-poem]')].map(e=>e.dataset.contestPoem)`),['local:local:b','local:local:a','local:local:c']);
+ await ev(`document.querySelector('[data-associate="local:local:b"]').click();document.querySelector('[data-version-poem="local:local:a"]').value='a2';document.querySelector('[data-version-poem="local:local:a"]').dispatchEvent(new Event('change',{bubbles:true}))`);
+ assert.ok(await ev(`document.querySelector('[data-contest-preview]').textContent.includes('La tarde vuelve')`));
+ await ev(`document.querySelector('[data-version-poem="local:local:a"]').value='a1';document.querySelector('[data-version-poem="local:local:a"]').dispatchEvent(new Event('change',{bubbles:true}))`);
+ await mkdir('qa/concursos-apariencia',{recursive:true});
+ const shot=async name=>{await ev(`document.querySelector('.contest-poems-panel')?.scrollIntoView({block:'start'})`);await sleep(200);const s=await send('Page.captureScreenshot',{format:'png'});await writeFile('qa/concursos-apariencia/'+name+'.png',Buffer.from(s.data,'base64'));};
+ await shot('01-concurso');
+ await ev(`document.querySelector('#contest-selected-only').click()`);assert.equal(await ev(`document.querySelectorAll('[data-contest-poem]').length`),1);
+ await ev(`document.querySelector('#contest-selected-only').click();document.querySelector('[data-action=contest-filter-tag][data-tag=naturaleza]').click()`);assert.equal(await ev(`document.querySelectorAll('[data-contest-poem]').length`),2);
+ await ev(`document.querySelector('[data-action=contest-clear-tags]').click();const input=document.querySelector('#contest-poem-search');input.value='invierno';input.dispatchEvent(new Event('input',{bubbles:true}));`);assert.equal(await ev(`document.querySelectorAll('[data-contest-poem]').length`),1);
+ await ev(`const input=document.querySelector('#contest-poem-search');input.value='';input.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('[data-action=contest-preview-poem][data-id="local:local:b"]').click()`);assert.ok(await ev(`document.querySelector('[data-contest-preview]').textContent.includes('Las hojas nuevas')`));
+ await ev(`document.querySelector('[data-action=open-contest-poem][data-id="local:local:a"]').click()`);await until(`app.workshop.view==='editor'&&!app.workshop.openingEditorId`);
+ await ev(`window.originalColors=JSON.stringify(app.workshop.data.preferences.poemColors);window.originalText=JSON.stringify(JSON.parse(storage.getItem('escandador.poemMemory.v1')).poems);`);
+ const setAppearance=async scope=>{
+  await ev(`document.querySelector('[data-action=appearance-preferences]').click();const form=document.querySelector('#visual-preferences-form');form.elements.color.value='#205EA6';form.elements.scope.value='${scope}';`);
+  if(scope==='workshop'){await shot('02-preferencias');}
+  await ev(`document.querySelector('#visual-preferences-form').requestSubmit()`);await until(`!document.querySelector('#modal').open`);
+ };
+ await setAppearance('workshop');
+ assert.equal(await ev(`document.documentElement.style.getPropertyValue('--working-poem-color')`),'#205EA6');
+ assert.equal(await ev(`document.querySelector('#workshop-editor').contentDocument.documentElement.style.getPropertyValue('--poem-color')`),'#A02F6F');
+ await setAppearance('all');assert.equal(await ev(`document.querySelector('#workshop-editor').contentDocument.documentElement.style.getPropertyValue('--poem-color')`),'#205EA6');
+ await ev(`document.querySelector('[data-view=library]').click();document.querySelector('[data-theme-toggle]').click()`);await shot('03-biblioteca-azul-oscuro');
+ await setAppearance('poem');assert.equal(await ev(`document.querySelector('#workshop-editor').contentDocument.documentElement.style.getPropertyValue('--poem-color')`),'#A02F6F');
+ assert.equal(await ev(`JSON.stringify(app.workshop.data.preferences.poemColors)===originalColors`),true);
+ assert.equal(await ev(`JSON.stringify(JSON.parse(storage.getItem('escandador.poemMemory.v1')).poems)===originalText`),true);
+ await ev(`document.querySelector('[data-action=appearance-preferences]').click();const form=document.querySelector('#visual-preferences-form');form.elements.color.value='#879A39';form.elements.newPoems.checked=true;form.elements.scope.value='poem';form.requestSubmit()`);await until(`!document.querySelector('#modal').open`);
+ await ev(`document.querySelector('[data-action=new-poem]').click()`);await until(`app.workshop.view==='editor'&&!app.workshop.openingEditorId`);
+ assert.equal(await ev(`document.querySelector('#workshop-editor').contentDocument.documentElement.style.getPropertyValue('--poem-color')`),'#879A39');
+ await ev(`const d=document.querySelector('#workshop-editor').contentDocument;d.querySelector('#poemTitle').value='Poema nuevo de prueba';d.querySelector('#poemInput').value='Un verso recién llegado.';d.querySelector('#poemInput').dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('[data-account=retry]').click()`);
+ await until(`Object.values(JSON.parse(storage.getItem('escandador.poemMemory.v1')).poems).some(versions=>versions[0].poemTitle==='Poema nuevo de prueba')`);
+ await ev(`document.querySelector('[data-view=library]').click()`);
+ assert.ok(await ev(`[...document.querySelectorAll('.library-row')].some(row=>row.textContent.includes('Poema nuevo de prueba')&&row.style.getPropertyValue('--row-color')==='#879A39')`));
+ assert.equal(await ev(`app.workshop.data.preferences.poemColors['local:local:a']`),'#A02F6F');
+ await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+ await ev(`document.querySelector('[data-view=contests]').click();document.querySelector('[data-action=open-contest]').click()`);await shot('04-movil');
+ assert.equal(await ev(`document.documentElement.scrollWidth<=innerWidth`),true);
+ await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+ assert.equal(await ev(`getComputedStyle(document.querySelector('.contest-poem-preview')).animationName`),'none');
+ assert.equal(errors.length,0,JSON.stringify(errors));
+ console.log('Verified contest search, tags, selected-first ordering, fixed-version previews, appearance scopes, unchanged poem data and mobile layout.');
+}finally{try{await send?.('Browser.close');}catch{}socket?.close();if(browser.exitCode===null)browser.kill();}

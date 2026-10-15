@@ -6,7 +6,7 @@ if(window.parent!==window && new URLSearchParams(location.search).get('taller')=
   let resizeFrame=0;
   const refresh=()=>{
     const style=getComputedStyle(document.documentElement);
-    send('workshop:theme',{color:document.body.classList.contains('has-poem-theme')?style.getPropertyValue('--poem-color').trim():'',ink:style.getPropertyValue('--poem-on-color').trim(),surface:style.getPropertyValue('--color-surface').trim(),poemKey:applicationState.editor.loadedVersionTitle});
+    send('workshop:theme',{visualOverride:applicationState.runtime.themeVisualOverride===true,color:document.body.classList.contains('has-poem-theme')?style.getPropertyValue('--poem-color').trim():'',ink:style.getPropertyValue('--poem-on-color').trim(),surface:style.getPropertyValue('--color-surface').trim(),poemKey:applicationState.editor.loadedVersionTitle});
     cancelAnimationFrame(resizeFrame);resizeFrame=requestAnimationFrame(()=>{
       const shell=document.querySelector('.app-shell');
       if(shell&&shell.getBoundingClientRect().width)send('workshop:resize',{height:Math.ceil(shell.getBoundingClientRect().height)+2});
@@ -40,7 +40,6 @@ if(window.parent!==window && new URLSearchParams(location.search).get('taller')=
       document.querySelector('#newPoemTop').click();
       applicationState.runtime.workshopSourceId=message.sourceId||'';
       if(message.title){const title=document.querySelector('#poemTitle');title.value=message.title;title.dispatchEvent(new Event('input',{bubbles:true}));const text=document.querySelector('#poemInput');text.value=message.text||'';text.dispatchEvent(new Event('input',{bubbles:true}));}
-      if(/^#[\da-f]{6}$/i.test(message.color||'')){document.documentElement.style.setProperty('--poem-color',message.color);document.body.classList.add('has-poem-theme');}
       if(message.font){const font=document.querySelector('.poem-font-selector:not(#defaultPoemFont)');font.value=message.font;font.dispatchEvent(new Event('change',{bubbles:true}));}
       send('workshop:editor',{requestId:message.requestId});
     }

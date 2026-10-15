@@ -34,6 +34,19 @@
     }
   }
   window.setMesaTheme = apply;
+  async function applyVisualAppearance() {
+    if(root.classList.contains('in-workshop'))return;
+    try{
+      const {visualPreferences,colorInk}=await import('./visual-preferences.js');
+      const p=visualPreferences(JSON.parse(localStorage.getItem('mesa.visualAppearance')||'{}'));
+      root.classList.toggle('user-visual-color',p.scope!=='poem');
+      root.style.setProperty('--user-visual-color',p.color);
+      root.style.setProperty('--user-visual-ink',colorInk(p.color));
+    }catch{}
+  }
+  window.addEventListener('mesa:visual-appearance',applyVisualAppearance);
+  window.addEventListener('storage',event=>{if(event.key==='mesa.visualAppearance')applyVisualAppearance();});
+  applyVisualAppearance();
   for (const button of document.querySelectorAll('[data-theme-toggle]')) {
     button.addEventListener('click', () => {
       const theme = root.dataset.theme === 'dark' ? 'light' : 'dark';

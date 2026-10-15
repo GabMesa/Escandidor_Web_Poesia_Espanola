@@ -1,4 +1,5 @@
 import {jsonResponse,errorResponse,requireUser} from '../../_lib/helpers.js';
+import {visualPreferences} from '../../../visual-preferences.js';
 const reply=(data,status=200)=>jsonResponse(data,{status,headers:{'Cache-Control':'no-store','Vary':'Cookie'}});
 const contestFields=['id','name','organizer','country','deadline','deadlineTime','timezone','resultsDate','resultsNote','resultsUrl','sourceUrl','originalUrl','status','delivery','rules','maxPoems','maxVerses','minTotal','maxTotal','selections','snapshots','profile','reminders','agendaEnabled','reviewed','lastPrepared','verseCounting','plicaRequired','aiPlacement','attachments','coverRequirements','provenance','extraction','extractedAt','pdfRead','aiRequirement','minPoemVerses'];
 export async function onRequestGet({request,env}){
@@ -29,6 +30,8 @@ export async function onRequestPut({request,env}){
  const assignments=Object.entries(data.localTags||{}).flatMap(([key,values])=>Array.isArray(values)?[...new Set(values)].map(tag=>({key,tag})):[]);
  if(assignments.length>3000||assignments.some(a=>a.key.length>200||!tags.includes(a.tag)))return errorResponse('Asignaciones inválidas.',400);
  const inputPrefs=data.preferences||{},poemColors=inputPrefs.poemColors||{},defaults=inputPrefs.defaults||{};if(Array.isArray(poemColors)||Object.entries(poemColors).some(([key,color])=>key.length>200||!/^#[\da-f]{6}$/i.test(color)))return errorResponse('Colores de poemas inválidos.',400);const cleanPrefs={poemColors};if(inputPrefs.defaults){if(typeof defaults.defaultFont!=='string'||defaults.defaultFont.length>80||!/^#[\da-f]{6}$/i.test(defaults.defaultColor||''))return errorResponse('Preferencias inválidas.',400);cleanPrefs.defaults={defaultFont:defaults.defaultFont,defaultColor:defaults.defaultColor,autoCompress:defaults.autoCompress!==false};}const prefs=JSON.stringify(cleanPrefs);if(prefs.length>200000)return errorResponse('Preferencias demasiado grandes.',400);
+ if(inputPrefs.appearance){const p=inputPrefs.appearance;if(!/^#[\da-f]{6}$/i.test(p.color||'')||!['poem','workshop','all'].includes(p.scope)||typeof p.newPoems!=='boolean'||(p.since&&!Number.isFinite(Date.parse(p.since))))return errorResponse('Apariencia inválida.',400);cleanPrefs.appearance=visualPreferences(p);}
+ const storedPrefs=JSON.stringify(cleanPrefs);
  const db=env.escandidor_db,token=crypto.randomUUID();
  await db.prepare('INSERT OR IGNORE INTO workshop_revisions(user_id) VALUES(?)').bind(user.id).run();
  const gate='EXISTS(SELECT 1 FROM workshop_revisions WHERE user_id=? AND mutation_token=?)';
@@ -37,7 +40,7 @@ export async function onRequestPut({request,env}){
  for(const c of contests)commands.push(db.prepare(`INSERT INTO contests SELECT ?,?,? WHERE ${gate}`).bind(user.id,c.id,JSON.stringify(c),user.id,token));
  for(const tag of tags)commands.push(db.prepare(`INSERT INTO poem_tags SELECT ?,?,? WHERE ${gate}`).bind(user.id,tag,data.tagColors[tag],user.id,token));
  for(const a of assignments)commands.push(db.prepare(`INSERT INTO poem_tag_assignments SELECT ?,?,? WHERE ${gate}`).bind(user.id,a.key,a.tag,user.id,token));
- commands.push(db.prepare(`INSERT INTO workshop_preferences SELECT ?,? WHERE ${gate}`).bind(user.id,prefs,user.id,token));
+ commands.push(db.prepare(`INSERT INTO workshop_preferences SELECT ?,? WHERE ${gate}`).bind(user.id,storedPrefs,user.id,token));
  const results=await db.batch(commands);
  if(!results[0].meta.changes)return reply({ok:false,error:'El taller cambió en otra pestaña. Recargá antes de guardar para conservar ambas versiones.'},409);
  return reply({ok:true,revision:revision+1});

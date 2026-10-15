@@ -16,6 +16,7 @@ export async function onRequestGet(context) {
   const limit = Math.max(1,Math.min(200,Number(query.get('limit'))||100));
   const afterPoem = Math.max(0,Number(query.get('afterPoem'))||0);
   const afterVersion = Math.max(0,Number(query.get('afterVersion'))||0);
+  const poemId = Math.max(0,Number(query.get('poemId'))||0);
 
   const { results } = await env.escandidor_db
     .prepare(
@@ -24,6 +25,7 @@ export async function onRequestGet(context) {
               pv.version, pv.created_at AS version_created_at, pv.sync_json
        FROM poems p JOIN poem_versions pv ON pv.poem_id = p.id
        WHERE p.user_id = ?
+         ${poemId ? 'AND p.id = ?' : ''}
          AND NOT EXISTS(SELECT 1 FROM merged_poems m WHERE m.source_id=p.id)
          ${paged ? 'AND (p.id > ? OR (p.id = ? AND pv.version > ?))' : ''}
          AND NOT EXISTS (
@@ -32,7 +34,7 @@ export async function onRequestGet(context) {
          )
        ${paged ? 'ORDER BY p.id ASC,pv.version ASC LIMIT ?' : 'ORDER BY p.updated_at DESC,pv.version ASC'}`
     )
-    .bind(...(paged ? [user.id,afterPoem,afterPoem,afterVersion,limit] : [user.id]))
+    .bind(user.id,...(poemId?[poemId]:[]),...(paged?[afterPoem,afterPoem,afterVersion,limit]:[]))
     .all();
 
   const poemsById = new Map();

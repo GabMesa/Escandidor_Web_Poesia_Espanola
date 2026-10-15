@@ -36,6 +36,20 @@ test('unchanged 5000-version libraries avoid all history and trash reads; remote
  calls.length=0;sync.setUser(null);sync.setUser({id:93});await sync.loadFromServer();assert.ok(calls.includes('/api/trash'));
 });
 
+test('incremental replacement uses stable IDs when a deleted numeric position is reused',async()=>{
+ const storage=new MemoryStorage();let cursor=2;
+ const poem={id:11,title:'Luna',versions:[{version:1,content:'Original',sync:{id:'one'}},{version:2,content:'Versión retirada',sync:{id:'old'}}]};
+ const sync=createRevisionCloudSync({storage,request:async path=>{
+  if(path==='/api/sync-status')return jsonResponse({revision:String(cursor),changeCursor:cursor});
+  if(path==='/api/trash')return jsonResponse({trash:[]});
+  if(path.startsWith('/api/poems/changes'))return jsonResponse({changes:[{poemId:11,version:2,poem:{id:11,title:'Luna'},versionData:{version:2,content:'Otra versión con identidad nueva',sync:{id:'new'}}}],nextCursor:null});
+  return jsonResponse({poems:[poem]});
+ }});
+ sync.setUser({id:93});await sync.loadFromServer();cursor=4;await sync.loadFromServer();
+ const versions=JSON.parse(storage.getItem('escandador.poemMemory.v1')).poems['server:11'];
+ assert.deepEqual(versions.map(v=>v.id),['one','new']);assert.equal(versions[1].poemText,'Otra versión con identidad nueva');
+});
+
 test('revision checks retry pending uploads and never hide network failures',async()=>{
  const storage=new MemoryStorage(),state={user:null,queue:Promise.resolve()};let offline=false,uploads=0,reads=0;
  const sync=createRevisionCloudSync({storage,state,request:async(path,options={})=>{

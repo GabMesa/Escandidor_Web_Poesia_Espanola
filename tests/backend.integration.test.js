@@ -144,7 +144,22 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     const pinBatch=await jsonRequest(baseUrl,`/api/poems/${pinnedId}/versions`,{method:'POST',cookie:firstCookie,body:{versions:['middle','latest','final'].map((id,index)=>({...pinnedPayload,content:index%2===0?'Otra alternativa conservada.':pinnedPayload.content,sync:{id:'contest-'+id,versionNumber:index+2}}))}});
     assert.equal(pinBatch.response.status,200,JSON.stringify(pinBatch.payload));
     assert.equal(pinBatch.payload.uploaded?.length,3,JSON.stringify(pinBatch.payload));
-    const batchRevision=await syncRevision();assert.notEqual(batchRevision,createdRevision);
+    let batchRevision=await syncRevision();assert.notEqual(batchRevision,createdRevision);
+    const changes=async(after,through,cookie=firstCookie)=>jsonRequest(baseUrl,`/api/poems/changes?after=${String(after).split(':')[1]}&through=${String(through).split(':')[1]}`,{cookie});
+    const appended=await changes(createdRevision,batchRevision);
+    assert.equal(appended.response.status,200,JSON.stringify(appended.payload));
+    assert.deepEqual(appended.payload.changes.filter(c=>c.versionData).map(c=>c.versionData.version),[2,3,4]);
+    assert.ok(!appended.payload.changes.some(c=>c.versionData?.sync.id==='contest-pinned'));
+    assert.equal((await changes(createdRevision,batchRevision,'')).response.status,401);
+    runWrangler(['d1','execute','escandidor-db','--local','--persist-to',persistence,'--command',Array.from({length:205},(_,i)=>
+      `UPDATE poems SET configurations=json_set(configurations,'$.qaCounter',${i}) WHERE id=${Number(pinnedId)};`).join('')]);
+    const pagedRevision=await syncRevision();
+    const firstChanges=await changes(batchRevision,pagedRevision);
+    assert.equal(firstChanges.payload.changes.length,200);assert.ok(firstChanges.payload.nextCursor);
+    const secondChanges=await jsonRequest(baseUrl,`/api/poems/changes?after=${firstChanges.payload.nextCursor}&through=${pagedRevision.split(':')[1]}`,{cookie:firstCookie});
+    assert.equal(secondChanges.payload.changes.length,5);assert.equal(secondChanges.payload.nextCursor,null);
+    assert.ok([...firstChanges.payload.changes,...secondChanges.payload.changes].every(c=>c.poemId===pinnedId&&c.version===null&&c.versionData===null));
+    batchRevision=pagedRevision;
     const pinWorkshop=await jsonRequest(baseUrl,'/api/workshop',{cookie:firstCookie});
     const pinData={...pinWorkshop.payload.data,contests:[{id:'pin-qa',name:'Concurso de prueba',selections:[{poemId:'poem:'+pinnedId,versionId:`cloud-${pinnedId}-1`}],snapshots:[],profile:{}}]};
     assert.equal((await jsonRequest(baseUrl,'/api/workshop',{method:'PUT',cookie:firstCookie,body:{revision:pinWorkshop.payload.revision,data:pinData}})).response.status,200);
@@ -153,8 +168,11 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     const pinnedHistory=(await jsonRequest(baseUrl,'/api/poems',{cookie:firstCookie})).payload.poems.find(p=>p.id===pinnedId).versions;
     assert.deepEqual(pinnedHistory.map(v=>v.sync.id),['contest-pinned','contest-latest','contest-final']);
     const compressedRevision=await syncRevision();assert.notEqual(compressedRevision,batchRevision);
+    const retiredDelta=await changes(batchRevision,compressedRevision);
+    assert.ok(retiredDelta.payload.changes.some(c=>c.version===2&&c.versionData===null));
     await jsonRequest(baseUrl,`/api/poems/${pinnedId}`,{method:'DELETE',cookie:firstCookie});
-    assert.notEqual(await syncRevision(),compressedRevision);
+    const pinDeletedRevision=await syncRevision();assert.notEqual(pinDeletedRevision,compressedRevision);
+    assert.ok((await changes(compressedRevision,pinDeletedRevision)).payload.changes.some(c=>c.poemId===pinnedId&&c.poem===null));
     runWrangler(['d1','execute','escandidor-db','--local','--persist-to',persistence,'--command',`DELETE FROM deleted_poems WHERE poem_id=${Number(pinnedId)};DELETE FROM contests WHERE contest_key='pin-qa';`]);
     assert.equal((await jsonRequest(baseUrl, '/api/contests/import', { method: 'POST', body: { url: 'https://example.com/' } })).response.status, 401);
     assert.equal((await jsonRequest(baseUrl, '/api/contests/import', { method: 'POST', cookie: firstCookie, body: { url: 'http://127.0.0.1/' } })).response.status, 422);
@@ -573,6 +591,7 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     const compressedHistory=(await jsonRequest(baseUrl,'/api/poems',{cookie:firstCookie})).payload.poems.find(p=>p.id===compressionId);
     assert.equal(compressedHistory.versions.length,3);assert.equal(compressedHistory.content,compressionPayload(6).content);
     const isolationUser=await jsonRequest(baseUrl,'/api/auth/register',{method:'POST',body:{username:'compression-other',email:'compression-other@example.test',password:'Password123!'}});
+    assert.deepEqual((await changes(emptyRevision,await syncRevision(),cookieFrom(isolationUser.response))).payload.changes,[]);
     assert.equal((await jsonRequest(baseUrl,`/api/poems/${compressionId}/compress`,{method:'POST',cookie:cookieFrom(isolationUser.response),body:{}})).response.status,404);
     const compressedTrash=await jsonRequest(baseUrl,'/api/trash',{cookie:firstCookie});assert.ok(compressedTrash.payload.compressedVersions.some(v=>v.poemId===compressionId&&v.clientId==='compression-1'));
     assert.equal((await jsonRequest(baseUrl,`/api/poems/${compressionId}`,{method:'DELETE',cookie:firstCookie})).response.status,200);

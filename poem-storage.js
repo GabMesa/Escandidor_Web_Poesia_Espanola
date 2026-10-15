@@ -1,6 +1,6 @@
 // Libraries and pending uploads can exceed localStorage's small, fixed quota.
 // Share one cache/transaction queue with the same-origin editor iframe.
-const isLibraryKey = key => /^escandador\.(?:poemMemory\.|cloudPoemMap\.|cloudOutbox\.|anonymousImports\.)/.test(key);
+const isLibraryKey = key => /^escandador\.(?:poemMemory\.|cloudPoemMap\.|cloudOutbox\.|anonymousImports\.|cloudSnapshot\.)/.test(key);
 
 function mergeSnapshots(current, incoming) {
   if (!current || current === incoming) return incoming;

@@ -27,12 +27,16 @@ try{
  const versions=before.versions.map(v=>({id:v.sync.id,poemTitle:before.title,poemText:v.content,versionNumber:v.sync.versionNumber,savedAt:v.sync.savedAt,settings:v.sync.settings,kind:v.sync.kind,cloudVersion:v.version}));
  storage.setItem('escandador.poemMemory.v1',JSON.stringify({schemaVersion:2,poems:{['server:'+id]:versions},trash:{}}));
  storage.setItem('escandador.cloudPoemMap.v1:'+user.id,JSON.stringify({['server:'+id]:{poemId:id,versions:Object.fromEntries(versions.map(v=>[v.id,{cloudVersion:v.cloudVersion}]))}}));
+ const legacy={...versions[1],id:'old-device-local-alias'};
+ storage.setItem('escandador.poemMemory.v1',JSON.stringify({schemaVersion:2,poems:{['server:'+id]:[...versions,legacy]},trash:{}}));
+ const legacyMap=JSON.parse(storage.getItem('escandador.cloudPoemMap.v1:'+user.id));legacyMap['server:'+id].versions[legacy.id]={cloudVersion:legacy.cloudVersion};storage.setItem('escandador.cloudPoemMap.v1:'+user.id,JSON.stringify(legacyMap));
+ await sync.syncSavedVersion({poemKey:'server:'+id,title:before.title,version:legacy});assert.equal(syncState.error?.message||null,null);writes=0;
  for(let i=0;i<3;i++)await sync.loadFromServer();
  assert.equal(syncState.error?.message||null,null);assert.equal(writes,0);
  assert.equal(JSON.parse(storage.getItem('escandador.poemMemory.v1')).poems['server:'+id].length,22);
  const after=(await api('/api/poems')).data.poems.find(p=>p.id===id);assert.equal(after.versions.length,22);assert.equal(after.content,before.content);
  const states=p=>new Set(p.versions.map(v=>JSON.stringify([v.content,v.sync.settings])));
  assert.deepEqual(states(after),states(before));
- await mkdir('qa/compresion',{recursive:true});const report={before:total,after:22,archived:total-22,everyStatePreserved:true,currentTextUnchanged:true,staleDeviceDownloads22:true,oldBatchCannotResurrect:true,repeatedPullDoesNotUpload:true,elapsedMs:Date.now()-started,origin:base};
+ await mkdir('qa/compresion',{recursive:true});const report={before:total,after:22,archived:total-22,everyStatePreserved:true,currentTextUnchanged:true,staleDeviceDownloads22:true,oldBatchCannotResurrect:true,legacyAliasesCannotResurrect:true,repeatedPullDoesNotUpload:true,elapsedMs:Date.now()-started,origin:base};
  await writeFile('qa/compresion/'+(base.startsWith('https:')?'produccion':'local')+'.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));
 }finally{if(created){await api('/api/auth/account',{method:'DELETE'});console.log('Temporary QA account deleted.');}}

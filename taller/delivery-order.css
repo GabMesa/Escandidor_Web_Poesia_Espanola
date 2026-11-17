@@ -1,0 +1,8 @@
+.delivery-order ol{margin:0;padding-left:1.5em}
+.delivery-order li{padding:10px 0;border-top:1px solid var(--line)}
+.delivery-order li::marker{color:var(--muted)}
+.delivery-order-title{display:inline-block;width:calc(100% - 96px);vertical-align:middle;overflow-wrap:anywhere;padding-right:8px}
+.delivery-order-title .hint{display:block;margin:4px 0 0}
+.delivery-order-actions{display:inline-flex;gap:6px;vertical-align:middle}
+.delivery-order-actions button{padding:8px 12px;min-width:40px;min-height:40px}
+.delivery-order-actions button:disabled{cursor:default}

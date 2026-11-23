@@ -1,4 +1,5 @@
 import {countLines,escapeHtml as h} from './model.js';
+import {formatDisplayDate} from './delivery-format.js';
 export function detectCoverRequirements(text){
   const flat=String(text||'').replace(/\s+/g,' ');
   const signatureForbidden=/uso de seud[oó]nimos excluye|sin firma|ninguna clase de firma|sin firmar|sin[^.]{0,40}datos personales/i.test(flat);
@@ -10,7 +11,7 @@ export function detectCoverRequirements(text){
 }
 export function coverOptions(contest){
   const p=contest.profile,requirements=contest.coverRequirements||detectCoverRequirements(contest.rules);
-  return {contestName:p.coverContestName===true,title:p.coverTitle!==false,pseudonym:p.coverPseudonym!==false&&!requirements.signatureForbidden,verses:p.coverVerses===undefined?requirements.verses:p.coverVerses===true,motto:String(p.coverMotto||''),statement:String(p.coverStatement||''),alignment:p.coverAlignment==='left'?'left':'center',position:p.coverPosition==='middle'?'middle':'top'};
+  return {contestName:p.coverContestName===true,title:p.coverTitle!==false,date:p.coverDate===true,dateText:String(p.workDate||''),pseudonym:p.coverPseudonym!==false&&!requirements.signatureForbidden,verses:p.coverVerses===undefined?requirements.verses:p.coverVerses===true,motto:String(p.coverMotto||''),statement:String(p.coverStatement||''),alignment:p.coverAlignment==='left'?'left':'center',position:p.coverPosition==='middle'?'middle':'top'};
 }
 export function coverLines(contest,entries){
   const p=contest.profile,o=coverOptions(contest),lines=[];
@@ -18,6 +19,7 @@ export function coverLines(contest,entries){
   if(o.title)lines.push({text:p.workTitle|| (entries.length===1?entries[0].poem.title:'Poemario'),type:'title'});
   if(o.motto)lines.push({text:o.motto,type:'motto'});
   if(o.pseudonym&&p.pseudonym)lines.push({text:p.pseudonym,type:'pseudonym'});
+  if(o.date){const formatted=formatDisplayDate(o.dateText);if(formatted)lines.push({text:formatted,type:'date'});}
   if(o.verses)lines.push({text:entries.reduce((n,e)=>n+countLines(e.version.poemText).verses,0)+' versos',type:'verses'});
   if(o.statement)lines.push({text:o.statement,type:'statement'});
   return lines;

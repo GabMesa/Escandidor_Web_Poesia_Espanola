@@ -1,3 +1,5 @@
+const DEFAULT_HENDECASYLLABLE_STRESS = '6-10, 4-8-10';
+
 export const POETIC_FORM_PRESETS = Object.freeze({
   custom: { label: 'Personalizada' },
   pareado: { label: 'Pareado', verseCount: 2, rhymeScheme: 'AA', rhymeMode: 'asonante' },
@@ -12,17 +14,44 @@ export const POETIC_FORM_PRESETS = Object.freeze({
   cuadernaVia: { label: 'Cuaderna vía', verseCount: 4, syllablePattern: '14', stressPatterns: { 14: '6-13' }, hemistichSplit: '7', rhymeScheme: 'AAAA', rhymeMode: 'consonante' },
   quinteto: { label: 'Quinteto', verseCount: 5, rhymeMode: 'consonante' },
   quintilla: { label: 'Quintilla', verseCount: 5, syllablePattern: '8', stressPatterns: { 8: '3-7' }, rhymeMode: 'consonante' },
-  lira: { label: 'Lira', verseCount: 5, syllablePattern: '7-11-7-7-11', stressPatterns: { 7: '3-6', 11: '6-10' }, rhymeScheme: 'aBabB', rhymeMode: 'consonante' },
+  lira: { label: 'Lira', verseCount: 5, syllablePattern: '7-11-7-7-11', stressPatterns: { 7: '3-6', 11: DEFAULT_HENDECASYLLABLE_STRESS }, rhymeScheme: 'aBabB', rhymeMode: 'consonante' },
   pieQuebrado: { label: 'Estrofa de pie quebrado', verseCount: 6, syllablePattern: '8-8-4-8-8-4', stressPatterns: { 8: '3-7', 4: '3' }, rhymeScheme: 'abcabc', rhymeMode: 'consonante' },
-  octavaReal: { label: 'Octava real', verseCount: 8, syllablePattern: '11', stressPatterns: { 11: '6-10' }, rhymeScheme: 'ABABABCC', rhymeMode: 'consonante' },
+  octavaReal: { label: 'Octava real', verseCount: 8, syllablePattern: '11', stressPatterns: { 11: DEFAULT_HENDECASYLLABLE_STRESS }, rhymeScheme: 'ABABABCC', rhymeMode: 'consonante' },
   octavilla: { label: 'Octavilla', verseCount: 8, syllablePattern: '8', stressPatterns: { 8: '3-7' }, rhymeMode: 'consonante' },
   decima: { label: 'Décima o espinela', verseCount: 10, syllablePattern: '8', stressPatterns: { 8: '3-7' }, rhymeScheme: 'abbaaccddc', rhymeMode: 'consonante' },
-  soneto: { label: 'Soneto', verseCount: 14, syllablePattern: '11', stressPatterns: { 11: '6-10' }, rhymeScheme: 'ABBA ABBA CDC DCD', rhymeSchemeSharedRhymes: true, rhymeMode: 'consonante' },
+  soneto: { label: 'Soneto', verseCount: 14, syllablePattern: '11', stressPatterns: { 11: DEFAULT_HENDECASYLLABLE_STRESS }, rhymeScheme: 'ABBA ABBA CDC DCD', rhymeSchemeSharedRhymes: true, rhymeMode: 'consonante' },
   romance: { label: 'Romance', syllablePattern: '8', stressPatterns: { 8: '3-7' }, rhymeScheme: '-a', rhymeMode: 'asonante', repeatRhymeScheme: true, rhymeSchemeSharedRhymes: true },
-  sextina: { label: 'Sextina', verseCount: 39, syllablePattern: '11', stressPatterns: { 11: '6-10' }, rhymeScheme: 'ABCDEF FAEBDC CFDABE ECBFAD DEACFB BDFECA AB DE CF', rhymeMode: 'palabra-final' },
-  silva: { label: 'Silva', syllablePattern: '7 11', stressPatterns: { 7: '3-6', 11: '6-10' }, rhymeMode: 'consonante' },
-  silvaArromanzada: { label: 'Silva arromanzada', syllablePattern: '7 11', stressPatterns: { 7: '3-6', 11: '6-10' }, rhymeScheme: '-a', rhymeMode: 'asonante', repeatRhymeScheme: true, rhymeSchemeSharedRhymes: true },
+  sextina: { label: 'Sextina', verseCount: 39, syllablePattern: '11', stressPatterns: { 11: DEFAULT_HENDECASYLLABLE_STRESS }, rhymeScheme: 'ABCDEF FAEBDC CFDABE ECBFAD DEACFB BDFECA AB DE CF', rhymeMode: 'palabra-final' },
+  silva: { label: 'Silva', syllablePattern: '7 11', stressPatterns: { 7: '3-6', 11: DEFAULT_HENDECASYLLABLE_STRESS }, rhymeMode: 'consonante' },
+  silvaArromanzada: { label: 'Silva arromanzada', syllablePattern: '7 11', stressPatterns: { 7: '3-6', 11: DEFAULT_HENDECASYLLABLE_STRESS }, rhymeScheme: '-a', rhymeMode: 'asonante', repeatRhymeScheme: true, rhymeSchemeSharedRhymes: true },
 });
+
+export function getDefaultStressPattern(count) {
+  return Number(count) === 11 ? DEFAULT_HENDECASYLLABLE_STRESS : '';
+}
+
+export function parseStressPatternAlternatives(value) {
+  return String(value ?? '')
+    .split(/[,;|]+/)
+    .map((pattern) => [...new Set((pattern.match(/\d+/g) ?? []).map(Number).filter((n) => Number.isInteger(n) && n > 0))].sort((a, b) => a - b))
+    .filter((pattern) => pattern.length);
+}
+
+export function chooseStressPattern(value, stressPositions = []) {
+  const alternatives = parseStressPatternAlternatives(value);
+  if (alternatives.length < 2) return alternatives[0] ?? [];
+
+  const stresses = new Set(stressPositions);
+  return alternatives.reduce((best, pattern) => {
+    const matches = pattern.filter((position) => stresses.has(position)).length;
+    const bestMatches = best.filter((position) => stresses.has(position)).length;
+    const ratio = matches / pattern.length;
+    const bestRatio = bestMatches / best.length;
+    if (ratio !== bestRatio) return ratio > bestRatio ? pattern : best;
+    if (pattern.length !== best.length) return pattern.length < best.length ? pattern : best;
+    return best;
+  });
+}
 
 export function parseSyllablePattern(value) {
   return String(value ?? '')

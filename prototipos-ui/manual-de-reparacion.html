@@ -1,0 +1,1124 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mesa de Poesía · Manual de taller (inspirado en The Poetry Home Repair Manual)</title>
+<style>
+:root{
+ --serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
+ --ui:system-ui,-apple-system,'Segoe UI',sans-serif;
+ --mono:ui-monospace,'Cascadia Mono','Consolas',monospace;
+ --poem-font:Georgia,'Times New Roman',serif;
+ --scale:1;
+}
+body{
+ --desk:#efe8db;
+ --desk-2:#e5dccb;
+ --paper:#fbf8f1;
+ --folio:#f5f0e4;
+ --ink:#231d18;
+ --muted:#6b6054;
+ --line:#dad0be;
+ --line-strong:#b8aa92;
+ --accent:#ad4227;
+ --accent-soft:#f5e5df;
+ --on-accent:#fffaf5;
+ --slate:#2c5673;
+ --slate-soft:#e4edf3;
+ --sage:#2f684a;
+ --sage-soft:#e1efe6;
+ --brass:#b4812d;
+ --brass-soft:#f6edd9;
+ --danger:#b03527;
+ --danger-soft:#fae4e1;
+ --shadow-sm:0 1px 2px rgba(42,31,20,.05),0 4px 14px rgba(42,31,20,.04);
+ --shadow-md:0 2px 4px rgba(42,31,20,.06),0 14px 32px rgba(42,31,20,.07);
+}
+body.dark{
+ --desk:#161311;
+ --desk-2:#201b17;
+ --paper:#241f1b;
+ --folio:#1d1916;
+ --ink:#ece4d6;
+ --muted:#aba092;
+ --line:#3a322a;
+ --line-strong:#574b3f;
+ --accent:#e07b5a;
+ --accent-soft:#3a231c;
+ --on-accent:#1c120d;
+ --slate:#7fb0cf;
+ --slate-soft:#1d2e3a;
+ --sage:#7bc09a;
+ --sage-soft:#1c3226;
+ --brass:#dfa552;
+ --brass-soft:#352919;
+ --danger:#ec8374;
+ --danger-soft:#3d1f1c;
+ --shadow-sm:0 1px 2px rgba(0,0,0,.25),0 6px 18px rgba(0,0,0,.2);
+ --shadow-md:0 2px 6px rgba(0,0,0,.35),0 18px 40px rgba(0,0,0,.3);
+}
+body.tinted{
+ --accent:var(--poem-tint);
+ --accent-soft:color-mix(in srgb,var(--poem-tint) 14%,var(--paper));
+ --desk:color-mix(in srgb,var(--poem-tint) 5%,var(--base-desk,#efe8db));
+}
+body.dark.tinted{
+ --desk:color-mix(in srgb,var(--poem-tint) 6%,#161311);
+ --accent-soft:color-mix(in srgb,var(--poem-tint) 22%,var(--paper));
+}
+*{box-sizing:border-box}
+html{background:var(--desk);scroll-behavior:smooth}
+body{margin:0;background:var(--desk);color:var(--ink);font:14px/1.55 var(--ui);transition:background .25s,color .25s}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* Shared craft manual tokens */
+.section-tag{display:inline-flex;align-items:center;gap:8px;font:600 10.5px/1 var(--ui);letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:0 0 12px}
+.section-tag:before{content:'§';font:700 13px var(--serif);color:var(--brass)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--line-strong);background:var(--paper);color:var(--ink);border-radius:6px;padding:8px 14px;font:500 13px/1.2 var(--ui);text-decoration:none;transition:background .15s,border-color .15s,transform .15s}
+.btn:hover{background:var(--folio);border-color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+.btn.primary:hover{filter:brightness(1.06);border-color:var(--accent)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+.btn.ghost:hover{background:var(--desk-2);color:var(--ink);border-color:transparent}
+.btn.sm{padding:6px 10px;font-size:12px}
+.btn.icon{padding:6px 8px;min-width:32px;height:32px}
+.btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font:600 11px var(--ui);background:var(--desk-2);color:var(--muted)}
+.pill.accent{background:var(--accent-soft);color:var(--accent)}
+.pill.sage{background:var(--sage-soft);color:var(--sage)}
+.pill.slate{background:var(--slate-soft);color:var(--slate)}
+
+/* Hairline calibrated pica/meter rule (subtle bookbinder / craft motif) */
+.ruler-hairline{height:7px;background:repeating-linear-gradient(90deg,var(--line-strong) 0 1px,transparent 1px 12px),repeating-linear-gradient(90deg,var(--brass) 0 1px,transparent 1px 48px);background-size:100% 4px,100% 7px;background-position:bottom left,bottom left;background-repeat:repeat-x;border-bottom:1px solid var(--line);opacity:.7}
+
+/* Top bar */
+.topbar{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--paper) 94%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.topbar-inner{display:flex;align-items:center;gap:14px;padding:11px clamp(14px,3vw,32px);max-width:1600px;margin:auto}
+.brand{display:inline-flex;align-items:center;gap:10px;background:none;border:0;padding:0;text-align:left;text-decoration:none}
+.brand-mark{width:30px;height:30px;border-radius:6px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;flex:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)}
+.brand-mark svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.brand-text b{display:block;font:600 18px/1.05 var(--serif);letter-spacing:-.02em}
+.brand-text small{display:block;font:italic 11.5px/1.2 var(--serif);color:var(--muted)}
+.top-nav{display:flex;align-items:center;gap:4px;margin-left:12px}
+.top-nav button{background:none;border:0;border-radius:6px;padding:7px 12px;font:500 13px var(--ui);color:var(--muted)}
+.top-nav button:hover{color:var(--ink);background:var(--desk)}
+.top-nav button[aria-current=page]{color:var(--ink);background:var(--desk);font-weight:600;box-shadow:inset 0 -2px 0 var(--accent)}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.sync-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);padding:5px 10px;border-radius:999px;background:var(--folio);border:1px solid var(--line)}
+.sync-pill i{width:7px;height:7px;border-radius:50%;background:var(--sage);display:block}
+.back-gallery{font-size:12px;color:var(--muted);text-decoration:none;padding:6px 10px;border-radius:6px;border:1px dashed var(--line-strong)}
+.back-gallery:hover{color:var(--ink);border-style:solid}
+
+/* ==================== LANDING (INICIO) ==================== */
+.landing{max-width:1180px;margin:0 auto;padding:0 clamp(16px,4vw,44px) 64px}
+.edition-strip{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:3px double var(--line-strong);font:600 10.5px var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.l-hero{display:grid;grid-template-columns:1.08fr .96fr;gap:clamp(28px,5vw,60px);align-items:center;padding:clamp(34px,5.5vw,66px) 0 46px;border-bottom:1px solid var(--line)}
+.l-hero h1{font:normal clamp(38px,5.2vw,66px)/1.04 var(--serif);letter-spacing:-.035em;margin:0 0 20px}
+.l-hero h1 em{color:var(--accent);font-style:italic}
+.l-copy{font-size:16px;line-height:1.72;color:var(--muted);margin:0 0 14px;max-width:500px}
+.l-copy strong{color:var(--ink);font-weight:600}
+.l-actions{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0 14px}
+.l-note{font-size:12px;color:var(--muted);margin:0}
+
+/* Open Craft-Manual Specimen Card on Landing */
+.manual-specimen{position:relative;background:var(--paper);border:1px solid var(--line-strong);border-radius:10px;box-shadow:var(--shadow-md);overflow:hidden}
+.manual-specimen-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 18px;background:var(--folio);border-bottom:1px solid var(--line);font:600 10.5px var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.manual-specimen-head em{font:italic 12px var(--serif);letter-spacing:0;text-transform:none;color:var(--accent)}
+.specimen-body{padding:24px 24px 20px;background:linear-gradient(90deg,transparent 0 44px,color-mix(in srgb,var(--accent) 20%,transparent) 44px 45px,transparent 45px),var(--paper)}
+.specimen-verse-row{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:14px;align-items:baseline;padding:9px 0;border-bottom:1px dotted var(--line)}
+.specimen-verse-row:last-of-type{border-bottom:0}
+.sv-num{font:600 11px var(--mono);color:var(--muted);text-align:right}
+.sv-text{font:17px/1.55 var(--serif);color:var(--ink)}
+.sv-text strong{color:var(--accent);font-weight:700}
+.sv-text .join{display:inline-flex;align-items:center;justify-content:center;color:var(--slate);vertical-align:baseline;margin:0 1px}
+.sv-text .join svg{width:12px;height:7px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round}
+.sv-meta{display:inline-flex;align-items:center;gap:6px;font:600 11px var(--mono)}
+.sv-count{padding:2px 7px;border-radius:999px;background:var(--sage-soft);color:var(--sage)}
+.sv-rhyme{color:var(--slate)}
+.specimen-callout{margin:16px 0 0;padding:12px 14px;background:var(--brass-soft);border-left:3px solid var(--brass);border-radius:0 6px 6px 0;font-size:12.5px;line-height:1.55;color:var(--ink)}
+.specimen-callout b{color:var(--accent);font-family:var(--serif)}
+.specimen-pillars{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);background:var(--folio)}
+.specimen-pillars button{border:0;border-right:1px solid var(--line);background:transparent;padding:12px 10px;text-align:left;transition:background .15s}
+.specimen-pillars button:last-child{border-right:0}
+.specimen-pillars button:hover{background:var(--paper)}
+.specimen-pillars dt,.specimen-pillars b{display:block;font:600 12px var(--serif);color:var(--ink);margin-bottom:2px}
+.specimen-pillars small{display:block;font-size:11px;line-height:1.35;color:var(--muted)}
+
+/* Landing Sections */
+.l-sec{padding:48px 0;border-bottom:1px solid var(--line)}
+.l-sec-head{display:flex;justify-content:space-between;align-items:end;gap:20px;flex-wrap:wrap;margin-bottom:28px}
+.l-sec-head h2{font:normal clamp(26px,3.4vw,40px)/1.1 var(--serif);letter-spacing:-.025em;margin:0}
+.l-sec-head p{margin:0;color:var(--muted);max-width:420px;font-size:14.5px}
+.tools-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.manual-card{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:22px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:8px;position:relative}
+.manual-card .mc-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.mc-num{font:600 11px var(--mono);color:var(--brass);letter-spacing:.12em}
+.mc-icon{width:34px;height:34px;border-radius:8px;background:var(--folio);border:1px solid var(--line);display:grid;place-items:center;color:var(--accent)}
+.mc-icon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.manual-card h3{font:600 19px/1.2 var(--serif);margin:0}
+.manual-card p{margin:0;font-size:13.5px;line-height:1.62;color:var(--muted)}
+
+.manifesto{display:grid;grid-template-columns:.95fr 1.15fr;gap:36px;align-items:start;background:var(--paper);border:1px solid var(--line-strong);border-radius:12px;padding:34px;box-shadow:var(--shadow-sm);position:relative;overflow:hidden}
+.manifesto:before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--accent)}
+.manifesto h2{font:normal clamp(26px,3vw,38px)/1.12 var(--serif);margin:0}
+.manifesto p{font-size:15px;line-height:1.72;color:var(--muted);margin:0 0 14px}
+.manifesto blockquote{margin:16px 0 18px;padding:12px 16px;background:var(--folio);border-left:2px solid var(--brass);font:italic 15px/1.6 var(--serif);color:var(--ink)}
+
+.guides-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.guide-item{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:16px 18px;display:flex;flex-direction:column;gap:6px}
+.guide-item b{font:600 15.5px var(--serif);color:var(--ink)}
+.guide-item p{margin:0;font-size:13px;line-height:1.55;color:var(--muted)}
+.guide-item span{margin-top:auto;padding-top:6px;font:600 11.5px var(--ui);color:var(--slate)}
+
+.faq-grid{display:grid;grid-template-columns:.75fr 1.25fr;gap:32px;align-items:start}
+.faq-list details{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:14px 18px;margin-bottom:10px}
+.faq-list summary{cursor:pointer;font:600 15px var(--serif);list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.faq-list summary::-webkit-details-marker{display:none}
+.faq-list summary:after{content:'+';font:400 20px/1 var(--ui);color:var(--accent)}
+.faq-list details[open] summary:after{content:'−'}
+.faq-list details p{margin:10px 0 0;font-size:13.5px;line-height:1.65;color:var(--muted)}
+
+.l-footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;padding-top:26px;font-size:12px;color:var(--muted)}
+
+/* ==================== TALLER SHELL ==================== */
+.workshop-shell{display:grid;grid-template-columns:228px minmax(0,1fr);min-height:calc(100vh - 58px);max-width:1600px;margin:0 auto}
+.workshop-shell.collapsed{grid-template-columns:64px minmax(0,1fr)}
+.sidebar{background:var(--folio);border-right:1px solid var(--line);padding:18px 12px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.sb-head{display:flex;align-items:center;justify-content:space-between;padding:0 6px}
+.sb-head .eyebrow{font:600 10px var(--ui);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0}
+.sb-nav{display:grid;gap:4px}
+.sb-nav button{display:flex;align-items:center;gap:10px;width:100%;border:1px solid transparent;background:transparent;border-radius:7px;padding:9px 10px;text-align:left;font:500 13.5px var(--ui);color:var(--muted);transition:background .15s,color .15s}
+.sb-nav button svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.sb-nav button:hover{background:var(--desk);color:var(--ink)}
+.sb-nav button.active{background:var(--paper);border-color:var(--line);color:var(--ink);font-weight:600;box-shadow:var(--shadow-sm)}
+.sb-nav button.active svg{color:var(--accent)}
+.sb-count{margin-left:auto;font:600 11px var(--mono);padding:1px 7px;border-radius:999px;background:var(--desk-2);color:var(--muted)}
+.sb-nav button.active .sb-count{background:var(--accent-soft);color:var(--accent)}
+.sb-resources{margin-top:auto;border-top:1px solid var(--line);padding-top:14px}
+.sb-resources summary{cursor:pointer;font:600 10.5px var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:4px 6px}
+.sb-links{display:grid;gap:4px;margin-top:8px}
+.sb-links a{font-size:12.5px;color:var(--muted);text-decoration:none;padding:5px 8px;border-radius:5px}
+.sb-links a:hover{background:var(--desk);color:var(--accent)}
+.workshop-shell.collapsed .sb-head .eyebrow,
+.workshop-shell.collapsed .sb-label,
+.workshop-shell.collapsed .sb-count,
+.workshop-shell.collapsed .sb-resources{display:none}
+.workshop-shell.collapsed .sb-nav button{justify-content:center;padding:10px}
+
+.ws-main{min-width:0;padding:20px clamp(14px,2.5vw,28px) 44px;display:flex;flex-direction:column;gap:14px}
+
+/* ==================== ESCANDIDOR (REAL UX, MANUAL CRAFT UI) ==================== */
+.drawer-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+.craft-drawer{background:var(--paper);border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow-sm);overflow:hidden}
+.craft-drawer summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;font:600 13.5px var(--serif)}
+.craft-drawer summary::-webkit-details-marker{display:none}
+.craft-drawer summary .d-left{display:flex;align-items:center;gap:9px}
+.craft-drawer summary .d-left svg{width:16px;height:16px;fill:none;stroke:var(--accent);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.craft-drawer summary .d-hint{font:400 12px var(--ui);color:var(--muted);display:flex;align-items:center;gap:8px;text-align:right}
+.craft-drawer summary .chev{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;transition:transform .2s;flex:none}
+.craft-drawer[open] summary{border-bottom:1px solid var(--line);background:var(--folio)}
+.craft-drawer[open] summary .chev{transform:rotate(180deg)}
+.drawer-body{padding:16px;display:grid;gap:14px}
+
+.cfg-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.cfg-field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.cfg-field label,.cfg-field .f-label{font:600 11px var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.cfg-field input[type=text],.cfg-field select{width:100%;border:1px solid var(--line-strong);background:var(--paper);border-radius:6px;padding:7px 10px;font-size:13px;min-width:0}
+.cfg-field .help{font-size:11.5px;color:var(--muted);margin:0;line-height:1.45}
+.cfg-checks{display:flex;flex-wrap:wrap;gap:10px 16px;padding-top:4px;border-top:1px dotted var(--line)}
+.check-row{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink);cursor:pointer}
+.check-row input{accent-color:var(--accent)}
+
+/* Lookup (Rimas y definicion) */
+.lookup-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.lookup-bar input{flex:1 1 160px;border:1px solid var(--line-strong);background:var(--paper);border-radius:6px;padding:7px 10px;font:14px var(--serif)}
+.excluded-bar{display:flex;flex-wrap:wrap;gap:6px}
+.excluded-bar:empty{display:none}
+.ex-chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:3px 9px;border-radius:999px;background:var(--danger-soft);color:var(--danger)}
+.ex-chip button{border:0;background:none;padding:0;font-weight:700;color:inherit;line-height:1}
+.lookup-card{background:var(--folio);border:1px solid var(--line);border-radius:7px;padding:12px 14px;display:grid;gap:10px}
+.lookup-def{font-size:13px;line-height:1.5;margin:0}.lookup-def b{font:600 15px var(--serif);color:var(--accent);margin-right:6px}
+.lookup-group-title{font:600 10.5px var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 6px}
+.rhyme-chips{display:flex;flex-wrap:wrap;gap:6px}
+.rhyme-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line-strong);background:var(--paper);border-radius:999px;padding:4px 10px;font:13.5px var(--serif)}
+.rhyme-chip:hover{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+
+/* Quick bar */
+.quick-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:6px 2px}
+.quick-left,.quick-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.q-group{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.q-group select{border:1px solid var(--line-strong);background:var(--paper);border-radius:6px;padding:5px 9px;font-size:12.5px}
+.scale-val{font:600 11.5px var(--mono);min-width:38px;text-align:center;color:var(--ink)}
+
+/* Two-page open manuscript workspace (Real UX: Escritura left, Analisis right) */
+.spread{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:16px;align-items:stretch}
+.spread.mode-writing{grid-template-columns:1fr}.spread.mode-writing .analysis-pane{display:none}
+.spread.mode-analysis{grid-template-columns:1fr}.spread.mode-analysis .writing-pane{display:none}
+.pane{background:var(--paper);border:1px solid var(--line-strong);border-radius:10px;box-shadow:var(--shadow-md);display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.pane-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:12px 16px;background:var(--folio);border-bottom:1px solid var(--line)}
+.title-input{flex:1 1 180px;min-width:0;border:0;background:transparent;font:600 20px/1.2 var(--serif);color:var(--ink);padding:2px 4px;border-radius:4px}
+.title-input:hover,.title-input:focus{background:var(--paper)}
+.pane-actions{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.font-select{border:1px solid var(--line-strong);background:var(--paper);border-radius:6px;padding:5px 8px;font-size:12px;max-width:165px}
+.swatch-btn{width:30px;height:30px;border-radius:6px;border:1px solid var(--line-strong);background:var(--paper);display:grid;place-items:center;padding:0}
+.swatch-btn i{width:16px;height:16px;border-radius:50%;background:var(--accent);display:block;border:1px solid rgba(0,0,0,.18)}
+
+.memory-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--folio) 45%,var(--paper));font-size:12px}
+.mem-group{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.mem-group label{font:600 10.5px var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.mem-group select{border:1px solid var(--line);background:var(--paper);border-radius:5px;padding:4px 8px;font-size:12px;max-width:170px}
+.capture-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 16px;border-bottom:1px dotted var(--line)}
+.capture-status{font-size:11.5px;color:var(--muted);margin-left:auto}
+.poem-textarea{width:100%;flex:1;min-height:360px;border:0;background:linear-gradient(90deg,transparent 0 26px,color-mix(in srgb,var(--accent) 16%,transparent) 26px 27px,transparent 27px),var(--paper);color:var(--ink);font-family:var(--poem-font);font-size:calc(18px * var(--scale));line-height:1.95;padding:18px 20px 24px 40px;resize:vertical}
+.poem-textarea:focus{outline:none}
+
+/* Analysis Pane (Right page of the craft manual) */
+.pane-title{display:flex;align-items:center;gap:8px}
+.pane-title h2{font:600 17px var(--serif);margin:0}
+.analysis-body{padding:14px 18px 18px;display:flex;flex-direction:column;gap:4px;flex:1;overflow-x:auto}
+.stanza-sep{height:14px;display:flex;align-items:center;gap:8px;color:var(--muted);font:600 9.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;margin:6px 0}
+.stanza-sep:after{content:'';flex:1;border-bottom:1px dotted var(--line)}
+.scan-line{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:12px;align-items:baseline;padding:8px 8px;border-radius:7px;border-bottom:1px dotted var(--line);transition:background .15s}
+.scan-line:hover{background:color-mix(in srgb,var(--folio) 70%,transparent)}
+.scan-line.selected{background:var(--brass-soft)}
+.sl-num{font:600 11px var(--mono);color:var(--muted);text-align:right;user-select:none}
+.sl-verse{font-family:var(--poem-font);font-size:calc(17px * var(--scale));line-height:1.7;color:var(--ink);overflow-wrap:anywhere}
+.syl{display:inline}.syl.tonic{font-weight:700;color:var(--ink);text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--accent) 55%,transparent);text-decoration-thickness:2px;text-underline-offset:3px}
+.syl-dash{color:var(--line-strong);padding:0 1px;font-weight:400;user-select:none}
+.w-btn{border:0;background:none;padding:0 1px;border-radius:3px;font:inherit;color:inherit;cursor:pointer}
+.w-btn:hover{background:var(--slate-soft);color:var(--slate)}
+.sin-btn{display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:4px;padding:2px 4px;margin:0 2px;height:18px;font:700 11px/1 var(--mono);vertical-align:middle;transition:all .15s}
+.sin-btn svg{width:12px;height:7px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;display:block}
+.sin-btn.active{background:var(--slate-soft);color:var(--slate);border-color:color-mix(in srgb,var(--slate) 35%,transparent)}
+.sin-btn.broken{background:var(--danger-soft);color:var(--danger);border-color:color-mix(in srgb,var(--danger) 35%,transparent)}
+.sin-btn:hover{transform:translateY(-1px)}
+.hemi-mark{display:inline-block;margin:0 7px;color:var(--brass);font:700 15px var(--mono)}
+.sl-metrics{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.m-count{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:24px;padding:0 8px;border-radius:999px;font:700 12px var(--mono);background:var(--desk-2);color:var(--ink)}
+.m-count.ok{background:var(--sage-soft);color:var(--sage)}
+.m-count.bad{background:var(--danger-soft);color:var(--danger)}
+.m-accents{display:inline-flex;gap:2px;font:600 11px var(--mono)}
+.acc-pos{padding:2px 5px;border-radius:4px;background:var(--folio);color:var(--muted)}
+.acc-pos.ok{background:var(--sage-soft);color:var(--sage)}
+.acc-pos.bad{background:var(--danger-soft);color:var(--danger)}
+.rhyme-tag{min-width:22px;height:22px;padding:0 5px;border-radius:5px;display:inline-grid;place-items:center;font:700 11.5px var(--mono);background:var(--desk-2);color:var(--muted)}
+.rhyme-tag.rA{background:#e3eef7;color:#1f4e78}.rhyme-tag.rB{background:#f5e4dc;color:#9b371e}.rhyme-tag.rC{background:#e2f0e6;color:#235c3d}.rhyme-tag.rD{background:#efe5f7;color:#5a377d}
+body.dark .rhyme-tag.rA{background:#1d3347;color:#8cc0eb}body.dark .rhyme-tag.rB{background:#3d2119;color:#eb9578}body.dark .rhyme-tag.rC{background:#1b3626;color:#86cc9f}body.dark .rhyme-tag.rD{background:#312242;color:#c29ee8}
+
+.analysis-text{margin:0;padding:18px;font:13.5px/1.8 var(--mono);white-space:pre-wrap;color:var(--ink);flex:1;background:var(--paper)}
+
+/* Mentor Craft Note (Ted Kooser style — gentle advice for writers & students) */
+.craft-note{margin-top:auto;padding:12px 18px;background:var(--folio);border-top:1px solid var(--line);display:flex;align-items:flex-start;gap:11px;font-size:12.5px;line-height:1.55;color:var(--muted)}
+.craft-note .cn-mark{font:700 13px var(--serif);color:var(--brass);padding-top:1px;flex:none}
+.craft-note strong{color:var(--ink);font-weight:600}
+
+/* ==================== LIBRARY & CONTESTS & REMINDERS ==================== */
+.sub-head{display:flex;justify-content:space-between;align-items:end;gap:14px;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.sub-head h1{font:normal 32px/1.1 var(--serif);margin:0}
+.sub-head p{margin:4px 0 0;font-size:13.5px;color:var(--muted)}
+.lib-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.poem-card{background:var(--paper);border:1px solid var(--line);border-top:4px solid var(--card-c,var(--accent));border-radius:9px;padding:18px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px}
+.poem-card h3{font:600 18px var(--serif);margin:0}
+.poem-card pre{margin:0;font:italic 14px/1.6 var(--serif);color:var(--muted);white-space:pre-wrap;flex:1}
+.poem-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:10px;border-top:1px dotted var(--line);font-size:11.5px;color:var(--muted)}
+.contest-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;align-items:start}
+.c-card{background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:18px;box-shadow:var(--shadow-sm)}
+.c-item{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;text-align:left;border:1px solid var(--line);background:var(--folio);border-radius:7px;padding:12px 14px;margin-bottom:8px}
+.c-item.on{background:var(--paper);border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.c-item b{display:block;font:600 14.5px var(--serif)}.c-item small{font-size:12px;color:var(--muted)}
+.checklist{list-style:none;padding:0;margin:12px 0;display:grid;gap:8px}
+.checklist li{display:flex;align-items:flex-start;gap:9px;font-size:13px}
+.ck{width:19px;height:19px;border-radius:50%;display:grid;place-items:center;font:700 11px var(--ui);flex:none;margin-top:1px}
+.ck.ok{background:var(--sage-soft);color:var(--sage)}.ck.no{background:var(--danger-soft);color:var(--danger)}
+
+/* Color popover */
+.color-pop{position:fixed;inset:0;background:rgba(20,16,12,.45);display:grid;place-items:center;z-index:50;padding:16px}
+.color-pop[hidden]{display:none}
+.color-box{background:var(--paper);border:1px solid var(--line-strong);border-radius:10px;padding:20px;width:min(360px,100%);box-shadow:var(--shadow-md)}
+.color-box h3{font:600 18px var(--serif);margin:0 0 12px}
+.swatches{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 18px}
+.swatches button{width:34px;height:34px;border-radius:50%;border:2px solid transparent;box-shadow:inset 0 0 0 2px var(--paper)}
+.swatches button.on{border-color:var(--ink)}
+
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--paper);padding:9px 16px;border-radius:999px;font-size:12.5px;opacity:0;pointer-events:none;transition:all .2s;z-index:60}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media(max-width:1040px){
+ .drawer-row,.spread,.contest-grid{grid-template-columns:1fr}
+ .cfg-grid{grid-template-columns:1fr 1fr}
+ .tools-grid,.guides-grid,.lib-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:780px){
+ .workshop-shell,.workshop-shell.collapsed{grid-template-columns:1fr}
+ .sidebar{border-right:0;border-bottom:1px solid var(--line);padding:10px 12px;gap:8px}
+ .sb-head,.sb-resources{display:none}
+ .sb-nav{display:flex;overflow-x:auto;gap:4px}
+ .sb-nav button{width:auto;white-space:nowrap;padding:7px 11px}
+ .workshop-shell.collapsed .sb-label,.workshop-shell.collapsed .sb-count{display:inline}
+ .l-hero,.manifesto,.faq-grid{grid-template-columns:1fr}
+ .tools-grid,.guides-grid,.lib-grid,.cfg-grid{grid-template-columns:1fr}
+ .specimen-pillars{grid-template-columns:1fr 1fr}
+ .specimen-pillars button{border-bottom:1px solid var(--line)}
+ .top-nav{display:none}
+ .back-gallery{display:none}
+ .sync-pill{display:none}
+ .scan-line{grid-template-columns:18px minmax(0,1fr);gap:6px 8px}
+ .sl-metrics{grid-column:2;justify-content:flex-start}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="topbar">
+ <div class="topbar-inner">
+  <button class="brand" data-route="inicio" aria-label="Mesa de Poesía, ir al inicio">
+   <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h7M9 11h5"/></svg></span>
+   <span class="brand-text"><b>Mesa de Poesía</b><small>Manual y taller de verso</small></span>
+  </button>
+  <nav class="top-nav" aria-label="Navegación principal">
+   <button data-route="inicio">Inicio</button>
+   <button data-route="taller">Taller</button>
+   <button data-ws="biblioteca">Biblioteca</button>
+   <button data-ws="concursos">Concursos</button>
+  </nav>
+  <div class="top-right">
+   <span class="sync-pill" title="Estado de guardado en este navegador"><i></i>Guardado local</span>
+   <a class="back-gallery" href="index.html">← Galería</a>
+   <button class="btn sm" id="themeBtn" aria-pressed="false"></button>
+  </div>
+ </div>
+</header>
+
+<main id="app"></main>
+
+<div class="color-pop" id="colorPop" hidden role="dialog" aria-modal="true" aria-labelledby="colorTitle">
+ <div class="color-box">
+  <h3 id="colorTitle">Tono del poema en el taller</h3>
+  <p style="margin:0;font-size:13px;color:var(--muted)">Como en el Escandidor real, el color elegido tiñe suavemente el escritorio y los acentos.</p>
+  <div class="swatches" id="swatchList"></div>
+  <div style="display:flex;justify-content:flex-end;gap:8px">
+   <button class="btn sm" data-act="reset-color">Restaurar</button>
+   <button class="btn primary sm" data-act="close-color">Listo</button>
+  </div>
+ </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ============ Approximate Spanish Scansion Engine (prototype standalone) ============ */
+const VW='aeiouáéíóúü',STR='aeoáéóíú',WORD_RE=/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+/g;
+const CLUSTERS=new Set(['bl','br','cl','cr','dr','fl','fr','gl','gr','pl','pr','tr','kr','kl']);
+const UNSTRESSED=new Set('el la lo los las un una unos unas de del a al en con por sin so tras y e ni o u que se me te le les nos os mi tu su mis tus sus si tan mas para pero como cuando donde sobre entre hasta desde hacia'.split(' '));
+const plain=s=>s.normalize('NFD').replace(/\u0301/g,'').normalize('NFC');
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function nucleiOf(w){
+ const out=[],isV=k=>VW.includes(w[k])||(w[k]==='y'&&(w.length===1||(k===w.length-1&&k>0&&VW.includes(w[k-1]))));
+ let i=0;
+ while(i<w.length){
+  if(!isV(i)){i++;continue}
+  if(w[i]==='u'&&i>0&&'qg'.includes(w[i-1])&&'eéií'.includes(w[i+1]||'')){i++;continue}
+  const s=i;i++;
+  while(i<w.length&&isV(i)&&!(STR.includes(w[i-1])&&STR.includes(w[i])))i++;
+  out.push({s,e:i});
+ }
+ return out;
+}
+function syllabify(orig,w,nuc){
+ if(nuc.length<2)return [orig];
+ const cuts=[];
+ for(let k=0;k<nuc.length-1;k++){
+  const a=nuc[k].e,b=nuc[k+1].s,cl=w.slice(a,b),units=[];
+  for(let j=0;j<cl.length;j++){
+   const two=cl.slice(j,j+2);
+   if(['ch','ll','rr'].includes(two)){units.push(two);j++}
+   else if(cl[j]==='u'&&units.length)units[units.length-1]+='u';
+   else units.push(cl[j]);
+  }
+  let left=0,n=units.length;
+  if(n===2&&!CLUSTERS.has(units[0]+units[1]))left=1;
+  else if(n===3)left=CLUSTERS.has(units[1]+units[2])?1:2;
+  else if(n>=4)left=2;
+  let len=0;for(let j=0;j<left;j++)len+=units[j].length;
+  cuts.push(a+len);
+ }
+ const out=[];let p=0;cuts.forEach(c=>{out.push(orig.slice(p,c));p=c});out.push(orig.slice(p));return out;
+}
+function stressIdx(w,nuc){
+ const n=nuc.length,a=nuc.findIndex(g=>/[áéíóú]/.test(w.slice(g.s,g.e)));
+ if(a>=0)return a;if(n<2)return 0;return /[aeiouns]$/.test(w)?n-2:n-1;
+}
+function isSinCandidate(a,b,rioplatense){
+ if(rioplatense&&/^y[aeiouáéíóú]/i.test(b))return false;
+ return /[aeiouáéíóúy]$/.test(a)&&/^h?[aeiouáéíóú]/.test(b)&&!/^h?[iu][aeoáéó]/.test(b);
+}
+function analyzePart(text,lineIdx,partOffset,overrides,rioplatense){
+ const toks=text.match(WORD_RE);if(!toks)return null;
+ const words=toks.map(t=>{const w=t.toLowerCase(),nuc=nucleiOf(w);return {t,w,nuc,syl:syllabify(t,w,nuc),si:stressIdx(w,nuc),n:Math.max(1,nuc.length)}});
+ const boundaries=[];let metIdx=0;const accents=[];
+ words.forEach((x,k)=>{
+  let joined=false;
+  if(k>0){
+   const key=`${lineIdx}:${partOffset+k-1}`;
+   const auto=isSinCandidate(words[k-1].w,x.w,rioplatense);
+   const active=key in overrides?overrides[key]:auto;
+   boundaries.push({key,auto,active,k:k-1});
+   if(active)joined=true;
+  }
+  const start=joined?metIdx-1:metIdx;
+  metIdx=start+x.syl.length;
+  const isLast=k===words.length-1;
+  x.isTonic=isLast||!(UNSTRESSED.has(x.w)&&!/[áéíóú]/.test(x.w));
+  if(x.isTonic){
+   accents.push(start+Math.min(x.si,x.syl.length-1)+1);
+  }
+ });
+ const L=words[words.length-1],type=L.n===1||L.si===L.n-1?'aguda':L.si===L.n-2?'llana':'esdrújula';
+ const count=metIdx+(type==='aguda'?1:type==='esdrújula'?-1:0);
+ const g=L.nuc[L.si]||{s:0,e:L.w.length},tv=L.w.slice(g.s,g.e);
+ let off=tv.search(/[áéíóú]/);if(off<0)off=tv.search(/[aeo]/);if(off<0)off=Math.max(0,tv.length-1);
+ const rKey=plain(L.w.slice(g.s+off)),lastV=type==='aguda'?'':(plain(L.w).match(/[aeiou](?=[^aeiou]*$)/)||[''])[0];
+ return {words,boundaries,count,type,accents:[...new Set(accents)],rKey,ason:plain(tv[off]||'')+lastV,last:L.t};
+}
+function analyzeLine(line,lineIdx,overrides,rioplatense){
+ if(!line.trim())return null;
+ const rawParts=line.split('/').map(s=>s.trim()).filter(Boolean);
+ let offset=0;
+ const parts=rawParts.map(pt=>{const r=analyzePart(pt,lineIdx,offset,overrides,rioplatense);offset+=r?r.words.length+1:1;return r}).filter(Boolean);
+ if(!parts.length)return null;
+ const total=parts.reduce((s,p)=>s+p.count,0);
+ const lastP=parts[parts.length-1];
+ return {parts,total,countLabel:parts.length>1?parts.map(p=>p.count).join('+'):String(total),type:lastP.type,rKey:lastP.rKey,ason:lastP.ason,last:lastP.last,accents:parts.length===1?parts[0].accents:parts.flatMap((p,pi)=>pi===0?p.accents:p.accents.map(a=>a+parts[0].count))};
+}
+function computeRhymeLetters(analyzed,mode){
+ const counts={},map={},AB='ABCDEFGHIJKLMNOPQRSTUVWXYZ';let next=0;
+ const keyOf=a=>!a?null:mode==='consonante'?a.rKey:mode==='palabra-final'?plain(a.last.toLowerCase()):a.ason;
+ analyzed.forEach(a=>{const k=keyOf(a);if(k)counts[k]=(counts[k]||0)+1});
+ return analyzed.map(a=>{
+  const k=keyOf(a);if(!k||counts[k]<2)return '–';
+  if(!(k in map))map[k]=AB[next++%26];
+  return a.total<=8?map[k].toLowerCase():map[k];
+ });
+}
+
+/* ============ Real Poetic Forms & Lookup Corpus ============ */
+const FORMS={
+ custom:{name:'Personalizada',pattern:'',rhyme:'asonante',scheme:'',stress:''},
+ soneto:{name:'Soneto',pattern:'11',rhyme:'consonante',scheme:'ABBA ABBA CDC DCD',stress:'6-10'},
+ redondilla:{name:'Redondilla',pattern:'8',rhyme:'consonante',scheme:'abba',stress:'7'},
+ cuarteta:{name:'Cuarteta',pattern:'8',rhyme:'consonante',scheme:'abab',stress:'7'},
+ decima:{name:'Décima o espinela',pattern:'8',rhyme:'consonante',scheme:'abbaaccddc',stress:'7'},
+ romance:{name:'Romance',pattern:'8',rhyme:'asonante',scheme:'-a-a',stress:'7'},
+ lira:{name:'Lira',pattern:'7-11-7-7-11',rhyme:'consonante',scheme:'aBabB',stress:'6-10'},
+ cuadernaVia:{name:'Cuaderna vía',pattern:'14',rhyme:'consonante',scheme:'AAAA',stress:'6-13'},
+ serventesio:{name:'Serventesio',pattern:'11',rhyme:'consonante',scheme:'ABAB',stress:'6-10'},
+ copla:{name:'Copla',pattern:'8',rhyme:'asonante',scheme:'-a-a',stress:'7'},
+ pareado:{name:'Pareado',pattern:'11',rhyme:'consonante',scheme:'AA',stress:'6-10'},
+ silva:{name:'Silva',pattern:'7 11',rhyme:'consonante',scheme:'',stress:'6-10'}
+};
+const DEFS={
+ vela:'Lona o tejido resistente que recibe el viento para impulsar una embarcación; también, cilindro de cera con pabilo.',
+ vuela:'Del verbo volar: desplazarse por el aire, o moverse con gran ligereza.',
+ banda:'Cada uno de los costados de un barco; también, cinta o franja.',
+ mar:'Masa de agua salada que cubre la mayor parte de la superficie terrestre.',
+ bergantín:'Buque de dos palos con velas cuadradas, veloz y maniobrable.',
+ golondrinas:'Aves migratorias de alas largas y cola ahorquillada, símbolo clásico del regreso.',
+ colgar:'Suspender algo de un punto alto sin que toque el suelo.',
+ cristales:'Vidrios de una ventana; por extensión, superficie clara que refleja la luz.',
+ copla:'Composición poética de cuatro versos de arte menor, habitualmente octosílabos.'
+};
+const LEXICON=[...new Set('estela candela cautela canela novela tela duela espuela abuela escuela acuarela centinela vela vuela gacela banda anda manda blanda demanda vianda baranda alma calma playa alba casa agua llama leyenda senda ofrenda tienda bergantín jardín confín clarín fin violín festín carmín delfín latín motín botín mar cantar lugar altar azahar navegar soñar olvidar hogar pesar colgar llegar golondrinas ruinas esquinas espinas colinas salinas marinas cristales umbrales rosales señales llamarán volarán serán darán viento aliento lamento momento cuento firmamento acento tormento noche coche derroche reproche luna cuna fortuna laguna espuma bruma pluma suma cielo vuelo anhelo consuelo desvelo hielo sombra nombra alfombra asombra voz atroz feroz veloz canción corazón razón ilusión pasión copla sopla manopla'.split(' '))];
+const FONTS={
+ 'georgia':{n:'Georgia · literaria',css:"Georgia,'Times New Roman',serif"},
+ 'palatino':{n:'Palatino · editorial',css:"'Iowan Old Style','Palatino Linotype',Palatino,serif"},
+ 'atkinson':{n:'Atkinson · legible',css:"system-ui,-apple-system,'Segoe UI',sans-serif"},
+ 'mono':{n:'Monoespaciada · estudio',css:"ui-monospace,'Cascadia Mono',monospace"}
+};
+const TINTS=[
+ {name:'Terracota (manual)',hex:'#ad4227'},
+ {name:'Azul pizarra',hex:'#2c5673'},
+ {name:'Verde cedro',hex:'#2f684a'},
+ {name:'Ciruela tinta',hex:'#6c3d69'},
+ {name:'Ocre latón',hex:'#9b6a1d'},
+ {name:'Carmín editorial',hex:'#8d2d3b'}
+];
+
+/* ============ Prototype Application State ============ */
+const S={
+ route:'taller', // 'inicio' | 'taller'
+ ws:'editor',    // 'editor' | 'biblioteca' | 'concursos' | 'recordatorios'
+ dark:false,
+ sidebarCollapsed:false,
+ curPoem:0,
+ curVersion:0,
+ selectedLine:0,
+ analysisMode:'visual', // 'visual' | 'text'
+ viewMode:'both',       // 'both' | 'writing' | 'analysis'
+ fontKey:'palatino',
+ scale:1,
+ poemTint:null,
+ lookupWord:'vela',
+ excluded:[],
+ configOpen:false,
+ lookupOpen:false,
+ activeContest:0,
+ poems:[
+  {
+   id:'p1',title:'Canción del pirata',author:'José de Espronceda · ejemplo',color:'#ad4227',tags:['octosílabos','clásico'],
+   form:'cuarteta',pattern:'8',rhymeMode:'consonante',scheme:'-aa-',stress:'7',rioplatense:true,overrides:{},
+   versions:[
+    {label:'Versión actual',when:'hoy, 03:15',text:'Con diez cañones por banda,\nviento en popa, a toda vela,\nno corta el mar, sino vuela\nun velero bergantín.'},
+    {label:'Borrador de estudio',when:'ayer',text:'Con diez cañones a cada banda,\nel viento en popa, a toda vela,\nno corta el mar, sino que vuela\nun velero bergantín.'}
+   ]
+  },
+  {
+   id:'p2',title:'Rima LIII',author:'Gustavo Adolfo Bécquer · ejemplo',color:'#2c5673',tags:['endecasílabos','asonante'],
+   form:'custom',pattern:'11-11-11-7',rhymeMode:'asonante',scheme:'-a-a',stress:'6-10',rioplatense:true,overrides:{},
+   versions:[
+    {label:'Versión actual',when:'hace 2 días',text:'Volverán las oscuras golondrinas\nen tu balcón sus nidos a colgar,\ny otra vez con el ala a sus cristales\njugando llamarán.'}
+   ]
+  },
+  {
+   id:'p3',title:'Soneto en preparación',author:'Borrador de taller',color:'#2f684a',tags:['soneto','revisión'],
+   form:'soneto',pattern:'11',rhymeMode:'consonante',scheme:'ABBA',stress:'6-10',rioplatense:true,overrides:{},
+   versions:[
+    {label:'Primer cuarteto',when:'19 nov.',text:'Cuando la tarde dobla su madera\ny en la mesa descansa cada verso,\nmido el silencio breve del reverso\ncomo quien pule una palabra entera.'}
+   ]
+  }
+ ],
+ contests:[
+  {name:'Certamen Internacional Vela Latina',org:'Cádiz · Escritores.org',deadline:'2026-12-10',maxLines:14,meter:8,plica:true,status:'En preparación'},
+  {name:'Premio de Poesía de Otoño',org:'Montevideo',deadline:'2026-12-28',maxLines:60,meter:null,plica:false,status:'En preparación'},
+  {name:'Juegos Florales del Puerto',org:'Valparaíso',deadline:'2027-01-18',maxLines:100,meter:11,plica:true,status:'Enviado'}
+ ]
+};
+const curP=()=>S.poems[S.curPoem];
+const curV=()=>curP().versions[S.curVersion]||curP().versions[0];
+
+let toastTimer;
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2400)}
+
+/* ============ Parsing Target Meter & Stress ============ */
+function targetCountsFor(pattern,verseIdx){
+ const p=String(pattern||'').trim();if(!p)return null;
+ if(p.includes('-')){const seq=p.split('-').map(x=>parseInt(x,10)).filter(Boolean);return seq.length?[seq[verseIdx%seq.length]]:null}
+ const set=p.split(/\s+/).map(x=>parseInt(x,10)).filter(Boolean);
+ return set.length?set:null;
+}
+function targetStressSet(str){return String(str||'').split(/[\s,-]+/).map(x=>parseInt(x,10)).filter(Boolean)}
+
+/* ============ Icons (unified 1.6px ink stroke) ============ */
+const IC={
+ pen:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+ books:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+ trophy:'<path d="M6 9H4a2 2 0 0 1-2-2V5h4M18 9h2a2 2 0 0 0 2-2V5h-4M4 22h16M10 14.7V17c0 .6-.5 1-1 1.4-1.1.4-2 1.6-2 3.6h10c0-2-.9-3.2-2-3.6-.5-.4-1-.8-1-1.4v-2.3M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+ bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+ ruler:'<path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.4 2.4 0 0 1 0-3.4l2.6-2.6a2.4 2.4 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2M11.5 9.5l2-2M8.5 6.5l2-2M17.5 15.5l2-2"/>',
+ search:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+ save:'<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ mic:'<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4M8 22h8"/>',
+ cam:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3Z"/><circle cx="12" cy="13" r="3"/>',
+ copy:'<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+ file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/>',
+ chev:'<path d="m6 9 6 6 6-6"/>',
+ collapse:'<path d="m15 18-6-6 6-6"/>',
+ sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>',
+ moon:'<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>'
+};
+const ic=(k,cls='')=>`<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${IC[k]}</svg>`;
+
+/* ============ LANDING VIEW ============ */
+function renderLanding(){
+ return `<div class="landing">
+  <div class="edition-strip"><span>Manual práctico y taller de poesía en español</span><span>Escribir · Medir · Revisar · Presentar</span></div>
+
+  <section class="l-hero">
+   <div>
+    <p class="section-tag">Sin IA · Gratis · Para escritores y estudiantes</p>
+    <h1>Tu poema,<br><em>en una mesa de oficio.</em></h1>
+    <p class="l-copy">Inspirada en la tradición de los manuales prácticos de poesía: un lugar sereno donde <strong>escribir, medir y reparar versos</strong> sin perder tu voz.</p>
+    <p class="l-copy">Separá sílabas métricas, ajustá sinalefas y hemistiquios con un clic, compará acentos y rimas, guardá cada versión y prepará entregas y plicas para concursos.</p>
+    <div class="l-actions">
+     <button class="btn primary" data-route="taller">Abrir el Escandidor →</button>
+     <a class="btn" href="#manual-herramientas">Recorrer el taller</a>
+    </div>
+    <p class="l-note">Sin cuenta obligatoria · Análisis instantáneo en español · Tus textos siguen siendo tuyos</p>
+   </div>
+
+   <figure class="manual-specimen" aria-label="Ejemplo de análisis métrico en el taller">
+    <div class="manual-specimen-head"><span>Ficha de escansión · Ejemplo</span><em>Canción del pirata</em></div>
+    <div class="ruler-hairline" aria-hidden="true"></div>
+    <div class="specimen-body">
+     <div class="specimen-verse-row"><span class="sv-num">01</span><span class="sv-text">Con <strong>diez</strong> ca·<strong>ño</strong>·nes por <strong>ban</strong>·da,</span><span class="sv-meta"><span class="sv-count">8</span><span class="sv-rhyme">–</span></span></div>
+     <div class="specimen-verse-row"><span class="sv-num">02</span><span class="sv-text"><strong>vien</strong>·to<span class="join" aria-label="sinalefa"><svg viewBox="0 0 14 8"><path d="M1.5 1.5Q7 7.5 12.5 1.5"/></svg></span>en <strong>po</strong>·pa,<span class="join" aria-label="sinalefa"><svg viewBox="0 0 14 8"><path d="M1.5 1.5Q7 7.5 12.5 1.5"/></svg></span>a <strong>to</strong>·da <strong>ve</strong>·la,</span><span class="sv-meta"><span class="sv-count">8</span><span class="sv-rhyme">a</span></span></div>
+     <div class="specimen-verse-row"><span class="sv-num">03</span><span class="sv-text">no <strong>cor</strong>·ta<span class="join" aria-label="sinalefa"><svg viewBox="0 0 14 8"><path d="M1.5 1.5Q7 7.5 12.5 1.5"/></svg></span>el <strong>mar</strong>, si·no <strong>vue</strong>·la</span><span class="sv-meta"><span class="sv-count">8</span><span class="sv-rhyme">a</span></span></div>
+     <div class="specimen-verse-row"><span class="sv-num">04</span><span class="sv-text">un ve·<strong>le</strong>·ro ber·gan·<strong>tín</strong>.</span><span class="sv-meta"><span class="sv-count">8</span><span class="sv-rhyme">–</span></span></div>
+     <div class="specimen-callout"><b>Nota de oficio:</b> En el verso 4, <em>bergantín</em> es aguda y suma +1 sílaba métrica (7 + 1 = 8). En el taller podés hacer clic en cada arco de sinalefa para probar otra lectura.</div>
+    </div>
+    <div class="specimen-pillars">
+     <button data-ws="editor"><b>Escandidor</b><small>Sílabas, acentos, sinalefas y rima.</small></button>
+     <button data-ws="biblioteca"><b>Biblioteca</b><small>Poemas, etiquetas y versiones.</small></button>
+     <button data-ws="concursos"><b>Concursos</b><small>Bases, formato y plicas.</small></button>
+     <button data-ws="recordatorios"><b>Agenda</b><small>Cierres y fallos a la vista.</small></button>
+    </div>
+   </figure>
+  </section>
+
+  <section class="l-sec" id="manual-herramientas">
+   <div class="l-sec-head">
+    <div><p class="section-tag">Cap. I · Las herramientas de la mesa</p><h2>Del primer borrador a la entrega.</h2></div>
+    <p>Cada etapa del poema tiene su herramienta, ordenada con la claridad de un cuaderno de trabajo.</p>
+   </div>
+   <div class="tools-grid">
+    ${[
+     ['01','pen','Escribir','Dale espacio al borrador.','Escribí, dictá por voz o pasá una foto a texto. Consultá definiciones y rimas sin salir del poema, y elegí fuente y tono para tu escritorio.'],
+     ['02','ruler','Medir y revisar','Escuchá cómo suena cada verso.','Separación silábica, conteo métrico, sinalefas clicables, hemistiquios, patrones de acento versal y 22 formas poéticas clásicas.'],
+     ['03','books','Conservar','Guardá también el camino.','Biblioteca con etiquetas, colores e historial de versiones. Recuperá borradores, exportá en Markdown, PDF, DOCX o video de evolución.'],
+     ['04','trophy','Preparar concursos','Tené las bases a mano.','Importá convocatorias de Escritores.org, fijá la versión del poema, armá portadas y prepará plicas cifradas por separado.'],
+     ['05','search','Aprender el oficio','Pensado también para estudiantes.','Cada verso muestra por qué mide lo que mide: licencias métricas, ley del acento final y notas de lectura en lenguaje claro.'],
+     ['06','bell','Seguir las fechas','Sin perder un cierre.','Recordatorios de plazos y fallos con descarga de calendario ICS, para que la logística nunca interrumpa la escritura.']
+    ].map(([n,k,tag,h,p])=>`<article class="manual-card"><div class="mc-head"><span class="mc-num">${n} / ${tag.toUpperCase()}</span><span class="mc-icon">${ic(k)}</span></div><h3>${h}</h3><p>${p}</p></article>`).join('')}
+   </div>
+  </section>
+
+  <section class="l-sec">
+   <div class="manifesto">
+    <div><p class="section-tag">Cap. II · El oficio</p><h2>Reparar un verso es aprender a escucharlo mejor.</h2></div>
+    <div>
+     <p>Un poema bien hecho se parece a una buena obra de carpintería doméstica: las uniones no chirrían, el peso descansa donde debe y cada palabra sostiene a la siguiente.</p>
+     <blockquote>«El análisis muestra dónde apoya el ritmo y dónde se quiebra; la decisión poética sigue siendo enteramente tuya.»</blockquote>
+     <p>Tanto si estás dando tus primeros pasos con un soneto en clase como si llevás años puliendo un poemario, el taller pone las reglas a la vista y te deja experimentar sin miedo.</p>
+     <button class="btn primary" data-route="taller">Poner un poema sobre la mesa →</button>
+    </div>
+   </div>
+  </section>
+
+  <section class="l-sec">
+   <div class="l-sec-head">
+    <div><p class="section-tag">Cap. III · Cuaderno de estudio</p><h2>Guías y lecturas para practicar.</h2></div>
+    <p>Material pensado para estudiantes, docentes y escritores que quieren profundizar en la métrica española.</p>
+   </div>
+   <div class="guides-grid">
+    ${[
+     ['Las 22 formas poéticas','Soneto, décima espinela, lira, romance, cuaderna vía, silva y más, listas para cargar en el editor.','Cargar en el Escandidor →'],
+     ['Cómo contar sílabas métricas','Sinalefas, hiatos, sinéresis y ley del acento final explicados con ejemplos claros.','Probar con un poema →'],
+     ['Poemas clásicos escandidos','Quevedo, Garcilaso, Bécquer y Espronceda listos para observar acentos y licencias reales.','Abrir ejemplos →']
+    ].map(([t,d,l])=>`<article class="guide-item"><b>${t}</b><p>${d}</p><span>${l}</span></article>`).join('')}
+   </div>
+  </section>
+
+  <section class="l-sec" style="border-bottom:0">
+   <div class="faq-grid">
+    <div><p class="section-tag">Antes de empezar</p><h2 style="font:normal 32px/1.1 var(--serif);margin:0">Lo que conviene saber.</h2></div>
+    <div class="faq-list">
+     <details open><summary>¿Necesito una cuenta para usar el Escandidor?</summary><p>No. Podés escribir, analizar y guardar tus poemas localmente desde el navegador. La cuenta solo es necesaria si querés sincronizar tu biblioteca y concursos entre dispositivos.</p></details>
+     <details><summary>¿Usa inteligencia artificial para escribir?</summary><p>No. Mesa de Poesía es un taller de escritura propia: analiza la fonética y la métrica de tus versos con reglas transparentes, sin generar poemas por vos.</p></details>
+     <details><summary>¿Sirve para clases de literatura y talleres?</summary><p>Sí. Podés alternar entre vista visual y modo texto copiable, cargar formas poéticas clásicas y mostrar en vivo cómo cambia la medida al romper una sinalefa o mover un acento.</p></details>
+    </div>
+   </div>
+  </section>
+
+  <footer class="l-footer"><span>Mesa de Poesía · Un manual vivo para escribir y revisar poesía en español.</span><span>Prototipo de rediseño UI · Conserva la UX del Escandidor real</span></footer>
+ </div>`;
+}
+
+/* ============ ANALYSIS RENDERER (INTERACTIVE REAL UX) ============ */
+function buildAnalysisData(){
+ const p=curP(),v=curV(),rawLines=v.text.split('\n');
+ const analyzed=[];let verseNo=0;
+ const rows=rawLines.map((line,idx)=>{
+  if(!line.trim())return {blank:true,idx};
+  const a=analyzeLine(line,idx,p.overrides,p.rioplatense);
+  const res={blank:false,idx,verseNo:verseNo++,line,a};
+  analyzed.push(a);
+  return res;
+ });
+ const letters=computeRhymeLetters(analyzed,p.rhymeMode);
+ let ai=0;
+ rows.forEach(r=>{if(!r.blank)r.rhyme=letters[ai++]});
+ const stanzas=v.text.trim()?v.text.trim().split(/\n\s*\n/).length:0;
+ const schemeStr=letters.filter(Boolean).join(' ')||'libre';
+ return {rows,stanzas,schemeStr};
+}
+
+function renderAnalysisHtml(data){
+ const p=curP(),targetsStress=targetStressSet(p.stress);
+ if(S.analysisMode==='text'){
+  const linesTxt=data.rows.map(r=>{
+   if(r.blank)return '';
+   const txt=r.a.parts.map(pt=>pt.words.map((w,wi)=>{
+    const sep=wi>0?(pt.boundaries[wi-1].active?'‿':' '):'';
+    return sep+w.syl.map((s,si)=>si===w.si?s.toUpperCase():s).join('-');
+   }).join('')).join(' / ');
+   return `${txt}   [${r.a.countLabel}] (${r.a.accents.join('-')}) ${r.rhyme}`;
+  }).join('\n');
+  return `<pre class="analysis-text" id="analysisTextOut">${esc(linesTxt||'Escribe un poema en el panel izquierdo para ver el análisis.')}</pre>`;
+ }
+ let stanzaNum=1,html='<div class="analysis-body">';
+ if(!data.rows.some(r=>!r.blank)){
+  return '<div class="analysis-body"><p style="color:var(--muted);font:italic 15px var(--serif);padding:24px 8px">Escribí o pegá tus versos en la hoja izquierda para ver la separación silábica, las sinalefas clicables y el ritmo.</p></div>';
+ }
+ data.rows.forEach(r=>{
+  if(r.blank){stanzaNum++;html+=`<div class="stanza-sep">Estrofa ${stanzaNum}</div>`;return}
+  const a=r.a,exp=targetCountsFor(p.pattern,r.verseNo);
+  const countClass=!exp?'':exp.includes(a.total)?'ok':'bad';
+  const rClass=r.rhyme==='–'?'':'r'+r.rhyme.toUpperCase();
+  const verseHtml=a.parts.map((pt,pi)=>{
+   const wHtml=pt.words.map((w,wi)=>{
+    let join='';
+    if(wi>0){
+     const b=pt.boundaries[wi-1];
+     if(b.auto||b.key in p.overrides){
+      const arc='<svg viewBox="0 0 14 8" aria-hidden="true"><path d="M1.5 1.5Q7 7.5 12.5 1.5"/></svg>';
+      join=`<button type="button" class="sin-btn ${b.active?'active':'broken'}" data-sin="${b.key}" aria-label="${b.active?'Sinalefa activa':'Sinalefa rota'}" title="${b.active?'Sinalefa activa · clic para romperla':'Sinalefa rota · clic para unirla'}">${b.active?arc:'|'}</button>`;
+     }else join=' ';
+    }
+    const sylHtml=w.syl.map((s,si)=>`<span class="syl ${w.isTonic&&si===w.si?'tonic':''}">${esc(s)}</span>`).join('<span class="syl-dash">-</span>');
+    return `${join}<button type="button" class="w-btn" data-word="${esc(w.t)}" title="Consultar rimas y definición de «${esc(w.t)}»">${sylHtml}</button>`;
+   }).join('');
+   return (pi>0?'<span class="hemi-mark" title="Corte de hemistiquio">/</span>':'')+wHtml;
+  }).join('');
+  const accHtml=a.accents.map(pos=>{
+   const cls=!targetsStress.length?'':targetsStress.includes(pos)?'ok':'';
+   return `<span class="acc-pos ${cls}" title="Acento en sílaba ${pos}">${pos}</span>`;
+  }).join('');
+  const missingStress=targetsStress.filter(pos=>pos<=a.total&&!a.accents.includes(pos)).map(pos=>`<span class="acc-pos bad" title="Falta acento esperado en ${pos}">×${pos}</span>`).join('');
+  html+=`<div class="scan-line ${S.selectedLine===r.idx?'selected':''}" data-sel-line="${r.idx}">
+   <span class="sl-num">${r.verseNo+1}</span>
+   <div class="sl-verse">${verseHtml}</div>
+   <div class="sl-metrics">
+    <span class="m-count ${countClass}" title="Sílabas métricas (${a.type})">${a.countLabel}</span>
+    <span class="m-accents" aria-label="Posiciones de acento">${accHtml}${missingStress}</span>
+    <span class="rhyme-tag ${rClass}" title="Rima ${p.rhymeMode}">${r.rhyme}</span>
+   </div>
+  </div>`;
+ });
+ html+='</div>';
+ return html;
+}
+
+function renderCraftNote(data){
+ const row=data.rows.find(r=>!r.blank&&r.idx===S.selectedLine)||data.rows.find(r=>!r.blank);
+ if(!row)return '';
+ const a=row.a,p=curP(),exp=targetCountsFor(p.pattern,row.verseNo);
+ const parts=[];
+ parts.push(`<strong>Verso ${row.verseNo+1}:</strong> ${a.countLabel} sílabas métricas (${a.type}${a.type==='aguda'?', suma +1':a.type==='esdrújula'?', resta −1':''}).`);
+ if(exp&&!exp.includes(a.total))parts.push(`El metro configurado espera ${exp.join(' o ')}.`);
+ else if(exp)parts.push(`Cumple con el metro (${exp.join(' / ')}).`);
+ parts.push('Hacé clic en cualquier <strong>‿</strong> para forzar o romper una sinalefa, o en cualquier palabra para ver sus rimas.');
+ return `<div class="craft-note"><span class="cn-mark" aria-hidden="true">§</span><div>${parts.join(' ')}</div></div>`;
+}
+
+function renderLookupBody(){
+ const w=S.lookupWord.trim().toLowerCase();
+ const excludedHtml=S.excluded.map(x=>`<span class="ex-chip">${esc(x)} <button type="button" data-unex="${esc(x)}" aria-label="Quitar ${esc(x)}">×</button></span>`).join('');
+ let resHtml='<p style="margin:0;font-size:12.5px;color:var(--muted)">Escribí o hacé clic en cualquier palabra del análisis para ver su definición y rimas.</p>';
+ if(w){
+  const a=analyzePart(w,0,0,{},true);
+  const def=DEFS[w]||'Entrada demostrativa: en el Escandidor real, la definición se consulta automáticamente en Wikcionario.';
+  const cons=[],ason=[];
+  if(a){
+   LEXICON.forEach(cand=>{
+    if(cand===w||S.excluded.includes(cand))return;
+    const c=analyzePart(cand,0,0,{},true);
+    if(!c)return;
+    if(c.rKey===a.rKey)cons.push(cand);
+    else if(c.ason===a.ason)ason.push(cand);
+   });
+  }
+  resHtml=`<div class="lookup-card">
+   <p class="lookup-def"><b>${esc(S.lookupWord)}</b>${esc(def)}</p>
+   <div><p class="lookup-group-title">Rimas consonantes (${cons.length})</p><div class="rhyme-chips">${cons.slice(0,12).map(r=>`<button type="button" class="rhyme-chip" data-use-rhyme="${r}" title="Probar «${r}» al final del verso seleccionado">${r}</button>`).join('')||'<span style="font-size:12px;color:var(--muted)">Sin coincidencias en el corpus de ejemplo.</span>'}</div></div>
+   <div><p class="lookup-group-title">Rimas asonantes (${ason.length})</p><div class="rhyme-chips">${ason.slice(0,10).map(r=>`<button type="button" class="rhyme-chip" data-use-rhyme="${r}">${r}</button>`).join('')||'<span style="font-size:12px;color:var(--muted)">Sin coincidencias en el corpus de ejemplo.</span>'}</div></div>
+  </div>`;
+ }
+ return `<div class="drawer-body">
+  <div class="lookup-bar">
+   <input id="lookupInput" type="text" value="${esc(S.lookupWord)}" placeholder="Escribí una palabra…" aria-label="Palabra para buscar">
+   <button type="button" class="btn sm" data-act="exclude-word">Evitar repetir</button>
+  </div>
+  <div class="excluded-bar">${excludedHtml}</div>
+  ${resHtml}
+ </div>`;
+}
+
+/* ============ TALLER VIEWS ============ */
+function renderEditorView(){
+ const p=curP(),v=curV(),data=buildAnalysisData();
+ return `
+  <section class="drawer-row" aria-label="Herramientas de configuración y consulta">
+   <details class="craft-drawer" id="cfgDrawer" ${S.configOpen?'open':''}>
+    <summary><span class="d-left">${ic('ruler')}Configuración métrica</span><span class="d-hint">${FORMS[p.form]?.name||'Personalizada'} · ${p.pattern||'libre'} · ${p.rhymeMode}${ic('chev','chev')}</span></summary>
+    <div class="drawer-body">
+     <div class="cfg-grid">
+      <div class="cfg-field"><label for="cfgForm">Forma o estrofa</label><select id="cfgForm">${Object.entries(FORMS).map(([k,f])=>`<option value="${k}" ${p.form===k?'selected':''}>${f.name}</option>`).join('')}</select></div>
+      <div class="cfg-field"><label for="cfgPattern">Conteo silábico</label><input id="cfgPattern" type="text" value="${esc(p.pattern)}" placeholder="Ej: 11, 7-5-7-5 o 7 11"><p class="help">Guiones: secuencia. Espacios: mixto.</p></div>
+      <div class="cfg-field"><label for="cfgRhyme">Tipo de rima</label><select id="cfgRhyme"><option value="asonante" ${p.rhymeMode==='asonante'?'selected':''}>Asonante</option><option value="consonante" ${p.rhymeMode==='consonante'?'selected':''}>Consonante</option><option value="palabra-final" ${p.rhymeMode==='palabra-final'?'selected':''}>Palabra final</option></select></div>
+      <div class="cfg-field"><label for="cfgStress">Acento versal</label><input id="cfgStress" type="text" value="${esc(p.stress)}" placeholder="Ej: 6-10 o 7"><p class="help">Se valida en verde/rojo por verso.</p></div>
+      <div class="cfg-field"><label for="cfgScheme">Esquema de rima</label><input id="cfgScheme" type="text" value="${esc(p.scheme)}" placeholder="Ej: ABBA ABBA"></div>
+      <div class="cfg-field"><span class="f-label">Sinalefas</span><button type="button" class="btn sm" data-act="reset-sin">Recalcular automáticas</button><p class="help">Usá «/» en un verso para hemistiquios.</p></div>
+     </div>
+     <div class="cfg-checks">
+      <label class="check-row"><input id="cfgRio" type="checkbox" ${p.rioplatense?'checked':''}>Y rioplatense (como en «yo»)</label>
+     </div>
+    </div>
+   </details>
+
+   <details class="craft-drawer" id="lookupDrawer" ${S.lookupOpen?'open':''}>
+    <summary><span class="d-left">${ic('search')}Rimas y definición</span><span class="d-hint">«${esc(S.lookupWord||'elegir palabra')}» · Wikcionario y corpus${ic('chev','chev')}</span></summary>
+    ${renderLookupBody()}
+   </details>
+  </section>
+
+  <div class="quick-bar" aria-label="Ajustes de lectura y vista">
+   <div class="quick-left">
+    <span class="q-group"><span>Tamaño</span><button type="button" class="btn sm" data-act="scale-down" aria-label="Reducir texto">A−</button><span class="scale-val">${Math.round(S.scale*100)}%</span><button type="button" class="btn sm" data-act="scale-up" aria-label="Aumentar texto">A+</button></span>
+    <span class="q-group"><label for="viewSelect">Vista</label><select id="viewSelect"><option value="both" ${S.viewMode==='both'?'selected':''}>Escritura + análisis</option><option value="writing" ${S.viewMode==='writing'?'selected':''}>Solo escritura</option><option value="analysis" ${S.viewMode==='analysis'?'selected':''}>Solo análisis</option></select></span>
+   </div>
+   <div class="quick-right">
+    <span class="pill accent">${FORMS[p.form]?.name||'Medida libre'}</span>
+    <span class="pill">Sin IA · Escritura propia</span>
+   </div>
+  </div>
+
+  <section class="spread mode-${S.viewMode}" aria-label="Mesa de escritura y escansión">
+   <article class="pane writing-pane">
+    <div class="pane-head">
+     <input id="poemTitleInput" class="title-input" value="${esc(p.title)}" aria-label="Título del poema">
+     <div class="pane-actions">
+      <select id="fontSelect" class="font-select" aria-label="Fuente del poema">${Object.entries(FONTS).map(([k,f])=>`<option value="${k}" ${S.fontKey===k?'selected':''}>${f.n}</option>`).join('')}</select>
+      <button type="button" class="swatch-btn" data-act="open-color" title="Color del poema actual" aria-label="Color del poema actual"><i></i></button>
+      <button type="button" class="btn icon" data-act="new-poem" title="Nuevo poema" aria-label="Nuevo poema">${ic('plus')}</button>
+      <button type="button" class="btn icon" data-act="save-version" title="Guardar nueva versión (Ctrl+S)" aria-label="Guardar versión">${ic('save')}</button>
+      <button type="button" class="btn sm" data-act="export-md" title="Exportar Markdown">${ic('file')}MD</button>
+      <button type="button" class="btn sm" data-act="export-pdf" title="Exportar PDF">PDF</button>
+     </div>
+    </div>
+    <div class="memory-bar">
+     <span class="mem-group"><label for="poemSelect">Poema</label><select id="poemSelect">${S.poems.map((x,i)=>`<option value="${i}" ${i===S.curPoem?'selected':''}>${esc(x.title)}</option>`).join('')}</select></span>
+     <span class="mem-group"><label for="verSelect">Versión</label><select id="verSelect">${p.versions.map((x,i)=>`<option value="${i}" ${i===S.curVersion?'selected':''}>${esc(x.label)} (${x.when})</option>`).join('')}</select></span>
+    </div>
+    <div class="capture-bar">
+     <button type="button" class="btn sm" data-act="dictate">${ic('mic')}Dictar</button>
+     <button type="button" class="btn sm" data-act="photo">${ic('cam')}Foto a texto</button>
+     <span class="capture-status">Guardado en el navegador · ${p.versions.length} ${p.versions.length===1?'versión':'versiones'}</span>
+    </div>
+    <label class="sr" for="poemInput">Poema</label>
+    <textarea id="poemInput" class="poem-textarea" lang="es" spellcheck="true" placeholder="Escribí o pegá tu poema acá. Usá líneas en blanco para separar estrofas y «/» para hemistiquios.">${esc(v.text)}</textarea>
+   </article>
+
+   <article class="pane analysis-pane">
+    <div class="pane-head">
+     <div class="pane-title"><h2>Análisis</h2><span class="pill">Estrofas ${data.stanzas}</span><span class="pill slate">Esquema ${esc(data.schemeStr)}</span></div>
+     <div class="pane-actions">
+      <button type="button" class="btn sm" data-act="toggle-amode">${S.analysisMode==='visual'?'Modo texto':'Vista visual'}</button>
+      ${S.analysisMode==='text'?`<button type="button" class="btn sm" data-act="copy-analysis">${ic('copy')}Copiar</button>`:''}
+     </div>
+    </div>
+    <div class="ruler-hairline" aria-hidden="true"></div>
+    <div id="analysisMount" style="display:flex;flex-direction:column;flex:1">${renderAnalysisHtml(data)}${renderCraftNote(data)}</div>
+   </article>
+  </section>`;
+}
+
+function renderLibraryView(){
+ return `
+  <div class="sub-head">
+   <div><p class="section-tag">Tu biblioteca</p><h1>Poemas y versiones</h1><p>Cada poema conserva su historia, su tono y sus configuraciones métricas.</p></div>
+   <button type="button" class="btn primary" data-act="new-poem">${ic('plus')}Nuevo poema</button>
+  </div>
+  <div class="lib-grid">
+   ${S.poems.map((p,i)=>`<article class="poem-card" style="--card-c:${p.color}">
+    <div style="display:flex;justify-content:space-between;align-items:start;gap:8px"><h3>${esc(p.title)}</h3><span class="pill">${p.versions.length} v.</span></div>
+    <pre>${esc(p.versions[0].text.split('\n').slice(0,4).join('\n'))}</pre>
+    <div style="display:flex;gap:5px;flex-wrap:wrap">${p.tags.map(t=>`<span class="pill accent">#${esc(t)}</span>`).join('')}</div>
+    <div class="poem-card-foot"><span>${esc(p.author)}</span><button type="button" class="btn sm" style="white-space:nowrap" data-open-poem="${i}">Abrir poema →</button></div>
+   </article>`).join('')}
+  </div>`;
+}
+
+function renderContestsView(){
+ const c=S.contests[S.activeContest],p=curP(),lines=curV().text.split('\n').filter(l=>l.trim());
+ const an=lines.map((l,i)=>analyzeLine(l,i,p.overrides,p.rioplatense)).filter(Boolean);
+ const checks=[
+  ['Extensión',`${an.length} versos (máximo ${c.maxLines})`,an.length>0&&an.length<=c.maxLines],
+  ['Medida',c.meter?`Se piden versos de ${c.meter} sílabas`:'Metro libre',!c.meter||an.every(a=>a.total===c.meter)],
+  ['Plica separada',c.plica?'Datos personales listos en plica aparte':'Falta completar datos de plica',c.plica]
+ ];
+ return `
+  <div class="sub-head">
+   <div><p class="section-tag">Entregas y convocatorias</p><h1>Concursos</h1><p>Compará las bases contra «${esc(p.title)}» antes de exportar tu PDF o DOCX.</p></div>
+   <button type="button" class="btn" data-act="export-pdf">${ic('file')}Preparar entrega</button>
+  </div>
+  <div class="contest-grid">
+   <div class="c-card">
+    <p class="section-tag">Convocatorias guardadas</p>
+    ${S.contests.map((x,i)=>`<button type="button" class="c-item ${i===S.activeContest?'on':''}" data-contest="${i}"><div><b>${esc(x.name)}</b><small>${esc(x.org)} · cierra ${x.deadline}</small></div><span class="pill ${x.status==='Enviado'?'sage':'accent'}">${x.status}</span></button>`).join('')}
+   </div>
+   <div class="c-card">
+    <p class="section-tag">Revisión de bases</p>
+    <h2 style="font:600 20px var(--serif);margin:0 0 4px">${esc(c.name)}</h2>
+    <p style="margin:0;font-size:12.5px;color:var(--muted)">Poema asociado: <strong>${esc(p.title)}</strong></p>
+    <ul class="checklist">${checks.map(([t,d,ok])=>`<li><span class="ck ${ok?'ok':'no'}">${ok?'✓':'!'}</span><div><strong>${t}</strong><div style="font-size:12px;color:var(--muted)">${d}</div></div></li>`).join('')}</ul>
+    <button type="button" class="btn primary sm" data-ws="editor">Volver al poema para ajustar →</button>
+   </div>
+  </div>`;
+}
+
+function renderRemindersView(){
+ return `
+  <div class="sub-head">
+   <div><p class="section-tag">Agenda del taller</p><h1>Recordatorios</h1><p>Cierres próximos y fechas estimadas de fallo, con exportación a calendario.</p></div>
+  </div>
+  <div class="c-card">
+   ${S.contests.map(c=>`<div class="c-item" style="cursor:default"><div><b>${esc(c.name)}</b><small>Cierre: ${c.deadline} · ${esc(c.org)}</small></div><span class="pill ${c.status==='Enviado'?'sage':'slate'}">${c.status}</span></div>`).join('')}
+  </div>`;
+}
+
+function renderWorkshop(){
+ const body=S.ws==='biblioteca'?renderLibraryView():S.ws==='concursos'?renderContestsView():S.ws==='recordatorios'?renderRemindersView():renderEditorView();
+ return `<div class="workshop-shell ${S.sidebarCollapsed?'collapsed':''}">
+  <aside class="sidebar" aria-label="Secciones del taller">
+   <div class="sb-head"><p class="eyebrow">Mi taller</p><button type="button" class="btn ghost icon" data-act="toggle-sb" aria-label="Contraer o expandir barra lateral">${ic('collapse')}</button></div>
+   <nav class="sb-nav">
+    <button type="button" data-ws="editor" class="${S.ws==='editor'?'active':''}">${ic('pen')}<span class="sb-label">Escandidor</span></button>
+    <button type="button" data-ws="biblioteca" class="${S.ws==='biblioteca'?'active':''}">${ic('books')}<span class="sb-label">Biblioteca</span><span class="sb-count">${S.poems.length}</span></button>
+    <button type="button" data-ws="concursos" class="${S.ws==='concursos'?'active':''}">${ic('trophy')}<span class="sb-label">Concursos</span><span class="sb-count">${S.contests.length}</span></button>
+    <button type="button" data-ws="recordatorios" class="${S.ws==='recordatorios'?'active':''}">${ic('bell')}<span class="sb-label">Recordatorios</span><span class="sb-count">2</span></button>
+   </nav>
+   <details class="sb-resources" open>
+    <summary>Comunidad y estudio</summary>
+    <div class="sb-links">
+     <a href="https://www.escritores.org/concursos/concursos-1/concursos-poesia" target="_blank" rel="noopener noreferrer">Escritores.org ↗</a>
+     <a href="https://discord.gg/mSz3ER2JKR" target="_blank" rel="noopener noreferrer">Busto de Pallas ↗</a>
+     <a href="https://www.lasnuevemusas.com/artes/" target="_blank" rel="noopener noreferrer">Vamos a hablar de métrica ↗</a>
+    </div>
+   </details>
+  </aside>
+  <div class="ws-main">${body}</div>
+ </div>`;
+}
+
+/* ============ RENDER & LIVE UPDATES ============ */
+function applyVisualPrefs(){
+ document.body.classList.toggle('dark',S.dark);
+ document.body.classList.toggle('tinted',!!S.poemTint);
+ if(S.poemTint)document.body.style.setProperty('--poem-tint',S.poemTint);
+ else document.body.style.removeProperty('--poem-tint');
+ document.documentElement.style.setProperty('--scale',S.scale);
+ document.documentElement.style.setProperty('--poem-font',FONTS[S.fontKey].css);
+ const tb=document.getElementById('themeBtn');
+ tb.innerHTML=(S.dark?ic('sun')+'Luz de día':ic('moon')+'Luz de noche');
+ tb.setAttribute('aria-pressed',S.dark);
+ document.querySelectorAll('.top-nav button').forEach(b=>{
+  const active=(b.dataset.route==='inicio'&&S.route==='inicio')||(b.dataset.route==='taller'&&S.route==='taller'&&S.ws==='editor')||(b.dataset.ws&&S.route==='taller'&&S.ws===b.dataset.ws);
+  if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
+ });
+}
+function render(){
+ applyVisualPrefs();
+ document.getElementById('app').innerHTML=S.route==='inicio'?renderLanding():renderWorkshop();
+ const hash=S.route+(S.route==='taller'?'/'+S.ws:'')+(S.dark?'/noche':'');
+ try{history.replaceState(null,'','#'+hash)}catch{}
+}
+function updateAnalysisOnly(){
+ const m=document.getElementById('analysisMount');if(!m)return;
+ const data=buildAnalysisData();
+ m.innerHTML=renderAnalysisHtml(data)+renderCraftNote(data);
+ const pills=document.querySelectorAll('.analysis-pane .pane-title .pill');
+ if(pills[0])pills[0].textContent='Estrofas '+data.stanzas;
+ if(pills[1])pills[1].textContent='Esquema '+data.schemeStr;
+}
+function openColorModal(){
+ const list=document.getElementById('swatchList');
+ list.innerHTML=TINTS.map(t=>`<button type="button" data-pick-color="${t.hex}" class="${(S.poemTint||curP().color)===t.hex?'on':''}" style="background:${t.hex}" title="${t.name}" aria-label="${t.name}"></button>`).join('');
+ document.getElementById('colorPop').hidden=false;
+}
+
+/* ============ EVENTS ============ */
+document.addEventListener('click',e=>{
+ const b=e.target.closest('button');if(!b)return;
+ const d=b.dataset;
+ if(b.id==='themeBtn'){S.dark=!S.dark;render();return}
+ if(d.route){S.route=d.route;if(d.route==='taller')S.ws='editor';render();window.scrollTo(0,0);return}
+ if(d.ws){S.route='taller';S.ws=d.ws;render();window.scrollTo(0,0);return}
+ if(d.openPoem!==undefined){S.curPoem=Number(d.openPoem);S.curVersion=0;S.selectedLine=0;S.route='taller';S.ws='editor';render();return}
+ if(d.contest!==undefined){S.activeContest=Number(d.contest);render();return}
+ if(d.sin){const p=curP(),cur=d.sin in p.overrides?p.overrides[d.sin]:b.classList.contains('active');p.overrides[d.sin]=!cur;updateAnalysisOnly();toast(!cur?'Sinalefa forzada en esta unión.':'Sinalefa rota (hiato) en esta unión.');return}
+ if(d.word){S.lookupWord=d.word;S.lookupOpen=true;render();toast('Consultando «'+d.word+'».');return}
+ if(d.unex){S.excluded=S.excluded.filter(x=>x!==d.unex);render();return}
+ if(d.useRhyme){
+  const v=curV(),ls=v.text.split('\n'),i=Math.min(S.selectedLine,ls.length-1);
+  if(ls[i]&&ls[i].trim()){
+   ls[i]=ls[i].replace(/([A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)([^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]*)$/,(m,w,punct)=>(w[0]!==w[0].toLowerCase()?d.useRhyme[0].toUpperCase()+d.useRhyme.slice(1):d.useRhyme)+punct);
+   v.text=ls.join('\n');render();toast('Probando «'+d.useRhyme+'» en el verso '+(i+1)+'.');
+  }
+  return;
+ }
+ if(d.pickColor){S.poemTint=d.pickColor;curP().color=d.pickColor;applyVisualPrefs();openColorModal();return}
+ const a=d.act;if(!a)return;
+ if(a==='toggle-sb'){S.sidebarCollapsed=!S.sidebarCollapsed;render();return}
+ if(a==='scale-down'){S.scale=Math.max(.85,+(S.scale-.1).toFixed(2));render();return}
+ if(a==='scale-up'){S.scale=Math.min(1.35,+(S.scale+.1).toFixed(2));render();return}
+ if(a==='toggle-amode'){S.analysisMode=S.analysisMode==='visual'?'text':'visual';render();return}
+ if(a==='copy-analysis'){const txt=document.getElementById('analysisTextOut')?.textContent||'';try{navigator.clipboard.writeText(txt)}catch{}toast('Análisis copiado en modo texto.');return}
+ if(a==='reset-sin'){curP().overrides={};updateAnalysisOnly();toast('Sinalefas automáticas restablecidas.');return}
+ if(a==='exclude-word'){const w=S.lookupWord.trim().toLowerCase();if(w&&!S.excluded.includes(w)){S.excluded.push(w);render();toast('«'+w+'» añadida a evitar repetir.')}return}
+ if(a==='save-version'){const p=curP(),n=p.versions.length+1;p.versions.unshift({label:'Versión '+n,when:new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}),text:curV().text});S.curVersion=0;render();toast('Versión guardada en el historial.');return}
+ if(a==='new-poem'){S.poems.unshift({id:'p'+Date.now(),title:'Sin título',author:'Borrador propio',color:'#ad4227',tags:['borrador'],form:'custom',pattern:'',rhymeMode:'asonante',scheme:'',stress:'',rioplatense:true,overrides:{},versions:[{label:'Versión actual',when:'ahora',text:''}]});S.curPoem=0;S.curVersion=0;S.selectedLine=0;S.route='taller';S.ws='editor';render();document.getElementById('poemInput')?.focus();return}
+ if(a==='open-color'){openColorModal();return}
+ if(a==='reset-color'){S.poemTint=null;applyVisualPrefs();document.getElementById('colorPop').hidden=true;return}
+ if(a==='close-color'){document.getElementById('colorPop').hidden=true;return}
+ if(a==='export-md'){const blob=new Blob([`# ${curP().title}\n\n${curV().text}\n`],{type:'text/markdown;charset=utf-8'}),url=URL.createObjectURL(blob),lk=document.createElement('a');lk.href=url;lk.download='poema.md';lk.click();setTimeout(()=>URL.revokeObjectURL(url),500);toast('Poema descargado en Markdown.');return}
+ if(a==='export-pdf'){toast('En el Escandidor real, esto genera el PDF listo para imprimir o presentar.');return}
+ if(a==='dictate'){toast('En el Escandidor real, aquí se inicia el dictado por voz en español.');return}
+ if(a==='photo'){toast('En el Escandidor real, aquí se extrae el texto desde una foto del cuaderno.');return}
+});
+
+document.addEventListener('click',e=>{
+ const row=e.target.closest('[data-sel-line]');
+ if(row&&!e.target.closest('button')){S.selectedLine=Number(row.dataset.selLine);updateAnalysisOnly()}
+});
+
+document.addEventListener('toggle',e=>{
+ if(e.target.id==='cfgDrawer')S.configOpen=e.target.open;
+ if(e.target.id==='lookupDrawer')S.lookupOpen=e.target.open;
+},true);
+
+document.addEventListener('input',e=>{
+ const el=e.target,p=curP();
+ if(el.id==='poemInput'){curV().text=el.value;updateAnalysisOnly();return}
+ if(el.id==='poemTitleInput'){p.title=el.value||'Sin título';const sel=document.getElementById('poemSelect');if(sel&&sel.options[S.curPoem])sel.options[S.curPoem].textContent=p.title;return}
+ if(el.id==='cfgPattern'){p.pattern=el.value;p.form='custom';updateAnalysisOnly();return}
+ if(el.id==='cfgStress'){p.stress=el.value;updateAnalysisOnly();return}
+ if(el.id==='cfgScheme'){p.scheme=el.value;return}
+ if(el.id==='lookupInput'){S.lookupWord=el.value;const body=document.querySelector('#lookupDrawer .drawer-body');if(body){const pos=el.selectionStart;body.outerHTML=renderLookupBody();const ni=document.getElementById('lookupInput');if(ni){ni.focus();try{ni.setSelectionRange(pos,pos)}catch{}}}return}
+});
+
+document.addEventListener('change',e=>{
+ const el=e.target,p=curP();
+ if(el.id==='cfgForm'){const f=FORMS[el.value];if(f){p.form=el.value;if(el.value!=='custom'){p.pattern=f.pattern;p.rhymeMode=f.rhyme;p.scheme=f.scheme;p.stress=f.stress}render()}return}
+ if(el.id==='cfgRhyme'){p.rhymeMode=el.value;render();return}
+ if(el.id==='cfgRio'){p.rioplatense=el.checked;updateAnalysisOnly();return}
+ if(el.id==='viewSelect'){S.viewMode=el.value;render();return}
+ if(el.id==='fontSelect'){S.fontKey=el.value;applyVisualPrefs();return}
+ if(el.id==='poemSelect'){S.curPoem=Number(el.value);S.curVersion=0;S.selectedLine=0;render();return}
+ if(el.id==='verSelect'){S.curVersion=Number(el.value);render();return}
+});
+
+function fromHash(){
+ const parts=location.hash.slice(1).split('/');
+ if(parts.includes('noche'))S.dark=true;
+ if(parts[0]==='inicio')S.route='inicio';
+ else if(parts[0]==='taller'){S.route='taller';if(['editor','biblioteca','concursos','recordatorios'].includes(parts[1]))S.ws=parts[1]}
+ render();
+}
+fromHash();
+</script>
+</body>
+</html>

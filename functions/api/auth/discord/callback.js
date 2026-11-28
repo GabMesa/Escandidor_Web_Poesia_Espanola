@@ -10,7 +10,7 @@ import {
 const OAUTH_STATE_COOKIE = 'escandidor_oauth_state';
 
 function redirectHome(request, error) {
-  const url = new URL('/escandidor', request.url);
+  const url = new URL('/taller/', request.url);
   if (error) url.searchParams.set('auth_error', error);
   return url.toString();
 }

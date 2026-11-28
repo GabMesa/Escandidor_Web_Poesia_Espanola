@@ -328,16 +328,20 @@ async function checkCurrentSession() {
   } catch {}
 }
 
-reportEditorLoading('session');
-apiRequest('/api/auth/me')
-  .then(handleAuthState)
-  .catch((error) => {
-    reportEditorLoading('error',error.message||'No se pudo recuperar la biblioteca.');
-    cloudSaveStatus.textContent = error.message || 'No se pudo cargar la biblioteca local.';
-    cloudSaveStatus.classList.add('is-error');
-  });
+const IS_DEMO_EMBED = window.parent !== window && new URLSearchParams(location.search).has('demo');
 
-window.setInterval(checkCurrentSession, 60_000);
+if (!IS_DEMO_EMBED) {
+  reportEditorLoading('session');
+  apiRequest('/api/auth/me')
+    .then(handleAuthState)
+    .catch((error) => {
+      reportEditorLoading('error',error.message||'No se pudo recuperar la biblioteca.');
+      cloudSaveStatus.textContent = error.message || 'No se pudo cargar la biblioteca local.';
+      cloudSaveStatus.classList.add('is-error');
+    });
+
+  window.setInterval(checkCurrentSession, 60_000);
+}
 
 const authError = new URL(window.location.href).searchParams.get('auth_error');
 if (authError) {

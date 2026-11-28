@@ -46,6 +46,9 @@ a:hover { text-decoration: underline; text-underline-offset: 5px; }
 .primer-layout h2 { font: 400 39px/1.15 var(--reading-font); letter-spacing: -.03em; }
 .primer-layout p { font-size: 14px; color: var(--muted); margin-bottom: 16px; }
 .section { padding-block: 45px; }
+.search-preview-figure { max-width: 720px; margin: 30px auto 0; }
+.search-preview-figure img { display: block; width: 100%; height: auto; }
+.search-preview-figure figcaption { color: var(--muted); font-size: 12px; margin-top: 8px; }
 .faq { display: grid; grid-template-columns: .9fr 1.1fr; gap: 52px; }
 .faq h2 { font: 400 32px/1.15 var(--display-font); letter-spacing: -.035em; }
 .faq details { border-bottom: 1px solid var(--line); padding-block: 16px; }

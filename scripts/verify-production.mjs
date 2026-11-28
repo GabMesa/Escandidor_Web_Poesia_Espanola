@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { createEmptyWorkshop, defaultContestProfile } from '../taller/model.js';
-const base = 'https://mesa-de-poesia.pages.dev';
+const base = 'https://poesia.mimesa.dev';
 let cookie = '';
 let createdAccount = false;
 const checks = {};

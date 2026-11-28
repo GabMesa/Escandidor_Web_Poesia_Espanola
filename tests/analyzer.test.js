@@ -256,3 +256,26 @@ test('keeps the closing monosyllabic accent and final metric adjustment', () => 
   assert.equal(analyzeLine('la palabra y').analyses.at(-1).isTonic, true);
   assert.equal(analyzeWord('y').isTonic, false);
 });
+
+test('marks Spanish unstressed prepositions as atonic inside a verse while keeping lexical stress and verse-final accent', () => {
+  for (const word of ['ante', 'bajo', 'contra', 'desde', 'entre', 'hacia', 'hasta', 'para', 'sobre']) {
+    const analysis = analyzeWord(word);
+    assert.equal(analysis.isTonic, false, word);
+    assert.equal(analysis.accentType, 'llana', word);
+    assert.equal(analysis.stressIndex, 0, word);
+  }
+
+  assert.equal(analyzeWord('según').isTonic, true);
+  assert.equal(analyzeWord('sobré').isTonic, true);
+  assert.equal(analyzeWord('entré').isTonic, true);
+
+  // Final position of a verse always carries the obligatory closing stress.
+  assert.equal(analyzeLine('Escribe en el sobre').analyses.at(-1).isTonic, true);
+
+  // Delmira Agustini, "La estatua" v.1: sapphic hendecasyllable (2-4-8-10), 11 metric syllables.
+  const estatua = analyzeLine('Miradla, así, sobre el follaje oscuro');
+  assert.deepEqual(estatua.analyses.map((word) => word.isTonic), [true, true, false, false, true, true]);
+  assert.equal(estatua.rawCount, 14);
+  assert.equal(estatua.boundaries.filter((boundary) => boundary.candidate).length, 3);
+  assert.equal(estatua.poeticCount - estatua.boundaries.filter((boundary) => boundary.candidate).length, 11);
+});

@@ -82,16 +82,32 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
     assert.equal(landing.status, 200);
     const landingHtml = await landing.text();
     assert.match(landingHtml, /id="intro-title"/);
-    assert.match(landingHtml, /href="escandidor.html"/);
-    assert.match(landingHtml, /href="apoyar.html"/);
+    assert.match(landingHtml, /href="\/taller\/"/);
+    assert.match(landingHtml, /href="\/apoyar"/);
     assert.doesNotMatch(landingHtml, /src="app.js"/);
     assert.equal((await fetch(`${baseUrl}/pagina-inexistente`)).status, 404);
-    const editor = await fetch(`${baseUrl}/escandidor`);
-    assert.equal(editor.status, 200);
-    assert.match(await editor.text(), /id="poemInput"/);
+    const legacyDirect = await fetch(`${baseUrl}/escandidor`, { redirect: 'manual' });
+    assert.equal(legacyDirect.status, 301);
+    assert.equal(new URL(legacyDirect.headers.get('location'), baseUrl).pathname, '/taller/');
+    const embeddedEditor = await fetch(`${baseUrl}/escandidor?taller=1&real=1`, { redirect: 'manual' });
+    assert.equal(embeddedEditor.status, 200);
+    assert.equal(embeddedEditor.headers.get('x-robots-tag'), 'noindex, nofollow');
+    assert.match(await embeddedEditor.text(), /id="poemInput"/);
+    const workshopPage = await fetch(`${baseUrl}/taller/`);
+    assert.equal(workshopPage.status, 200);
+    assert.match(await workshopPage.text(), /rel="canonical" href="https:\/\/poesia\.mimesa\.dev\/taller\/"/);
     const legacyLanding = await fetch(`${baseUrl}/landing.html`, { redirect: 'manual' });
     assert.equal(legacyLanding.status, 301);
     assert.equal(new URL(legacyLanding.headers.get('location'), baseUrl).pathname, '/');
+
+    for (const path of ['/escandidor-de-poesia', '/escandidor-de-poesia.html']) {
+      const legacyEditor = await fetch(`${baseUrl}${path}`, { redirect: 'manual' });
+      assert.equal(legacyEditor.status, 301, path);
+      assert.equal(new URL(legacyEditor.headers.get('location'), baseUrl).pathname, '/taller/');
+      const destination = await fetch(new URL(legacyEditor.headers.get('location'), baseUrl));
+      assert.equal(destination.status, 200);
+      assert.match(await destination.text(), /rel="canonical" href="https:\/\/poesia\.mimesa\.dev\/taller\/"/);
+    }
 
 
     const firstRegistration = await jsonRequest(baseUrl, '/api/auth/register', {
@@ -498,6 +514,60 @@ test('persists every poem version and user configuration in D1', { timeout: 45_0
 
     const payingStats = await jsonRequest(baseUrl, '/api/admin/stats', { cookie: firstCookie });
     assert.equal(payingStats.payload.stats.payingUserCount, 1);
+
+    // Editorial Markdown pages CMS: draft vs published, SSR rendering & dynamic sitemap.xml
+    assert.equal((await jsonRequest(baseUrl, '/api/admin/pages')).response.status, 401);
+    assert.equal((await jsonRequest(baseUrl, '/api/admin/pages', { cookie: secondCookie })).response.status, 403);
+    const listedPages = await jsonRequest(baseUrl, '/api/admin/pages', { cookie: firstCookie });
+    assert.equal(listedPages.response.status, 200);
+    assert.deepEqual(listedPages.payload.pages.map((p) => p.slug), ['recursos', 'formas-poeticas', 'concursos-de-poesia']);
+
+    // Create a draft-only page: must NOT be public or in sitemap yet
+    const createdPage = await jsonRequest(baseUrl, '/api/admin/pages', {
+      method: 'POST',
+      cookie: firstCookie,
+      body: {
+        slug: 'guia-qa-metrica',
+        heading: 'Guía QA de prueba',
+        title: 'Guía QA | Mesa de Poesía',
+        description: 'Página de prueba creada en borrador.',
+        draftMd: '## Borrador inicial\n\nTexto solo en borrador.',
+        publish: false,
+      },
+    });
+    assert.equal(createdPage.response.status, 201);
+    assert.equal(createdPage.payload.page.published, false);
+    assert.equal((await fetch(`${baseUrl}/guia-qa-metrica`)).status, 404);
+    assert.doesNotMatch(await (await fetch(`${baseUrl}/sitemap.xml`)).text(), /guia-qa-metrica/);
+
+    // Publish the page: now live SSR (200) and present in dynamic sitemap.xml
+    const publishedPage = await jsonRequest(baseUrl, '/api/admin/pages/guia-qa-metrica', {
+      method: 'PATCH',
+      cookie: firstCookie,
+      body: { action: 'publish', draftMd: '## Publicado\n\nContenido visible al público.' },
+    });
+    assert.equal(publishedPage.response.status, 200);
+    assert.equal(publishedPage.payload.page.published, true);
+    const publicHtml = await (await fetch(`${baseUrl}/guia-qa-metrica`)).text();
+    assert.match(publicHtml, /Contenido visible al público\./);
+    assert.match(await (await fetch(`${baseUrl}/sitemap.xml`)).text(), /https:\/\/poesia\.mimesa\.dev\/guia-qa-metrica/);
+
+    // Save a draft edit: public page must STILL show the published version
+    const draftEdited = await jsonRequest(baseUrl, '/api/admin/pages/guia-qa-metrica', {
+      method: 'PATCH',
+      cookie: firstCookie,
+      body: { action: 'save-draft', draftMd: '## Cambio secreto en borrador' },
+    });
+    assert.equal(draftEdited.response.status, 200);
+    assert.equal(draftEdited.payload.page.hasUnpublishedChanges, true);
+    const stillPublished = await (await fetch(`${baseUrl}/guia-qa-metrica`)).text();
+    assert.match(stillPublished, /Contenido visible al público\./);
+    assert.doesNotMatch(stillPublished, /Cambio secreto en borrador/);
+
+    // Unpublish & delete
+    assert.equal((await jsonRequest(baseUrl, '/api/admin/pages/guia-qa-metrica', { method: 'PATCH', cookie: firstCookie, body: { action: 'unpublish' } })).response.status, 200);
+    assert.equal((await fetch(`${baseUrl}/guia-qa-metrica`)).status, 404);
+    assert.equal((await jsonRequest(baseUrl, '/api/admin/pages/guia-qa-metrica', { method: 'DELETE', cookie: firstCookie })).response.status, 200);
 
     const promoted = await jsonRequest(baseUrl, `/api/admin/users/${secondUser.id}`, {
       method: 'PATCH', cookie: firstCookie, body: { role: 'admin', status: 'active' },

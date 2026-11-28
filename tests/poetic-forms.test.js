@@ -2,10 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   POETIC_FORM_PRESETS,
+  chooseStressPattern,
+  getDefaultStressPattern,
   getExpectedSyllableCounts,
   getRhymeSchemeArtRequirement,
   matchesSyllablePattern,
   matchesRhymeSchemeArt,
+  parseStressPatternAlternatives,
   parseSyllablePattern,
 } from '../poetic-forms.js';
 
@@ -34,7 +37,23 @@ test('validates fixed, mixed, repeated, and flexible syllable patterns', () => {
   assert.equal(matchesSyllablePattern(11, '7 11', 8), true);
   assert.equal(matchesSyllablePattern(9, '7 11', 8), false);
   assert.deepEqual(getExpectedSyllableCounts('8-7 11-8', 1), [7, 11]);
-  assert.equal(POETIC_FORM_PRESETS.silva.stressPatterns[11], '6-10');
+  assert.equal(POETIC_FORM_PRESETS.silva.stressPatterns[11], '6-10, 4-8-10');
+  assert.equal(POETIC_FORM_PRESETS.soneto.stressPatterns[11], '6-10, 4-8-10');
+  assert.equal(getDefaultStressPattern(11), '6-10, 4-8-10');
+  assert.deepEqual(parseStressPatternAlternatives(getDefaultStressPattern(11)), [[6, 10], [4, 8, 10]]);
+});
+
+test('selects 6-10 or sapphic 4-8-10 hendecasyllable pattern from metric stress positions', () => {
+  const defaultHendecasyllable = getDefaultStressPattern(11);
+  // Classic a maiore (heroico / melódico / enfático)
+  assert.deepEqual(chooseStressPattern(defaultHendecasyllable, [2, 6, 10]), [6, 10]);
+  assert.deepEqual(chooseStressPattern(defaultHendecasyllable, [3, 6, 10]), [6, 10]);
+  assert.deepEqual(chooseStressPattern(defaultHendecasyllable, [4, 6, 10]), [6, 10]);
+  assert.deepEqual(chooseStressPattern(defaultHendecasyllable, [4, 6, 8, 10]), [6, 10]);
+  // Classic sapphic (e.g. "Miradla, así, sobre el follaje oscuro" -> 2, 4, 8, 10)
+  assert.deepEqual(chooseStressPattern(defaultHendecasyllable, [2, 4, 8, 10]), [4, 8, 10]);
+  assert.deepEqual(chooseStressPattern(defaultHendecasyllable, [4, 8, 10]), [4, 8, 10]);
+  assert.deepEqual(chooseStressPattern(defaultHendecasyllable, [4, 10]), [4, 8, 10]);
 });
 
 test('does not invent a fixed syllable count where the source only specifies an art category', () => {

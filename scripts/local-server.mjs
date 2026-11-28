@@ -22,6 +22,7 @@ const identityProbe=spawnSync(process.execPath,[wrangler,'d1','execute','escandi
 if(identityProbe.status!==0)migrate('migrations/0019_poem_identity.sql');
 migrate('migrations/0020_library_revisions.sql');
 migrate('migrations/0021_incremental_versions.sql');
+migrate('migrations/0022_editorial_pages.sql');
 const runtime=resolve(storage,'runtime');await mkdir(runtime,{recursive:true});const config=JSON.parse(await readFile(resolve(root,'wrangler.local.jsonc'),'utf8'));config.pages_build_output_dir=root;await writeFile(resolve(runtime,'wrangler.jsonc'),JSON.stringify(config));try{await access(resolve(runtime,'functions'));}catch{await symlink(resolve(root,'functions'),resolve(runtime,'functions'),'junction');}
 const probe=spawnSync('python',[resolve(root,'scripts/local-database-profile.py'),resolve(storage,'v3/d1/miniflare-D1DatabaseObject')],{windowsHide:true,encoding:'utf8'});if(probe.status!==0)throw Error('No se pudo verificar la base cifrada local.');const profileStatus=JSON.parse(probe.stdout);
 const secret=await localPlicaKey({allowCreate:profileStatus.count===0});if(profileStatus.profile)await decryptPlica(profileStatus.profile.encrypted,secret,profileStatus.profile.owner,webcrypto);
@@ -29,13 +30,18 @@ const backend=spawn(process.execPath,[wrangler,'pages','dev',root,'--d1','escand
 let startupError='';for(const stream of [backend.stdout,backend.stderr])stream.on('data',chunk=>{startupError=(startupError+String(chunk).replaceAll(secret,'[redacted]')).slice(-4000);});
 let up=false;for(let i=0;i<400;i++){if(backend.exitCode!==null)break;try{const r=await fetch(`http://127.0.0.1:${apiPort}/api/auth/me`);if(r.ok){up=true;break;}}catch{}await new Promise(r=>setTimeout(r,100));}
 if(!up){backend.kill();throw Error('No se pudo iniciar la API local. '+startupError);}
+const localAdminCheck=spawnSync(process.execPath,[wrangler,'d1','execute','escandidor-local','--config','wrangler.local.jsonc','--local','--persist-to',storage,'--command',"SELECT id FROM users WHERE username='admin'"],{cwd:root,env,windowsHide:true,encoding:'utf8'});
+if(!/"id"\s*:\s*\d+/.test(localAdminCheck.stdout||'')){
+  await fetch(`http://127.0.0.1:${apiPort}/api/auth/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'admin',email:'admin@local.test',password:'adminadmin'})}).catch(()=>{});
+  spawnSync(process.execPath,[wrangler,'d1','execute','escandidor-local','--config','wrangler.local.jsonc','--local','--persist-to',storage,'--command',"UPDATE users SET role='admin',status='active' WHERE username='admin'"],{cwd:root,env,windowsHide:true,encoding:'utf8'});
+}
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon','.woff2':'font/woff2','.ttf':'font/ttf','.otf':'font/otf','.json':'application/json','.pdf':'application/pdf','.webm':'video/webm','.txt':'text/plain; charset=utf-8','.md':'text/plain; charset=utf-8'};
 const json=(res,status,value)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));};
 const server=createServer(async(req,res)=>{
  try{
   if(![`127.0.0.1:${port}`,`localhost:${port}`].includes(req.headers.host)){json(res,403,{error:'Host no permitido.'});return;}
   const url=new URL(req.url,`http://127.0.0.1:${port}`);
-  if(url.pathname.startsWith('/api/')){
+  if(url.pathname.startsWith('/api/') || url.pathname === '/sitemap.xml' || ['/recursos','/formas-poeticas','/concursos-de-poesia'].includes(url.pathname)){
    if(!['GET','HEAD'].includes(req.method)&&req.headers.origin&&!['http://localhost:'+port,'http://127.0.0.1:'+port].includes(req.headers.origin)){json(res,403,{error:'Origen no permitido.'});return;}
    let body; if(!['GET','HEAD'].includes(req.method)){const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>2_000_000){json(res,413,{error:'Solicitud demasiado grande.'});return;}chunks.push(chunk);}body=Buffer.concat(chunks);}
    if(url.pathname==='/api/contests/import'){
@@ -59,6 +65,7 @@ const server=createServer(async(req,res)=>{
   }
   if(pathname==='/')pathname='/index.html';
   if(pathname.endsWith('/'))pathname+='index.html';
+  if(!extname(pathname))pathname+='.html';
   const file=resolve(root,'.'+pathname),extension=extname(file);
   if(!file.startsWith(root+sep)||!types[extension]||pathname.split('/').some(p=>p.startsWith('.')||['node_modules','functions','migrations','scripts','tests','workers'].includes(p.toLowerCase()))){res.writeHead(403);res.end('No disponible');return;}
   try{const data=await readFile(file);res.writeHead(200,{'Content-Type':types[extension],'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(req.method==='HEAD'?undefined:data);}catch{res.writeHead(404);res.end('Archivo no encontrado');}

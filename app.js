@@ -12,9 +12,11 @@ import { parsePoemsFromMarkdown } from './poem-markdown-import.js';
 import {appendPoemImport,importTitleKey} from './poem-import-plan.js';
 import { parseRhymeSchemes, validateStanzaRhymeSchemes } from './rhyme-scheme.js';
 
+const DEMO_EMBED_MODE = window.parent !== window ? (new URLSearchParams(location.search).get('demo') || '') : '';
+
 // The local Workshop reuses the editor's library services through the same-origin bridge.
 // Functions are evaluated only after the editor has initialized and a command arrives.
-if (window.parent !== window && new URLSearchParams(location.search).get('taller') === '1') {
+if (!DEMO_EMBED_MODE && window.parent !== window && new URLSearchParams(location.search).get('taller') === '1') {
   window.addEventListener('workshop:library-command', async event => {
     const { command, respond, progress=()=>{} } = event.detail || {};
     if (!command || typeof respond !== 'function') return;
@@ -152,8 +154,11 @@ import {
 import { applicationState, replaceLibraryState } from './application-state.js';
 import {
   POETIC_FORM_PRESETS,
+  chooseStressPattern,
+  getDefaultStressPattern,
   getExpectedSyllableCounts,
   matchesSyllablePattern,
+  parseStressPatternAlternatives,
   parseSyllablePattern
 } from './poetic-forms.js';
 import {
@@ -2647,6 +2652,7 @@ function loadPoemMemoryStore() {
 }
 
 function savePoemMemoryStore(store) {
+  if (DEMO_EMBED_MODE) return true;
   try {
     writePersistentStorage(poemStorage, LOCAL_POEM_MEMORY_KEY, JSON.stringify({ ...store, schemaVersion: 2 }));
     return true;
@@ -2680,6 +2686,7 @@ function loadLastWorkedPoemReference() {
 }
 
 function saveLastWorkedPoemReference(title, versionId) {
+  if (DEMO_EMBED_MODE) return;
   const normalizedTitle = normalizePoemTitle(title);
   const normalizedVersionId = String(versionId ?? '').trim();
   if (!normalizedTitle || !normalizedVersionId) {
@@ -2733,6 +2740,7 @@ function findLatestSavedVersion(store) {
 }
 
 function restoreLastWorkedPoemOnStartup() {
+  if (DEMO_EMBED_MODE) return false;
   const storedRef = loadLastWorkedPoemReference();
   if (storedRef && loadVersionById(storedRef.title, storedRef.versionId)) {
     return true;
@@ -4405,6 +4413,7 @@ function cancelPendingAutoSave() {
 }
 
 function scheduleAutoSave() {
+  if (DEMO_EMBED_MODE) return;
   cancelPendingAutoSave();
   autoSaveTimer = setTimeout(() => {
     autoSaveTimer = null;
@@ -4825,6 +4834,14 @@ function buildAnalysisText(runtimes, stanzaSummary) {
     const rawLine = runtime.lineAnalysis.text;
     if (!rawLine.trim()) {
       output.push('');
+      continue;
+    }
+
+    if (DEMO_EMBED_MODE === 'silabas') {
+      const words = runtime.lineAnalysis.analyses || [];
+      const singleAccent = words.length === 1 && words[0]?.accentType ? ` (${words[0].accentType})` : '';
+      const unit = Number(runtime.countLabel) === 1 ? 'sílaba' : 'sílabas';
+      output.push(`${renderAnnotatedLinePlain(runtime)} · ${runtime.countLabel} ${unit}${singleAccent}`.trim());
       continue;
     }
 
@@ -5410,26 +5427,6 @@ function parseStressPattern(value) {
   return parseNumberList(value);
 }
 
-function parseStressPatternAlternatives(value) {
-  return String(value ?? '')
-    .split(/[,;|]+/)
-    .map((pattern) => parseStressPattern(pattern))
-    .filter((pattern) => pattern.length);
-}
-
-function chooseStressPattern(value, naturalStressPositions = []) {
-  const alternatives = parseStressPatternAlternatives(value);
-  if (alternatives.length < 2) return alternatives[0] ?? [];
-
-  const natural = new Set(naturalStressPositions);
-  return alternatives.reduce((best, pattern) => {
-    const score = pattern.filter((position) => natural.has(position)).length;
-    const bestScore = best.filter((position) => natural.has(position)).length;
-    if (score !== bestScore) return score > bestScore ? pattern : best;
-    return pattern.length < best.length ? pattern : best;
-  });
-}
-
 function normalizeStressPatterns(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   const normalized = {};
@@ -5445,10 +5442,6 @@ function normalizeStressPatterns(value) {
 
 function getConfiguredSyllableCounts(pattern = syllablePattern?.value ?? '') {
   return [...new Set(parseSyllablePattern(pattern).flat())].sort((left, right) => left - right);
-}
-
-function getDefaultStressPattern(count) {
-  return Number(count) === 11 ? '6-10' : '';
 }
 
 function resolveStoredStressPatterns(settings) {
@@ -5531,6 +5524,14 @@ function parseHemistichPositions(value) {
   return parseNumberList(value);
 }
 
+function isBoundaryStressed(lineAnalysis, boundaryIndex) {
+  const leftWord = lineAnalysis?.analyses?.[boundaryIndex];
+  const rightWord = lineAnalysis?.analyses?.[boundaryIndex + 1];
+  const leftIsStressed = Boolean(leftWord && wordHasMainStress(leftWord) && leftWord.stressIndex === leftWord.syllableCount - 1);
+  const rightIsStressed = Boolean(rightWord && wordHasMainStress(rightWord) && rightWord.stressIndex === 0);
+  return leftIsStressed || rightIsStressed;
+}
+
 function buildValidationBoundaries(lineAnalysis, lineIndex, verseIndex = 0, patternOverride = null) {
   const effectivePattern = patternOverride ?? getEffectiveStressPattern(lineAnalysis, lineIndex, verseIndex);
   const localOverride = getLineOverride(lineIndex);
@@ -5541,8 +5542,10 @@ function buildValidationBoundaries(lineAnalysis, lineIndex, verseIndex = 0, patt
     const boundaryUiIndex = boundary.index + 1;
     const blockedByPause = state.conservativeSinalefa && boundary.strongPause;
     const blockedByStress =
-      effectivePattern.includes(boundary.boundaryPosition) ||
-      effectivePattern.includes(boundary.boundaryPosition + 1);
+      isBoundaryStressed(lineAnalysis, boundary.index) && (
+        effectivePattern.includes(boundary.boundaryPosition) ||
+        effectivePattern.includes(boundary.boundaryPosition + 1)
+      );
 
     let active = state.sinalefaEnabled && boundary.candidate && !blockedByPause && !blockedByStress;
 
@@ -5572,9 +5575,17 @@ function getLineOverride(lineIndex) {
   return state.lineOverrides[lineIndex] ?? {};
 }
 
-function getEffectiveStressPattern(lineAnalysis, lineIndex, verseIndex = 0, metricCount = lineAnalysis?.poeticCount) {
-  const naturalStress = getNaturalStressPositions(buildSyllableEntries(lineAnalysis, []));
-  const local = chooseStressPattern(getLineOverride(lineIndex).stress ?? '', naturalStress);
+function getEffectiveStressPattern(
+  lineAnalysis,
+  lineIndex,
+  verseIndex = 0,
+  metricCount = lineAnalysis?.poeticCount,
+  stressPositions = null
+) {
+  const referenceStress = Array.isArray(stressPositions)
+    ? stressPositions
+    : getNaturalStressPositions(buildSyllableEntries(lineAnalysis, []));
+  const local = chooseStressPattern(getLineOverride(lineIndex).stress ?? '', referenceStress);
   if (getLineOverride(lineIndex).stress?.trim()) return local;
 
   const expectedCounts = getExpectedSyllableCounts(state.syllablePattern, Math.max(0, verseIndex));
@@ -5582,7 +5593,7 @@ function getEffectiveStressPattern(lineAnalysis, lineIndex, verseIndex = 0, metr
     ? Number(metricCount)
     : expectedCounts[0];
   if (!selectedCount) return [];
-  return chooseStressPattern(state.stressPatterns?.[selectedCount] ?? getDefaultStressPattern(selectedCount), naturalStress);
+  return chooseStressPattern(state.stressPatterns?.[selectedCount] ?? getDefaultStressPattern(selectedCount), referenceStress);
 }
 
 function getEffectiveHemistichPositions(lineAnalysis, lineIndex, verseIndex = 0, effectivePattern = null) {
@@ -5900,7 +5911,7 @@ function applySinalefaChains(lineAnalysis, activeBoundaries) {
 }
 
 function buildLineRuntime(lineAnalysis, lineIndex, verseIndex = 0, forcedStressPattern = null) {
-  const effectivePattern = forcedStressPattern ?? getEffectiveStressPattern(lineAnalysis, lineIndex, verseIndex);
+  let effectivePattern = forcedStressPattern ?? getEffectiveStressPattern(lineAnalysis, lineIndex, verseIndex);
   const inlineHemistich = getInlineHemistichBoundaries(lineAnalysis);
   const configHemistich = getEffectiveHemistichPositions(lineAnalysis, lineIndex, verseIndex, effectivePattern);
   const hemistichBoundaries = inlineHemistich.length ? inlineHemistich : configHemistich.boundaries;
@@ -5960,6 +5971,20 @@ function buildLineRuntime(lineAnalysis, lineIndex, verseIndex = 0, forcedStressP
     sinalefaChains = applySinalefaChains(lineAnalysis, activeBoundaries);
   }
 
+  if (!forcedStressPattern) {
+    const preEntries = buildSyllableEntries(lineAnalysis, activeBoundaries);
+    const preSegments = buildMetricSegmentData(lineAnalysis, activeBoundaries, hemistichBoundaries);
+    const { metricStress: preMetricStress } = buildMetricStressData(preEntries, preSegments);
+    const preMetricCount = preSegments.reduce((total, item) => total + item.metric, 0);
+    effectivePattern = getEffectiveStressPattern(
+      lineAnalysis,
+      lineIndex,
+      verseIndex,
+      preMetricCount,
+      preMetricStress
+    );
+  }
+
   function computeMetricState() {
     const entries = buildSyllableEntries(lineAnalysis, activeBoundaries);
     const naturalStress = getNaturalStressPositions(entries);
@@ -5991,6 +6016,10 @@ function buildLineRuntime(lineAnalysis, lineIndex, verseIndex = 0, forcedStressP
         continue;
       }
 
+      if (!isBoundaryStressed(lineAnalysis, boundary.index)) {
+        continue;
+      }
+
       let hasConflict = false;
       const leftMetricPos = lastMetricPosByWord.get(boundary.index);
       const rightMetricPos = firstMetricPosByWord.get(boundary.index + 1);
@@ -6010,8 +6039,13 @@ function buildLineRuntime(lineAnalysis, lineIndex, verseIndex = 0, forcedStressP
       }
     }
 
-    const countLabel = segmentCounts.length > 1 ? segmentCounts.join('+') : String(adjustPoeticCount(effectiveRawCount, lineAnalysis.accentType));
-    const metricVerseCount = segmentCounts.length > 1 ? null : adjustPoeticCount(effectiveRawCount, lineAnalysis.accentType);
+    const isGrammaticalDemo = DEMO_EMBED_MODE === 'silabas';
+    const countLabel = isGrammaticalDemo
+      ? String(effectiveRawCount)
+      : (segmentCounts.length > 1 ? segmentCounts.join('+') : String(adjustPoeticCount(effectiveRawCount, lineAnalysis.accentType)));
+    const metricVerseCount = isGrammaticalDemo
+      ? effectiveRawCount
+      : (segmentCounts.length > 1 ? null : adjustPoeticCount(effectiveRawCount, lineAnalysis.accentType));
     const hemistichWarning = !hasHemistich && Number.isFinite(metricVerseCount) && metricVerseCount > 11
       ? `Verso de ${metricVerseCount} sílabas métricas sin hemistiquio.`
       : '';
@@ -6033,25 +6067,29 @@ function buildLineRuntime(lineAnalysis, lineIndex, verseIndex = 0, forcedStressP
 
   let metricState = computeMetricState();
   let autoBreakApplied = false;
+  const expectedCounts = getExpectedSyllableCounts(state.syllablePattern, Math.max(0, verseIndex));
+  const maxExpectedCount = expectedCounts.length ? Math.max(...expectedCounts) : Infinity;
 
-  for (const boundary of activeBoundaries) {
-    if (!boundary.active || boundary.forcedOn) {
-      continue;
+  if (!expectedCounts.includes(metricState.metricVerseCount) && metricState.metricVerseCount < maxExpectedCount) {
+    for (const boundary of activeBoundaries) {
+      if (!boundary.active || boundary.forcedOn) {
+        continue;
+      }
+
+      if (metricState.versalConflictBoundaryIndices.has(boundary.index)) {
+        boundary.active = false;
+        autoBreakApplied = true;
+        sinalefaChains = applySinalefaChains(lineAnalysis, activeBoundaries);
+        metricState = computeMetricState();
+        if (expectedCounts.length && (expectedCounts.includes(metricState.metricVerseCount) || metricState.metricVerseCount >= maxExpectedCount)) {
+          break;
+        }
+      }
     }
-
-    if (metricState.versalConflictBoundaryIndices.has(boundary.index)) {
-      boundary.active = false;
-      autoBreakApplied = true;
-    }
-  }
-
-  if (autoBreakApplied) {
-    sinalefaChains = applySinalefaChains(lineAnalysis, activeBoundaries);
-    metricState = computeMetricState();
   }
 
   const sinalefaNotice = metricState.versalConflictPositions.size
-    ? 'Hay sinalefas forzadas sobre acento versal (amarillo). Detectar automáticamente las rompe si no están forzadas.'
+    ? 'Hay sinalefas con vocal tónica sobre acento versal (amarillo).'
     : '';
 
   if (!forcedStressPattern && !getLineOverride(lineIndex).stress?.trim()) {
@@ -6059,7 +6097,8 @@ function buildLineRuntime(lineAnalysis, lineIndex, verseIndex = 0, forcedStressP
       lineAnalysis,
       lineIndex,
       verseIndex,
-      metricState.metricVerseCount
+      metricState.metricVerseCount,
+      metricState.metricStress
     );
     if (resolvedPattern.join('-') !== effectivePattern.join('-')) {
       return buildLineRuntime(lineAnalysis, lineIndex, verseIndex, resolvedPattern);
@@ -6217,7 +6256,7 @@ function renderWordInlineWithBoundaryAwareness(wordAnalysis, wordIndex, runtime)
   return syllables.map((syllable, index) => {
     if (index === syllables.length - 1) return syllable;
     const boundary = wordAnalysis.syllableParts.slice(0, index + 1).reduce((total, parts) => total + parts.length, 0) - 1;
-    const separator = wordAnalysis.syneresisCandidates.includes(boundary)
+    const separator = DEMO_EMBED_MODE !== 'silabas' && wordAnalysis.syneresisCandidates.includes(boundary)
       ? `<button type="button" class="syneresis-toggle" data-line="${runtime.lineIndex}" data-word="${wordIndex}" data-syllable-boundary="${boundary}" title="Unir estas sílabas por sinéresis" aria-label="Unir estas sílabas por sinéresis">−</button>`
       : '-';
     return `${syllable}${separator}`;
@@ -6295,7 +6334,9 @@ function renderSinalefaMarker(boundary, lineIndex) {
     : isTriphthong
       ? `Triptongo: tres vocales o semivocales unidas${boundary.chainLength > 1 ? ` por ${boundary.chainLength} sinalefas enlazadas` : ' por sinalefa'}. Clic para separar.`
       : boundary.active && runtime?.versalConflictBoundaryIndices?.has(boundary.index)
-        ? 'Sinalefa forzada sobre acento versal: se marca en amarillo.'
+        ? (boundary.forcedOn
+          ? 'Sinalefa forzada sobre acento versal: se marca en amarillo.'
+          : 'Sinalefa con vocal tónica sobre acento versal: se conserva para mantener la métrica.')
       : boundary.blockedByStress
         ? 'El acento versal rompe la sinalefa automática en este punto.'
         : `Sinalefa ${boundary.uiIndex}: clic para alternar`;
@@ -6523,6 +6564,21 @@ function renderAnalysis(result) {
           .map((runtime) => {
             if (!runtime.lineAnalysis.text.trim()) {
               return '<div class="stanza-gap" aria-hidden="true"></div>';
+            }
+
+            if (DEMO_EMBED_MODE === 'silabas') {
+              const words = runtime.lineAnalysis.analyses || [];
+              const accentLabel = words.length === 1 ? (words[0]?.accentType || '') : `${words.length} pal.`;
+              const countUnit = Number(runtime.countLabel) === 1 ? 'sílaba' : 'sílabas';
+              return `
+                <div class="analysis-line-wrap">
+                  <div class="analysis-row demo-syllable-row">
+                    <div class="analysis-col visual-col">${renderAnnotatedLine(runtime)}</div>
+                    <div class="analysis-col demo-accent-col">${escapeHtml(accentLabel)}</div>
+                    <div class="analysis-col count-col">${escapeHtml(runtime.countLabel)} ${countUnit}</div>
+                  </div>
+                </div>
+              `;
             }
 
             const invalidTriphthongs = getInvalidSinalefaTriphthongs(runtime);
@@ -7938,6 +7994,95 @@ window.PoetryAnalyzer = {
   parseStressPattern,
   parseHemistichPositions
 };
+
+if (DEMO_EMBED_MODE) {
+  let demoInitialText = '';
+  const applyDemoPayload = (payload = {}) => {
+    state.sinalefaOverrides = payload.sinalefaOverrides && typeof payload.sinalefaOverrides === 'object'
+      ? { ...payload.sinalefaOverrides }
+      : {};
+    state.lineOverrides = {};
+    if (payload.syneresisOverrides && typeof payload.syneresisOverrides === 'object') {
+      for (const [lineIdx, pairs] of Object.entries(payload.syneresisOverrides)) {
+        if (Array.isArray(pairs) && pairs.length) {
+          state.lineOverrides[Number(lineIdx)] = { syneresis: [...pairs] };
+        }
+      }
+    }
+    if (typeof payload.title === 'string' && poemTitle) {
+      poemTitle.value = payload.title;
+      setPoemTitleDisplay(payload.title);
+    }
+    if (typeof payload.text === 'string' && poemInput) {
+      poemInput.value = payload.text;
+      demoInitialText = payload.text;
+    }
+    if (typeof payload.sinalefa === 'boolean' && sinalefaEnabled) {
+      sinalefaEnabled.checked = payload.sinalefa;
+    }
+    if (typeof payload.rhymeMode === 'string' && rhymeMode) {
+      rhymeMode.value = normalizeRhymeMode(payload.rhymeMode);
+    }
+    if (typeof payload.rhymeScheme === 'string' && rhymeScheme) {
+      rhymeScheme.value = payload.rhymeScheme;
+    }
+    if (typeof payload.syllablePattern === 'string' && syllablePattern) {
+      syllablePattern.value = payload.syllablePattern;
+    }
+    updateAnalysis();
+    schedulePoemInputSize();
+    parent.postMessage({
+      type: 'demo:state',
+      title: poemTitle?.value || '',
+      text: poemInput?.value || '',
+      edited: false
+    }, location.origin);
+  };
+
+  if (DEMO_EMBED_MODE === 'silabas') {
+    const outputHeading = outputPanel?.querySelector('.panel-header h2');
+    if (outputHeading) outputHeading.textContent = 'Sílabas';
+    if (poemTitle) poemTitle.readOnly = true;
+    applyDemoPayload({
+      title: 'Palabras',
+      text: 'poeta\npaís\ncasa\nárbol\nmúsica\ncanción',
+      sinalefa: false,
+      rhymeMode: 'asonante',
+      syllablePattern: ''
+    });
+  } else if (DEMO_EMBED_MODE === 'poema') {
+    // Wait for the host page to send the verified poem payload via demo:load.
+    if (poemTitle) poemTitle.value = '';
+    if (poemInput) poemInput.value = '';
+    parent.postMessage({ type: 'demo:ready' }, location.origin);
+  } else {
+    applyDemoPayload({
+      title: 'Silba la ciudad durmiente',
+      text: 'Silba la ciudad durmiente\ndesde este séptimo piso.\nMiro al cielo y no diviso\nni una estrella, como siempre.',
+      sinalefa: true,
+      rhymeMode: 'asonante',
+      syllablePattern: ''
+    });
+  }
+
+  const notifyDemoEdit = () => {
+    parent.postMessage({
+      type: 'demo:state',
+      title: poemTitle?.value || '',
+      text: poemInput?.value || '',
+      edited: (poemInput?.value || '') !== demoInitialText
+    }, location.origin);
+  };
+  poemInput?.addEventListener('input', notifyDemoEdit);
+  poemTitle?.addEventListener('input', notifyDemoEdit);
+
+  window.addEventListener('message', (event) => {
+    if (event.origin !== location.origin || event.source !== parent) return;
+    if (event.data?.type === 'demo:load') {
+      applyDemoPayload(event.data);
+    }
+  });
+}
 
 // Keep an open tab's local trash fresh; remote cleanup runs on authenticated trash operations.
 setInterval(() => renderPoemTrash(), 60 * 60 * 1000);

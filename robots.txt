@@ -4,4 +4,4 @@ Disallow: /admin
 Disallow: /admin.html
 Disallow: /api/
 
-Sitemap: https://mesa-de-poesia.pages.dev/sitemap.xml
+Sitemap: https://poesia.mimesa.dev/sitemap.xml

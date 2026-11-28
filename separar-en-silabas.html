@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Separar palabras en sílabas online: tónica, diptongo e hiato | Mesa de Poesía</title>
+  <meta name="description" content="Separa palabras en español en sílabas gramaticales gratis: identifica la sílaba tónica, si es aguda, llana o esdrújula, detecta diptongos e hiatos y pasa al escandidor si mides versos.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://poesia.mimesa.dev/separar-en-silabas">
+  <link rel="icon" href="/favicon.ico" sizes="64x64">
+  <meta name="theme-color" content="#E6E4D9">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:site_name" content="Mesa de Poesía">
+  <meta property="og:title" content="Separar palabras en sílabas online: tónica, diptongo e hiato | Mesa de Poesía">
+  <meta property="og:description" content="Separa palabras en español en sílabas gramaticales gratis: sílaba tónica, acentuación, diptongos e hiatos al instante.">
+  <meta property="og:url" content="https://poesia.mimesa.dev/separar-en-silabas">
+  <meta property="og:image" content="https://poesia.mimesa.dev/assets/social-preview.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Cuaderno abierto con versos, marcas de métrica y un lápiz sobre una mesa">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Separar palabras en sílabas online | Mesa de Poesía">
+  <meta name="twitter:description" content="División silábica gramatical en español, sílaba tónica, diptongos e hiatos.">
+  <meta name="twitter:image" content="https://poesia.mimesa.dev/assets/social-preview.png">
+  <script src="/theme-init.js"></script>
+  <link rel="stylesheet" href="/landing.css">
+  <link rel="stylesheet" href="/identity.css">
+  <link rel="stylesheet" href="/guides.css">
+  <script src="/theme.js" defer></script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebApplication","@id":"https://poesia.mimesa.dev/separar-en-silabas#app","name":"Separador de sílabas en español | Mesa de Poesía","url":"https://poesia.mimesa.dev/separar-en-silabas","applicationCategory":"EducationalApplication","operatingSystem":"Navegador web","inLanguage":"es","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Inicio","item":"https://poesia.mimesa.dev/"},{"@type":"ListItem","position":2,"name":"Separar palabras en sílabas","item":"https://poesia.mimesa.dev/separar-en-silabas"}]}]}</script>
+  <style>
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    .syllable-hero{padding:28px 0 10px;max-width:860px;margin-inline:auto}
+    .syllable-hero h1{margin:8px 0 10px;font-family:var(--display-font);font-size:clamp(32px,4vw,46px);font-weight:400;line-height:1.1;letter-spacing:-.035em}
+    .syllable-hero .copy{max-width:64ch}
+    .syllable-tool{max-width:860px;margin:18px auto 34px}
+    .search-shell{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap}
+    .search-shell input{flex:1 1 300px;padding:15px 18px;font:500 20px/1.3 var(--reading-font,Georgia,serif);border:1.5px solid var(--line);border-radius:8px;background:var(--surface,transparent);color:var(--text)}
+    .search-shell input:focus{outline:2px solid var(--accent);outline-offset:2px;border-color:var(--accent)}
+    .tool-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 16px;min-height:52px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--text);font:600 13px/1 system-ui,sans-serif;cursor:pointer;text-decoration:none}
+    .tool-btn:hover{border-color:var(--accent)}
+    .chip-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+    .chip-label{font-size:12px;color:var(--muted);margin-right:2px}
+    .sample-chip{padding:5px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--text);font:500 13px/1.2 system-ui,sans-serif;cursor:pointer}
+    .sample-chip:hover,.sample-chip.is-active{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
+    .result-card{margin-top:18px;padding:24px;border:1px solid var(--line);border-top:3px solid var(--action);border-radius:10px;background:var(--surface,rgba(127,127,127,.04))}
+    .result-big{font:400 clamp(30px,4.5vw,44px)/1.3 var(--reading-font,Georgia,serif);letter-spacing:.01em;word-break:break-word}
+    .result-big .syl-sep{color:var(--muted);margin:0 4px;font-weight:400}
+    .result-big .syl-tonic{color:var(--accent);font-weight:700;text-decoration:underline;text-underline-offset:6px;text-decoration-thickness:2px}
+    .result-big .word-gap{display:inline-block;width:16px}
+    .facts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:20px;padding-top:18px;border-top:1px solid var(--line)}
+    .fact-box{padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:color-mix(in srgb,var(--line) 18%,transparent)}
+    .fact-box dt{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+    .fact-box dd{margin:4px 0 0;font-size:16px;font-weight:600;color:var(--text)}
+    .syneresis-note{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;padding:12px 14px;border-radius:8px;border:1px dashed color-mix(in srgb,var(--accent) 55%,var(--line));background:color-mix(in srgb,var(--accent) 7%,transparent);font-size:14px}
+    .syneresis-note strong{color:var(--text)}
+    .syneresis-sample{font:600 18px/1.2 var(--reading-font,Georgia,serif);color:var(--accent);letter-spacing:.01em}
+    .multi-list{width:100%;border-collapse:collapse;margin-top:18px;font-size:14px}
+    .multi-list th,.multi-list td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left}
+    .multi-list th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+    .handoff-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;margin-top:18px;padding:16px 18px;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--accent) 7%,transparent)}
+    .handoff-copy{margin:0;flex:1 1 300px;font-size:14px;color:var(--text)}
+    .handoff-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+    .demo-table{width:100%;border-collapse:collapse;margin:16px 0;font-size:.94rem}
+    .demo-table th,.demo-table td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left}
+  </style>
+</head>
+<body class="landing-page">
+<a class="skip" href="#contenido">Saltar al contenido</a>
+<header class="publication-header">
+  <nav class="publication-nav" aria-label="Navegación principal">
+    <a class="publication-brand" href="/">Mesa de Poesía<span aria-hidden="true">.</span></a>
+    <div class="publication-links"><a href="/">Inicio</a><a href="/taller/">Abrir mi mesa</a><a href="/separar-en-silabas-metricas">Sílabas métricas</a><a href="/separar-en-silabas" aria-current="page">Sílabas gramaticales</a><a href="/formas-poeticas">Formas poéticas</a><a href="/recursos">Recursos</a><button type="button" class="theme-toggle" data-theme-toggle aria-label="Cambiar a modo oscuro" aria-pressed="false">Modo oscuro</button></div>
+  </nav>
+  <div class="edition-line"><span>Un taller de poesía en español</span><span>División silábica · Sílaba tónica · Diptongo e hiato</span></div>
+</header>
+<main id="contenido">
+  <section class="container syllable-hero">
+    <p class="label">Separador de sílabas en español · Motor de Escandidor</p>
+    <h1>Separar palabras en sílabas</h1>
+    <p class="copy">Escribí una palabra o una frase corta para ver su <strong>división silábica gramatical</strong>, cuál es la <strong>sílaba tónica</strong>, su acentuación y si tiene diptongo, hiato o triptongo.</p>
+  </section>
+
+  <section class="container syllable-tool" aria-label="Separador de sílabas interactivo">
+    <div class="search-shell">
+      <label for="syllableInput" class="sr-only">Palabra o frase para separar en sílabas</label>
+      <input id="syllableInput" type="text" value="poeta" placeholder="Escribí una palabra o frase, ej. murciélago…" autocomplete="off" spellcheck="true">
+      <button id="copyResultBtn" type="button" class="tool-btn">Copiar</button>
+      <button id="clearInputBtn" type="button" class="tool-btn">Limpiar</button>
+    </div>
+
+    <div class="chip-row" role="group" aria-label="Ejemplos rápidos">
+      <span class="chip-label">Probá con:</span>
+      <button type="button" class="sample-chip is-active" data-sample="poeta">poeta</button>
+      <button type="button" class="sample-chip" data-sample="murciélago">murciélago</button>
+      <button type="button" class="sample-chip" data-sample="país">país</button>
+      <button type="button" class="sample-chip" data-sample="ciudad">ciudad</button>
+      <button type="button" class="sample-chip" data-sample="Uruguay">Uruguay</button>
+      <button type="button" class="sample-chip" data-sample="música">música</button>
+      <button type="button" class="sample-chip" data-sample="canción">canción</button>
+    </div>
+
+    <div id="resultCard" class="result-card" aria-live="polite">
+      <div id="resultBig" class="result-big">po<span class="syl-sep">-</span><span class="syl-tonic">e</span><span class="syl-sep">-</span>ta</div>
+      <dl id="factsGrid" class="facts-grid">
+        <div class="fact-box"><dt>Cantidad</dt><dd>3 sílabas</dd></div>
+        <div class="fact-box"><dt>Sílaba tónica</dt><dd>e (2.ª)</dd></div>
+        <div class="fact-box"><dt>Acentuación</dt><dd>llana (grave)</dd></div>
+        <div class="fact-box"><dt>Vocales</dt><dd>Hiato (o-e)</dd></div>
+      </dl>
+      <div id="syneresisBox" class="syneresis-note">
+        <div><strong>Licencia poética · Sinéresis posible:</strong> en verso se puede pronunciar en una sola sílaba: <span class="syneresis-sample">poe-ta</span> (2 sílabas)</div>
+      </div>
+      <div id="multiWordWrap" style="overflow-x:auto" hidden></div>
+    </div>
+
+    <div class="handoff-bar">
+      <p id="handoffCopy" class="handoff-copy"><strong>¿Estás midiendo versos de un poema?</strong> En poesía las <em>sinalefas</em> y la <em>ley del acento final</em> cambian el conteo. Probá el <strong>Escandidor completo</strong> en tu Taller.</p>
+      <div class="handoff-actions">
+        <a class="tool-btn" style="min-height:42px" href="/separar-en-silabas-metricas">Ver sílabas métricas</a>
+        <a id="openWorkshopLink" class="cta" href="/taller/">Abrir el Escandidor ↗</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="container guide">
+    <article>
+      <h2>Ejemplos verificados de diptongo, hiato y acentuación</h2>
+      <div style="overflow-x:auto">
+        <table class="demo-table" aria-label="Ejemplos de división silábica">
+          <thead>
+            <tr>
+              <th>Palabra</th>
+              <th>Sílabas (tónica en negrita)</th>
+              <th>Cantidad</th>
+              <th>Acentuación</th>
+              <th>Encuentro vocálico</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>poeta</td><td>po-<strong>e</strong>-ta</td><td>3</td><td>llana</td><td>Hiato (o-e)</td></tr>
+            <tr><td>murciélago</td><td>mur-<strong>cié</strong>-la-go</td><td>4</td><td>esdrújula</td><td>Diptongo (ié)</td></tr>
+            <tr><td>país</td><td>pa-<strong>ís</strong></td><td>2</td><td>aguda</td><td>Hiato acentual (a-í)</td></tr>
+            <tr><td>ciudad</td><td>ciu-<strong>dad</strong></td><td>2</td><td>aguda</td><td>Diptongo (iu)</td></tr>
+            <tr><td>Uruguay</td><td>U-ru-<strong>guay</strong></td><td>3</td><td>aguda</td><td>Triptongo (uay)</td></tr>
+            <tr><td>música</td><td><strong>mú</strong>-si-ca</td><td>3</td><td>esdrújula</td><td>—</td></tr>
+            <tr><td>canción</td><td>can-<strong>ción</strong></td><td>2</td><td>aguda</td><td>Diptongo (ió)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Esta vista muestra la <strong>división gramatical</strong> palabra por palabra. Si querés contar sílabas poéticas con sinalefas, acentos versales y rimas, pasá al <a href="/separar-en-silabas-metricas">contador de sílabas métricas</a> o abrí el <a href="/taller/">Taller completo</a>.</p>
+    </article>
+  </section>
+</main>
+<footer class="container footer"><a href="/">Mesa de Poesía</a><nav aria-label="Enlaces del pie"><a href="/taller/">Abrir mi mesa</a><a href="/separar-en-silabas-metricas">Sílabas métricas</a><a href="/separar-en-silabas">Sílabas gramaticales</a><a href="/formas-poeticas">Formas poéticas</a><a href="/recursos">Recursos</a><a href="/concursos-de-poesia">Concursos</a><a href="/apoyar">Donaciones</a><a href="/privacidad">Privacidad</a></nav></footer>
+<script type="module">
+  import { analyzeWord } from '/analyzer.js';
+
+  const input = document.getElementById('syllableInput');
+  const resultBig = document.getElementById('resultBig');
+  const factsGrid = document.getElementById('factsGrid');
+  const syneresisBox = document.getElementById('syneresisBox');
+  const multiWordWrap = document.getElementById('multiWordWrap');
+  const copyBtn = document.getElementById('copyResultBtn');
+  const clearBtn = document.getElementById('clearInputBtn');
+  const handoffCopy = document.getElementById('handoffCopy');
+  const openWorkshopLink = document.getElementById('openWorkshopLink');
+  const chips = [...document.querySelectorAll('.sample-chip')];
+
+  const VOWEL_RE = /[aeiouáéíóúü]/i;
+
+  function detectVowelPhenomena(syllables) {
+    const found = [];
+    for (const rawSyl of syllables) {
+      const syl = rawSyl.replace(/([gq])u(?=[eiéí])/gi, '$1');
+      const runs = syl.match(/[aeiouáéíóúüy]+/gi) || [];
+      for (const run of runs) {
+        const clean = run.toLowerCase();
+        const letters = [...clean];
+        const isFinalY = letters.length > 1 && letters.at(-1) === 'y';
+        const effective = isFinalY ? clean : clean.replaceAll('y', '');
+        if (effective.length === 3) found.push(`Triptongo (${run})`);
+        else if (effective.length === 2) found.push(`Diptongo (${run})`);
+      }
+    }
+    for (let i = 0; i < syllables.length - 1; i++) {
+      const left = syllables[i];
+      const right = syllables[i + 1];
+      const leftEnd = left.at(-1) || '';
+      const rightStart = right.startsWith('h') || right.startsWith('H') ? (right[1] || '') : (right[0] || '');
+      if (VOWEL_RE.test(leftEnd) && VOWEL_RE.test(rightStart)) {
+        found.push(`Hiato (${leftEnd}-${rightStart})`);
+      }
+    }
+    return found.length ? found.join(' · ') : 'Ninguno';
+  }
+
+  function formatAccentLabel(type) {
+    if (type === 'llana') return 'llana (grave)';
+    return type || '—';
+  }
+
+  function formatWordHtml(analysis) {
+    return analysis.syllables.map((syl, idx) => {
+      const safe = syl.replaceAll('&', '&amp;').replaceAll('<', '&lt;');
+      const part = idx === analysis.stressIndex ? `<span class="syl-tonic">${safe}</span>` : safe;
+      return idx > 0 ? `<span class="syl-sep">-</span>${part}` : part;
+    }).join('');
+  }
+
+  let plainCopyText = 'po-e-ta';
+
+  function render() {
+    const raw = input.value;
+    const words = raw.match(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+/g) || [];
+    chips.forEach((c) => c.classList.toggle('is-active', c.dataset.sample.toLowerCase() === raw.trim().toLowerCase()));
+
+    if (!words.length) {
+      resultBig.innerHTML = '<span style="color:var(--muted);font-size:20px">Escribí una palabra arriba para separarla en sílabas.</span>';
+      factsGrid.innerHTML = '';
+      syneresisBox.hidden = true;
+      multiWordWrap.hidden = true;
+      plainCopyText = '';
+      return;
+    }
+
+    const analyses = words.map((w) => {
+      const base = analyzeWord(w);
+      const withSyneresis = base.syneresisCandidates.length
+        ? analyzeWord(w, { syneresis: base.syneresisCandidates })
+        : null;
+      return { word: w, ...base, withSyneresis };
+    });
+    resultBig.innerHTML = analyses.map((a) => formatWordHtml(a)).join('<span class="word-gap" aria-hidden="true"> </span>');
+    plainCopyText = analyses.map((a) => a.syllables.join('-')).join(' ');
+
+    if (analyses.length === 1) {
+      const a = analyses[0];
+      const count = a.syllables.length;
+      const tonicSyl = a.syllables[a.stressIndex] || '';
+      const phenomena = detectVowelPhenomena(a.syllables);
+      factsGrid.innerHTML = `
+        <div class="fact-box"><dt>Cantidad</dt><dd>${count} ${count === 1 ? 'sílaba' : 'sílabas'}</dd></div>
+        <div class="fact-box"><dt>Sílaba tónica</dt><dd>${tonicSyl.replaceAll('<', '&lt;')} (${a.stressIndex + 1}.ª)</dd></div>
+        <div class="fact-box"><dt>Acentuación</dt><dd>${formatAccentLabel(a.accentType)}</dd></div>
+        <div class="fact-box"><dt>Vocales</dt><dd>${phenomena.replaceAll('<', '&lt;')}</dd></div>
+      `;
+      if (a.withSyneresis) {
+        const synCount = a.withSyneresis.syllables.length;
+        const synText = a.withSyneresis.syllables.join('-').replaceAll('<', '&lt;');
+        syneresisBox.hidden = false;
+        syneresisBox.innerHTML = `<div><strong>Licencia poética · Sinéresis posible:</strong> en verso puede unirse el hiato en <span class="syneresis-sample">${synText}</span> (${synCount} ${synCount === 1 ? 'sílaba' : 'sílabas'})</div>`;
+      } else {
+        syneresisBox.hidden = true;
+      }
+      multiWordWrap.hidden = true;
+      handoffCopy.innerHTML = '<strong>¿Estás midiendo versos de un poema?</strong> En poesía las <em>sinalefas</em> y la <em>ley del acento final</em> cambian el conteo. Probá el <strong>Escandidor completo</strong> en tu Taller.';
+      openWorkshopLink.textContent = 'Abrir el Escandidor ↗';
+    } else {
+      const totalSyl = analyses.reduce((sum, a) => sum + a.syllables.length, 0);
+      const synWords = analyses.filter((a) => a.withSyneresis);
+      factsGrid.innerHTML = `
+        <div class="fact-box"><dt>Palabras</dt><dd>${analyses.length}</dd></div>
+        <div class="fact-box"><dt>Sílabas gramaticales</dt><dd>${totalSyl}</dd></div>
+        <div class="fact-box"><dt>Modo</dt><dd>Gramatical (sin sinalefas)</dd></div>
+      `;
+      if (synWords.length) {
+        const list = synWords.map((a) => `<span class="syneresis-sample">${a.withSyneresis.syllables.join('-').replaceAll('<', '&lt;')}</span> (${a.withSyneresis.syllables.length} síl.)`).join(', ');
+        syneresisBox.hidden = false;
+        syneresisBox.innerHTML = `<div><strong>Sinéresis posibles en poesía:</strong> ${list}</div>`;
+      } else {
+        syneresisBox.hidden = true;
+      }
+      multiWordWrap.hidden = false;
+      multiWordWrap.innerHTML = `
+        <table class="multi-list" aria-label="Desglose palabra por palabra">
+          <thead><tr><th>Palabra</th><th>Sílabas</th><th>Cantidad</th><th>Acentuación</th><th>Vocales</th><th>Sinéresis</th></tr></thead>
+          <tbody>
+            ${analyses.map((a) => `<tr><td>${a.word.replaceAll('<', '&lt;')}</td><td>${formatWordHtml(a)}</td><td>${a.syllables.length}</td><td>${formatAccentLabel(a.accentType)}</td><td>${detectVowelPhenomena(a.syllables).replaceAll('<', '&lt;')}</td><td>${a.withSyneresis ? `${a.withSyneresis.syllables.join('-').replaceAll('<', '&lt;')} (${a.withSyneresis.syllables.length})` : '—'}</td></tr>`).join('')}
+          </tbody>
+        </table>
+      `;
+      handoffCopy.innerHTML = '<strong>¿Esa frase es un verso?</strong> Llevate este texto al <strong>Escandidor completo</strong> para ver sinalefas, ley del acento final y rimas.';
+      openWorkshopLink.textContent = 'Medir esto en mi Taller ↗';
+    }
+  }
+
+  input.addEventListener('input', render);
+  chips.forEach((chip) => {
+    chip.addEventListener('click', () => {
+      input.value = chip.dataset.sample || '';
+      render();
+      input.focus();
+    });
+  });
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    render();
+    input.focus();
+  });
+  copyBtn.addEventListener('click', async () => {
+    if (!plainCopyText) return;
+    try {
+      await navigator.clipboard.writeText(plainCopyText);
+      const prev = copyBtn.textContent;
+      copyBtn.textContent = '¡Copiado!';
+      setTimeout(() => { copyBtn.textContent = prev; }, 1400);
+    } catch {}
+  });
+  openWorkshopLink.addEventListener('click', () => {
+    const text = input.value.trim();
+    if (text && text.includes(' ')) {
+      try {
+        sessionStorage.setItem('mesa.pendingDemoDraft', JSON.stringify({
+          title: 'Verso desde separador',
+          text,
+        }));
+      } catch {}
+    }
+  });
+
+  render();
+</script>
+</body>
+</html>

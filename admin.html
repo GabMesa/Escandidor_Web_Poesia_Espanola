@@ -11,6 +11,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&amp;family=Cormorant+Garamond:wght@600;700&amp;display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="guides.css" />
     <link rel="stylesheet" href="admin.css" />
       <link rel="stylesheet" href="identity.css" />
     <script src="theme.js" defer></script>
@@ -19,8 +20,8 @@
   <body class="admin-page">
 <header class="publication-header">
   <nav class="publication-nav" aria-label="Navegación principal">
-    <a class="publication-brand" href="index.html">Mesa de Poesía<span aria-hidden="true">.</span></a>
-    <div class="publication-links"><a href="index.html" >Inicio</a><a href="escandidor.html" >Escandidor</a><a href="apoyar.html" class="nav-support" >Apoyar el proyecto ↗</a><button type="button" class="theme-toggle" data-theme-toggle aria-label="Cambiar a modo oscuro" aria-pressed="false">Modo oscuro</button></div>
+    <a class="publication-brand" href="/">Mesa de Poesía<span aria-hidden="true">.</span></a>
+    <div class="publication-links"><a href="/">Inicio</a><a href="/taller/">Taller</a><a href="/apoyar" class="nav-support">Apoyar el proyecto ↗</a><button type="button" class="theme-toggle" data-theme-toggle aria-label="Cambiar a modo oscuro" aria-pressed="false">Modo oscuro</button></div>
   </nav>
 
   <div class="edition-line"><span>Un taller de poesía en español</span><span>Métrica · Ritmo · Rima</span></div>
@@ -33,7 +34,7 @@
         </div>
         <div class="admin-header-actions">
           <span id="adminIdentity" class="admin-identity"></span>
-          <a href="escandidor.html" class="admin-back-link">Volver al escandidor</a>
+          <a href="/taller/" class="admin-back-link">Volver al taller</a>
         </div>
       </header>
 
@@ -54,6 +55,7 @@
             <button id="usersTab" class="admin-tab is-active" type="button" role="tab" aria-selected="true">Usuarios</button>
             <button id="supportersTab" class="admin-tab" type="button" role="tab" aria-selected="false">Supporters</button>
             <button id="poemsTab" class="admin-tab" type="button" role="tab" aria-selected="false">Poemas</button>
+            <button id="pagesTab" class="admin-tab" type="button" role="tab" aria-selected="false">Páginas</button>
           </div>
           <label class="admin-search">
             <span class="sr-only">Buscar</span>
@@ -86,6 +88,88 @@
               <thead><tr><th>Poema</th><th>Versión actual</th><th>Propietario</th><th>Actualizado</th><th>Acciones</th></tr></thead>
               <tbody id="poemsTableBody"></tbody>
             </table>
+          </div>
+        </section>
+
+        <section id="pagesPanel" class="admin-panel hidden" role="tabpanel" aria-labelledby="pagesTab">
+          <div class="pages-list-bar">
+            <div id="pagesList" class="pages-list" role="tablist" aria-label="Páginas editoriales"></div>
+            <div class="pages-list-actions">
+              <button id="newPageBtn" type="button">+ Nueva página</button>
+              <button id="resetPagesBtn" type="button" class="secondary">Restaurar iniciales</button>
+            </div>
+          </div>
+
+          <div id="pageEditorShell" class="pages-editor-shell">
+            <div class="pages-action-bar">
+              <div class="pages-action-identity">
+                <span id="pageStatusBadge" class="page-badge">Solo borrador</span>
+                <code id="pageUrlDisplay">/nueva-pagina</code>
+                <a id="pagePublicLink" class="admin-back-link hidden" href="/" target="_blank" rel="noopener">Ver publicada ↗</a>
+              </div>
+              <div class="pages-action-buttons">
+                <button id="saveDraftBtn" type="button" class="secondary">Guardar borrador</button>
+                <button id="publishPageBtn" type="button">Publicar</button>
+                <button id="discardDraftBtn" type="button" class="secondary hidden">Descartar borrador</button>
+                <button id="unpublishPageBtn" type="button" class="secondary hidden">Despublicar</button>
+                <button id="deletePageBtn" type="button" class="admin-delete hidden">Eliminar</button>
+              </div>
+            </div>
+
+            <details id="pageMetaDetails" class="pages-meta-panel">
+              <summary>URL, título SEO y opciones de navegación</summary>
+              <div class="pages-meta-grid">
+                <label>URL (slug)
+                  <input id="pageSlugInput" type="text" maxlength="80" placeholder="ej. recursos-de-soneto" />
+                </label>
+                <label>Encabezado principal (H1)
+                  <input id="pageHeadingInput" type="text" maxlength="160" placeholder="Título visible en la página" />
+                </label>
+                <label>Título SEO (&lt;title&gt;)
+                  <input id="pageTitleInput" type="text" maxlength="160" placeholder="Título en Google | Mesa de Poesía" />
+                </label>
+                <label>Etiqueta superior
+                  <input id="pageEyebrowInput" type="text" maxlength="120" placeholder="Ej. Recurso de recursos · Enlaces validados" />
+                </label>
+                <label class="admin-field-full">Descripción SEO (meta description)
+                  <input id="pageDescriptionInput" type="text" maxlength="320" placeholder="Resumen breve para buscadores (130–160 caracteres)" />
+                </label>
+                <label>Nombre corto en menú
+                  <input id="pageNavLabelInput" type="text" maxlength="40" placeholder="Ej. Recursos" />
+                </label>
+                <label>Orden
+                  <input id="pageSortOrderInput" type="number" value="100" min="-9999" max="9999" />
+                </label>
+                <label class="admin-check"><input id="pageShowInNavInput" type="checkbox" /> Mostrar en navegación</label>
+              </div>
+            </details>
+
+            <div class="pages-split">
+              <section class="pages-pane" aria-label="Editor Markdown">
+                <div class="pages-pane-head">
+                  <strong>Borrador en Markdown</strong>
+                  <details class="pages-help-toggle">
+                    <summary>Ayuda rápida</summary>
+                    <div class="pages-help-box">
+                      <code>## Subtítulo</code> · <code>**negrita**</code> · <code>*cursiva*</code> · <code>- elemento</code> · <code>[texto](https://...)</code><br />
+                      Bloques especiales en línea propia: <code>{{formas:cortas}}</code>, <code>{{formas:medianas}}</code>, <code>{{formas:poemas}}</code>, <code>{{cta:/taller/|Abrir taller}}</code>, <code>{{aviso:/taller/|Botón|Texto destacado}}</code>
+                    </div>
+                  </details>
+                </div>
+                <textarea id="pageDraftInput" class="pages-md-input" spellcheck="true" placeholder="Escribí el contenido de la página en Markdown…"></textarea>
+              </section>
+
+              <section class="pages-pane" aria-label="Vista previa">
+                <div class="pages-pane-head">
+                  <strong>Vista previa</strong>
+                  <div class="pages-preview-switch" role="group" aria-label="Versión en vista previa">
+                    <button id="previewDraftBtn" type="button" class="is-active">Borrador</button>
+                    <button id="previewPublishedBtn" type="button">Publicada</button>
+                  </div>
+                </div>
+                <div id="pagePreviewCanvas" class="pages-preview-canvas guide"></div>
+              </section>
+            </div>
           </div>
         </section>
       </section>

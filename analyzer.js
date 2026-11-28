@@ -52,6 +52,18 @@ const UNSTRESSED_MONOSYLLABLES = new Set([
   'les'
 ]);
 
+const UNSTRESSED_PREPOSITIONS = new Set([
+  'ante',
+  'bajo',
+  'contra',
+  'desde',
+  'entre',
+  'hacia',
+  'hasta',
+  'para',
+  'sobre'
+]);
+
 function isLetter(ch) {
   return /[a-záéíóúüäëïöñ]/i.test(ch);
 }
@@ -589,7 +601,7 @@ export function analyzeWord(inputWord, options = {}) {
     stressIndex,
     secondaryStressIndices,
     accentType,
-    isTonic: syllables.length > 1 || (syllables.length === 1 && !isUnstressedMonosyllable(original)),
+    isTonic: syllables.length > 0 && !isUnstressedWord(original),
     syllableCount: syllables.length,
     hasWrittenAccent: findAccentedVowelIndex(normalized) !== -1
   };
@@ -615,8 +627,8 @@ export function analyzeLine(line, options = {}) {
   }));
   const rawCount = analyses.reduce((total, word) => total + word.syllableCount, 0);
   const lastWord = analyses.at(-1) ?? null;
-  // At verse end, the final monosyllable carries the obligatory closing accent.
-  if (lastWord?.syllableCount === 1) lastWord.isTonic = true;
+  // At verse end, the final word carries the obligatory closing accent.
+  if (lastWord) lastWord.isTonic = true;
   const accentType = lastWord?.accentType ?? 'llana';
   const poeticCount = adjustPoeticCount(rawCount, accentType);
 
@@ -730,6 +742,15 @@ export function isSinalefaCandidate(leftWordAnalysis, rightWordAnalysis, options
 export function isUnstressedMonosyllable(word) {
   const normalized = sanitizeWord(word);
   return UNSTRESSED_MONOSYLLABLES.has(normalized);
+}
+
+export function isUnstressedPreposition(word) {
+  const normalized = sanitizeWord(word);
+  return UNSTRESSED_PREPOSITIONS.has(normalized);
+}
+
+export function isUnstressedWord(word) {
+  return isUnstressedMonosyllable(word) || isUnstressedPreposition(word);
 }
 
 export function normalizeValidationWord(value) {

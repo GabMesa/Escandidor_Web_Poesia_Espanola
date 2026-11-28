@@ -333,7 +333,14 @@ window.addEventListener('message',async event=>{
         }
       }finally{state.hydrating=false;}
       state.startupComplete=true;editorLoading.finish();
-      if(['library','editor'].includes(state.view))render();
+      let pendingDemoDraft=null;
+      try{const raw=sessionStorage.getItem('mesa.pendingDemoDraft');if(raw){sessionStorage.removeItem('mesa.pendingDemoDraft');pendingDemoDraft=JSON.parse(raw);}}catch{}
+      if(pendingDemoDraft&&(pendingDemoDraft.text||pendingDemoDraft.title)){
+        const requestId=crypto.randomUUID();
+        state.openingEditorId=requestId;
+        state.view='editor';
+        document.querySelector('#workshop-editor').contentWindow.postMessage({type:'workshop:open',requestId,title:String(pendingDemoDraft.title||'Borrador del escandidor').slice(0,80),text:String(pendingDemoDraft.text||'')},location.origin);
+      }else if(['library','editor'].includes(state.view))render();
     }).catch(error=>{editorLoading.fail(error.message);toast(error.message);});
     if(state.pendingOpen){event.source.postMessage(state.pendingOpen,location.origin);state.pendingOpen=null;}
     else event.source.postMessage({type:'workshop:view',view:state.view},location.origin);

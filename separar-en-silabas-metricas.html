@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Separar versos en sílabas métricas online: sinalefas y acentos | Mesa de Poesía</title>
+  <meta name="description" content="Separa versos en sílabas métricas gratis: comprueba sinalefas, ley del acento final (+1 aguda, -1 esdrújula) y compara la división gramatical con la métrica poética.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://poesia.mimesa.dev/separar-en-silabas-metricas">
+  <link rel="icon" href="/favicon.ico" sizes="64x64">
+  <meta name="theme-color" content="#E6E4D9">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:site_name" content="Mesa de Poesía">
+  <meta property="og:title" content="Separar versos en sílabas métricas online: sinalefas y acentos | Mesa de Poesía">
+  <meta property="og:description" content="Separa versos en sílabas métricas gratis: comprueba sinalefas, ley del acento final y compara la división gramatical con la métrica poética.">
+  <meta property="og:url" content="https://poesia.mimesa.dev/separar-en-silabas-metricas">
+  <meta property="og:image" content="https://poesia.mimesa.dev/assets/social-preview.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Cuaderno abierto con versos, marcas de métrica y un lápiz sobre una mesa">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Separar versos en sílabas métricas online | Mesa de Poesía">
+  <meta name="twitter:description" content="Separa versos en sílabas métricas gratis: sinalefas, ley del acento final y prueba en vivo.">
+  <meta name="twitter:image" content="https://poesia.mimesa.dev/assets/social-preview.png">
+  <script src="/theme-init.js"></script>
+  <link rel="stylesheet" href="/landing.css">
+  <link rel="stylesheet" href="/identity.css">
+  <link rel="stylesheet" href="/guides.css">
+  <script src="/theme.js" defer></script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebApplication","@id":"https://poesia.mimesa.dev/separar-en-silabas-metricas#app","name":"Contador de sílabas métricas | Mesa de Poesía","url":"https://poesia.mimesa.dev/separar-en-silabas-metricas","applicationCategory":"EducationalApplication","operatingSystem":"Navegador web","inLanguage":"es","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Inicio","item":"https://poesia.mimesa.dev/"},{"@type":"ListItem","position":2,"name":"Separar versos en sílabas métricas","item":"https://poesia.mimesa.dev/separar-en-silabas-metricas"}]}]}</script>
+  <style>
+    .tool-intro{padding-top:26px;padding-bottom:10px}
+    .tool-intro h1{margin:8px 0 10px;font-family:var(--display-font);font-size:clamp(30px,3.8vw,44px);font-weight:400;line-height:1.1;letter-spacing:-.035em}
+    .tool-intro .copy{max-width:72ch}
+    .preset-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin:14px 0 10px}
+    .preset-pills{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .preset-label{font-size:12px;color:var(--muted);margin-right:2px}
+    .preset-pill{padding:6px 13px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--text);font:500 13px/1.2 system-ui,sans-serif;cursor:pointer}
+    .preset-pill:hover,.preset-pill.is-active{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 11%,transparent)}
+    .legend-bar{display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:8px 14px;margin-bottom:10px;border:1px solid var(--line);border-radius:8px;font-size:12px;color:var(--muted);background:color-mix(in srgb,var(--line) 14%,transparent)}
+    .legend-item{display:inline-flex;align-items:center;gap:6px}
+    .legend-pill{display:inline-block;padding:0 7px;border-radius:999px;border:1px solid #5f8c3a;color:#7fb354;font-weight:600;font-size:11px;line-height:1.5}
+    .legend-tonic{color:var(--accent);font-weight:700}
+    .legend-count{font-weight:700;color:var(--text)}
+    .embed-stage{margin:6px 0 28px}
+    .embed-frame{width:100%;height:340px;border:0;display:block;background:transparent}
+    .handoff-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px;margin-top:14px;padding:16px 18px;border:1px solid var(--line);border-radius:10px;background:color-mix(in srgb,var(--line) 12%,transparent)}
+    .handoff-bar.is-edited{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,transparent)}
+    .handoff-copy{margin:0;flex:1 1 320px;font-size:.95rem}
+    .handoff-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+    .demo-table{width:100%;border-collapse:collapse;margin:16px 0;font-size:.94rem}
+    .demo-table th,.demo-table td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left}
+  </style>
+</head>
+<body class="landing-page">
+<a class="skip" href="#contenido">Saltar al contenido</a>
+<header class="publication-header">
+  <nav class="publication-nav" aria-label="Navegación principal">
+    <a class="publication-brand" href="/">Mesa de Poesía<span aria-hidden="true">.</span></a>
+    <div class="publication-links"><a href="/">Inicio</a><a href="/taller/">Abrir mi mesa</a><a href="/separar-en-silabas-metricas" aria-current="page">Sílabas métricas</a><a href="/separar-en-silabas">Sílabas gramaticales</a><a href="/formas-poeticas">Formas poéticas</a><a href="/recursos">Recursos</a><button type="button" class="theme-toggle" data-theme-toggle aria-label="Cambiar a modo oscuro" aria-pressed="false">Modo oscuro</button></div>
+  </nav>
+  <div class="edition-line"><span>Un taller de poesía en español</span><span>Escansión · Sinalefas · Ley del acento final</span></div>
+</header>
+<main id="contenido">
+  <section class="container tool-intro">
+    <p class="label">Escandidor de poesía · Análisis en vivo</p>
+    <h1>Separar versos en sílabas métricas</h1>
+    <p class="copy">Escribí o pegá tu poema a la izquierda y mirá al instante el análisis métrico a la derecha: separación silábica, sinalefas clicables, acentos, rimas y <strong>Modo texto</strong> para copiar.</p>
+  </section>
+
+  <section class="container embed-stage" aria-label="Escandidor de poesía en vivo">
+    <div class="preset-toolbar">
+      <div class="preset-pills" role="group" aria-label="Elegir ejemplo">
+        <span class="preset-label">Ejemplos:</span>
+        <button type="button" class="preset-pill is-active" data-preset="octosilabos">Cuarteta octosílaba (8)</button>
+        <button type="button" class="preset-pill" data-preset="agudos">Final agudo (+1)</button>
+        <button type="button" class="preset-pill" data-preset="endecasilabos">Endecasílabos (11)</button>
+        <button type="button" class="preset-pill" data-preset="limpiar">Pegar mi poema</button>
+      </div>
+    </div>
+
+    <div class="legend-bar" aria-label="Cómo leer el análisis">
+      <span class="legend-item"><span class="legend-pill">dees</span> sinalefa activa (clic para separar)</span>
+      <span class="legend-item"><span class="legend-tonic">sílaba</span> tónica</span>
+      <span class="legend-item"><strong>A / B</strong> rima</span>
+      <span class="legend-item"><span class="legend-count">8</span> sílabas métricas finales</span>
+    </div>
+
+    <iframe id="metricEmbedFrame" class="embed-frame" scrolling="no" title="Escandidor de sílabas métricas en vivo" src="/escandidor.html?taller=1&demo=metrica"></iframe>
+
+    <div id="handoffBar" class="handoff-bar">
+      <p id="handoffCopy" class="handoff-copy"><strong>¿Querés guardar versiones y usar las 22 formas poéticas?</strong> En el Taller completo podés revisar rimas y sinónimos, dictar versos, exportar PDF/DOCX y preparar concursos.</p>
+      <div class="handoff-actions">
+        <a id="openWorkshopLink" class="cta" href="/taller/">Abrir el Escandidor completo ↗</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="container guide">
+    <article>
+      <h2>Cómo se cuentan las sílabas métricas en este ejemplo</h2>
+      <p>La métrica española mide cómo suenan los versos al pronunciarse, por eso la cuenta poética suele diferir de la separación gramatical de palabras. En esta cuarteta de octosílabos todos los versos miden <strong>8 sílabas métricas</strong> gracias a las sinalefas:</p>
+      <div style="overflow-x:auto">
+        <table class="demo-table" aria-label="Ejemplo verificado de escansión métrica">
+          <thead>
+            <tr>
+              <th>Verso</th>
+              <th>Sílabas gramaticales</th>
+              <th>Sinalefas</th>
+              <th>Palabra final</th>
+              <th>Sílabas métricas</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Silba la ciudad durmiente</td><td>8</td><td>0</td><td>llana (±0)</td><td><strong>8</strong></td></tr>
+            <tr><td>desde este séptimo piso.</td><td>9</td><td>1 (desde‿este)</td><td>llana (±0)</td><td><strong>8</strong></td></tr>
+            <tr><td>Miro al cielo y no diviso</td><td>10</td><td>2 (Miro‿al · cielo‿y)</td><td>llana (±0)</td><td><strong>8</strong></td></tr>
+            <tr><td>ni una estrella, como siempre.</td><td>10</td><td>2 (ni‿una · una‿estrella)</td><td>llana (±0)</td><td><strong>8</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul>
+        <li><strong>Sinalefa:</strong> une vocales contiguas entre palabras (<em>desde‿este</em>, <em>Miro‿al</em>, <em>cielo‿y</em>). Hacé clic en cualquier píldora verde del panel derecho para probar la lectura con hiato.</li>
+        <li><strong>Ley del acento final:</strong> verso agudo o monosílabo suma <strong>+1</strong> (como <em>La luna brilla sobre el mar</em>: 9 gram. − 1 sinalefa + 1 aguda = 9 métricas), llano mantiene <strong>±0</strong> y esdrújulo resta <strong>-1</strong>.</li>
+        <li><strong>¿Solo necesitás separar palabras sueltas?</strong> Usá el <a href="/separar-en-silabas">separador de sílabas gramaticales</a>.</li>
+        <li><strong>¿Querés ver poemas clásicos completos ya escandidos?</strong> Explorá <a href="/metrica/">poemas verificados de Quevedo, Garcilaso y José Martí</a> con sus sinalefas e hiatos en vivo.</li>
+      </ul>
+    </article>
+  </section>
+</main>
+<footer class="container footer"><a href="/">Mesa de Poesía</a><nav aria-label="Enlaces del pie"><a href="/taller/">Abrir mi mesa</a><a href="/separar-en-silabas-metricas">Sílabas métricas</a><a href="/separar-en-silabas">Sílabas gramaticales</a><a href="/formas-poeticas">Formas poéticas</a><a href="/recursos">Recursos</a><a href="/concursos-de-poesia">Concursos</a><a href="/apoyar">Donaciones</a><a href="/privacidad">Privacidad</a></nav></footer>
+<script type="module">
+  const frame = document.getElementById('metricEmbedFrame');
+  const handoffBar = document.getElementById('handoffBar');
+  const handoffCopy = document.getElementById('handoffCopy');
+  const openWorkshopLink = document.getElementById('openWorkshopLink');
+  const presetButtons = [...document.querySelectorAll('.preset-pill')];
+  let demoState = { title: '', text: '', edited: false };
+
+  const PRESETS = {
+    octosilabos: {
+      title: 'Silba la ciudad durmiente',
+      text: 'Silba la ciudad durmiente\ndesde este séptimo piso.\nMiro al cielo y no diviso\nni una estrella, como siempre.',
+      sinalefa: true,
+      rhymeMode: 'asonante',
+      syllablePattern: '',
+    },
+    agudos: {
+      title: 'Versos con final agudo (+1)',
+      text: 'La luna brilla sobre el mar.\nLa noche guarda su cantar.',
+      sinalefa: true,
+      rhymeMode: 'consonante',
+      syllablePattern: '',
+    },
+    endecasilabos: {
+      title: 'Endecasílabos con sinalefa',
+      text: 'En la calma del puerto sin murmullo\nel agua guarda el brillo de la luna,\ny en el silencio tibio de la espuma\nla noche entera deja su reflejo.',
+      sinalefa: true,
+      rhymeMode: 'asonante',
+      syllablePattern: '',
+    },
+    limpiar: {
+      title: 'Mi poema',
+      text: '',
+      sinalefa: true,
+      rhymeMode: 'asonante',
+      syllablePattern: '',
+    },
+  };
+
+  function syncTheme() {
+    const theme = document.documentElement.dataset.theme || 'light';
+    frame.contentWindow?.postMessage({ type: 'workshop:appearance', theme }, location.origin);
+  }
+  new MutationObserver(syncTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  window.addEventListener('message', (event) => {
+    if (event.origin !== location.origin || event.source !== frame.contentWindow) return;
+    if (event.data?.type === 'workshop:resize' && Number.isFinite(event.data.height) && event.data.height > 120) {
+      frame.style.height = `${Math.ceil(event.data.height)}px`;
+    }
+    if (event.data?.type === 'workshop:ready') {
+      syncTheme();
+    }
+    if (event.data?.type === 'demo:state') {
+      demoState = {
+        title: String(event.data.title || ''),
+        text: String(event.data.text || ''),
+        edited: Boolean(event.data.edited),
+      };
+      if (demoState.edited && demoState.text.trim()) {
+        handoffBar.classList.add('is-edited');
+        handoffCopy.innerHTML = '<strong>¿Seguís trabajando este poema?</strong> Llevate exactamente lo que escribiste al Taller completo para guardar versiones, revisar rimas y exportar.';
+        openWorkshopLink.textContent = 'Seguir esto en mi Taller ↗';
+      } else {
+        handoffBar.classList.remove('is-edited');
+        handoffCopy.innerHTML = '<strong>¿Querés guardar versiones y usar las 22 formas poéticas?</strong> En el Taller completo podés revisar rimas y sinónimos, dictar versos, exportar PDF/DOCX y preparar concursos.';
+        openWorkshopLink.textContent = 'Abrir el Escandidor completo ↗';
+      }
+    }
+  });
+
+  presetButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.preset;
+      const preset = PRESETS[key];
+      if (!preset) return;
+      presetButtons.forEach((b) => b.classList.toggle('is-active', b === btn));
+      frame.contentWindow?.postMessage({ type: 'demo:load', ...preset }, location.origin);
+    });
+  });
+
+  openWorkshopLink.addEventListener('click', () => {
+    if (demoState.edited && demoState.text.trim()) {
+      try {
+        sessionStorage.setItem('mesa.pendingDemoDraft', JSON.stringify({
+          title: demoState.title || 'Mi poema',
+          text: demoState.text,
+        }));
+      } catch {}
+    }
+  });
+</script>
+</body>
+</html>

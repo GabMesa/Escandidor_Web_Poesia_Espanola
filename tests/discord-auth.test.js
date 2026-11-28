@@ -130,10 +130,10 @@ test('does not link an email already owned by another Discord identity', async (
   assert.equal(db.users.length, 1);
 });
 
-test('Discord callback returns authentication errors to the editor route', async () => {
+test('Discord callback returns authentication errors to the workshop route', async () => {
   const response = await onRequestGet({ request: new Request('https://mesa-de-poesia.pages.dev/api/auth/discord/callback'), env: {} });
   assert.equal(response.status, 302);
   const destination = new URL(response.headers.get('location'));
-  assert.equal(destination.pathname, '/escandidor');
+  assert.equal(destination.pathname, '/taller/');
   assert.ok(destination.searchParams.get('auth_error'));
 });

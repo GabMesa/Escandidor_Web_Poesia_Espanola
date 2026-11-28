@@ -110,3 +110,63 @@ html.in-workshop,.in-workshop body{height:auto;min-height:0;overflow:hidden}
   .in-workshop .quick-control-group,.in-workshop .quick-control-group:first-child { display: flex; align-items: center; gap: 8px; width: auto; min-width: 0; flex: 1 1 100%; }
   .in-workshop .quick-control-group select { min-width: 0; flex: 1; padding: 6px; }
 }
+
+/* Embedded live preview mode for public entry pages: keep the real Escandidor editor + analysis, hide workspace chrome. */
+.in-demo .controls,
+.in-demo .input-memory-bar,
+.in-demo .poem-capture-bar,
+.in-demo .input-panel .panel-header-meta,
+.in-demo #supportReminder,
+.in-demo #lookupShell,
+.in-demo #libraryLauncher,
+.in-demo #managerShell { display: none !important; }
+.in-demo body,
+.in-demo body.has-poem-theme {
+  background: transparent !important;
+  --action: #536907;
+  --accent: #435406;
+  --surface: var(--workshop-paper);
+  --bg: transparent;
+  --line: var(--workshop-base-line);
+}
+:root[data-theme='dark'].in-demo body,
+:root[data-theme='dark'].in-demo body.has-poem-theme {
+  --action: #536907;
+  --accent: #A0AF54;
+  --surface: #1C1B1A;
+  --line: #343331;
+}
+.in-demo .panel { border-top-color: var(--action); }
+.in-demo .panel-header { align-items: center; flex-wrap: nowrap; min-height: 52px; }
+.in-demo .output-panel .panel-header-meta { flex: 0 1 auto; width: auto; flex-wrap: nowrap; }
+.in-demo #poemInput { min-height: 210px; }
+.in-demo .analysis-text-output { min-height: 210px; }
+.in-demo .analysis-output { padding: 12px 14px; }
+.in-demo-compact #poemTitle { font-size: 19px; pointer-events: none; user-select: none; }
+.in-demo-compact #poemInput { min-height: 175px; padding: 14px; }
+.in-demo-compact .analysis-text-output { min-height: 175px; }
+.in-demo-compact #stanzaSummaryBadge,
+.in-demo-compact #rhymeSchemeBadge { display: none !important; }
+.in-demo-compact .panel-header { padding: 10px 14px; min-height: 48px; }
+.in-demo-compact .panel-header h2 { font-size: 19px; }
+.in-demo-compact .demo-syllable-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+}
+.in-demo-compact .demo-accent-col {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+.in-demo-compact .demo-syllable-row .count-col {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-align: right;
+  min-width: 68px;
+}

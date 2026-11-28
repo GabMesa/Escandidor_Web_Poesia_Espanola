@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="es">
   <head>
-    <script>if(window.parent===window)location.replace((location.port==='8793'?'prototipo/':'taller/')+'?view=editor');else document.documentElement.classList.add('in-workshop');</script>
+    <script>if(window.parent===window)location.replace((location.port==='8793'?'prototipo/':'taller/')+'?view=editor');else{const p=new URLSearchParams(location.search);document.documentElement.classList.add('in-workshop');if(p.has('demo')){document.documentElement.classList.add('in-demo');if(p.get('demo')==='silabas')document.documentElement.classList.add('in-demo-compact');}}</script>
     <script src="theme-init.js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,17 +10,17 @@
       name="description"
       content="Escandidor gratuito para escribir poesía medida: separa versos en sílabas, cuenta la métrica y analiza sinalefas, acentos y rimas en español."
     />
-    <link rel="canonical" href="https://mesa-de-poesia.pages.dev/escandidor" />
-    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://poesia.mimesa.dev/taller/" />
+    <meta name="robots" content="noindex, nofollow" />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="es_ES" />
     <meta property="og:site_name" content="Mesa de Poesía" />
-    <meta property="og:title" content="Escandidor de poesía | Mesa de Poesía" />
+    <meta property="og:title" content="Editor y taller de poesía en español | Mesa de Poesía" />
     <meta
       property="og:description"
       content="Escribe poesía medida y separa cada verso en sílabas. Analiza métrica, sinalefas, acentos y rimas gratis."
     />
-    <meta property="og:url" content="https://mesa-de-poesia.pages.dev/escandidor" />
+    <meta property="og:url" content="https://poesia.mimesa.dev/taller/" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Escandidor de poesía | Mesa de Poesía" />
     <meta
@@ -32,10 +32,10 @@
       {
         "@context": "https://schema.org",
         "@type": "WebApplication",
-        "@id": "https://mesa-de-poesia.pages.dev/escandidor#escandidor",
+        "@id": "https://poesia.mimesa.dev/escandidor#escandidor",
         "name": "Escandidor",
         "alternateName": "Escandador",
-        "url": "https://mesa-de-poesia.pages.dev/escandidor",
+        "url": "https://poesia.mimesa.dev/escandidor",
         "description": "Herramienta gratuita para separar versos en sílabas y analizar la métrica, los acentos, las sinalefas y la rima de poemas en español.",
         "applicationCategory": "EducationalApplication",
         "operatingSystem": "Cualquier sistema con navegador web",
@@ -129,11 +129,11 @@
         opacity: 0.7;
       }
     </style>
-      <meta property="og:image" content="https://mesa-de-poesia.pages.dev/assets/social-preview.png" />
+      <meta property="og:image" content="https://poesia.mimesa.dev/assets/social-preview.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Mesa de Poesía: encuentra el ritmo de tus versos con Escandidor." />
-    <meta name="twitter:image" content="https://mesa-de-poesia.pages.dev/assets/social-preview.png" />
+    <meta name="twitter:image" content="https://poesia.mimesa.dev/assets/social-preview.png" />
       <link rel="stylesheet" href="identity.css" />
     <link rel="stylesheet" href="workshop-editor.css">
     <script src="theme.js" defer></script>
@@ -142,8 +142,8 @@
     <a class="skip-link" href="#poemInput">Saltar al poema</a>
     <header class="publication-header">
   <nav class="publication-nav" aria-label="Navegación principal">
-    <a class="publication-brand" href="index.html">Mesa de Poesía<span aria-hidden="true">.</span></a>
-    <div class="publication-links"><a href="index.html" >Inicio</a><a href="escandidor.html" aria-current="page">Escandidor</a><a data-open-library href="prototipo/?view=library">Biblioteca y archivos</a><a href="agradecimientos.html">Atribuciones y agradecimientos</a><a href="apoyar.html" class="nav-support" >Apoyar el proyecto ↗</a><button type="button" class="theme-toggle" data-theme-toggle aria-label="Cambiar a modo oscuro" aria-pressed="false">Modo oscuro</button></div>
+    <a class="publication-brand" href="/">Mesa de Poesía<span aria-hidden="true">.</span></a>
+    <div class="publication-links"><a href="/">Inicio</a><a href="/taller/" aria-current="page">Taller</a><a data-open-library href="/taller/?view=library">Biblioteca y archivos</a><a href="/agradecimientos">Atribuciones y agradecimientos</a><a href="/apoyar" class="nav-support">Apoyar el proyecto ↗</a><button type="button" class="theme-toggle" data-theme-toggle aria-label="Cambiar a modo oscuro" aria-pressed="false">Modo oscuro</button></div>
   </nav>
 
   <div class="edition-line"><span>Un taller de poesía en español</span><span>Métrica · Ritmo · Rima</span></div>

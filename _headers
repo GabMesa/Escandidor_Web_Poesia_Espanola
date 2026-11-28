@@ -10,6 +10,18 @@
 /api/*
   X-Robots-Tag: noindex, nofollow, noarchive
 
+/escandidor
+  X-Robots-Tag: noindex, nofollow
+
+/escandidor.html
+  X-Robots-Tag: noindex, nofollow
+
+/taller/casos-de-uso
+  X-Robots-Tag: noindex, nofollow
+
+/taller/casos-de-uso.html
+  X-Robots-Tag: noindex, nofollow
+
 /robots.txt
   Cache-Control: public, max-age=3600
 

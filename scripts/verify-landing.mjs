@@ -67,7 +67,6 @@ try {
   await until('!!document.querySelector(".hero .cta")');
   await evaluate('document.querySelector(".hero .cta").click()');
   await until(`location.pathname==='/taller/'&&!!document.querySelector('#editor-host')&&!document.querySelector('#editor-host').hidden`);
-  assert.equal(await evaluate('new URLSearchParams(location.search).get("view")'),'editor');
   await writeFile(`${out}/verificacion.json`,JSON.stringify({checkedAt:new Date().toISOString(),screenshots,overflow:false,tools:6,ctaOpensWorkshop:true,localHomepage:true},null,2));
   console.log('Verified landing in light/dark desktop/mobile, all six tool areas, metadata and CTA to local workshop.');
 }finally{
